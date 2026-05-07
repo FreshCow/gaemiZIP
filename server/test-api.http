@@ -1,0 +1,14 @@
+### 가짜 급등주 데이터 보내기 (5.5% 상승)
+POST http://localhost:8080/api/stocks/ranking
+Content-Type: application/json
+
+[
+  {
+    "rank": "1",
+    "code": "005930",
+    "name": "떡상한_삼성전자",
+    "price": "200000",
+    "changeRate": "+5.50%",
+    "volume": "1000000"
+  }
+]
