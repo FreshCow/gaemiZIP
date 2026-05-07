@@ -1,5 +1,6 @@
 package sw.gaemiZIP.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -8,10 +9,15 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import sw.gaemiZIP.util.JwtUtil;
 
 @Configuration // 스프링의 환경설정 파일임을 명시
 @EnableWebSecurity //스프링 시큐리티 필터 체인을 활성화
+@RequiredArgsConstructor //JwtUtil을 주입받기 위해 추가
 public class SecurityConfig {
+
+    private final JwtUtil jwtUtil;
 
     @Bean // 리턴되는 암호화 객체를 스프링 빈에 등록해서 AuthService에서 꺼내 쓸 수 있게 함
     public BCryptPasswordEncoder passwordEncoder() {
@@ -28,7 +34,10 @@ public class SecurityConfig {
                     .requestMatchers("/api/auth/**", "/ws/**").permitAll()
                     // 그 외의 모든 요청은 토큰이 있어야만(인증되어야만) 접근 가능
                     .anyRequest().authenticated()
-            );
+            )
+
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 }
