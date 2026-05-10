@@ -59,6 +59,6 @@ public class AuthService {
         String token = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());
 
         //토큰과 닉네임 반환
-        return new LoginResponseDto(token, member.getNickname());
+        return new LoginResponseDto(token, member.getNickname(), member.getBalance());
     }
 }

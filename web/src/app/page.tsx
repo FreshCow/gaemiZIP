@@ -1,21 +1,75 @@
 "use client";
 
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { StockGrid } from "@/components/stock/StockGrid";
-import { Badge } from "@/components/ui/badge";
+import { useAuthStore } from "@/store/useAuthStore";
 import { motion } from "framer-motion";
+import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
-  const { stocks, holdings, isAutoTrading, toggleAutoTrading } = useAppStore();
+  const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading } = useAppStore();
+  const { nickname, balance, isLoggedIn } = useAuthStore();
+
+  const [mounted, setMounted] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const stockValue = holdings.reduce((sum, h) => sum + h.currentPrice * h.quantity, 0);
+  const cashBalance = balance ?? 0;
+  const totalAssets = cashBalance + stockValue;
+  const cashRatio = totalAssets > 0 ? (cashBalance / totalAssets) * 100 : 100;
+  const stockRatio = 100 - cashRatio;
+
+  // localStorage를 읽는 watchlist는 클라이언트 마운트 후에만 참조
+  // → 서버/클라이언트 초기 렌더 결과를 동일하게 유지해 hydration 오류 방지
+  const watchedStocks = mounted
+    ? watchlist
+        .map((code) => stocks.find((s) => s.code === code))
+        .filter((s): s is NonNullable<typeof s> => s !== undefined)
+    : [];
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    updateScrollState();
+    const el = scrollRef.current;
+    el?.addEventListener("scroll", updateScrollState);
+    window.addEventListener("resize", updateScrollState);
+    return () => {
+      el?.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [mounted, watchedStocks, updateScrollState]);
+
+  const scrollBy = (dir: "left" | "right") => {
+    scrollRef.current?.scrollBy({ left: dir === "right" ? 220 : -220, behavior: "smooth" });
+  };
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">대시보드</h1>
-          <p className="text-sm text-gray-500 mt-0.5 dark:text-neutral-500">실시간 거래량 상위 종목</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            안녕하세요, {nickname ?? "투자자"}님
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5 dark:text-neutral-500">
+            오늘도 성공적인 투자 되세요
+          </p>
         </div>
-        <motion.button
+        {/* <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={toggleAutoTrading}
           className={`rounded-full px-5 py-2 text-sm font-semibold transition-colors ${
@@ -25,43 +79,192 @@ export default function DashboardPage() {
           }`}
         >
           자동매매 {isAutoTrading ? "ON" : "OFF"}
-        </motion.button>
+        </motion.button> */}
       </div>
 
-      {holdings.length > 0 && (
-        <section>
-          <h2 className="text-sm font-medium text-gray-500 mb-3 dark:text-neutral-400">보유 종목</h2>
-          <div className="flex gap-3 flex-wrap">
-            {holdings.map((h) => (
-              <div
-                key={h.code}
-                className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 min-w-36 dark:border-neutral-800 dark:bg-neutral-900"
-              >
-                <p className="text-xs text-gray-500 dark:text-neutral-500">{h.code}</p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5 dark:text-white">{h.name}</p>
-                <p
-                  className={`text-xs mt-1 font-medium ${
-                    h.profitRate >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"
-                  }`}
-                >
-                  {h.profitRate >= 0 ? "+" : ""}
-                  {h.profitRate.toFixed(2)}%
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section>
+      {/* My Stocks */}
+      <section className="rounded-xl border border-gray-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-sm font-medium text-gray-500 dark:text-neutral-400">거래량 상위 10</h2>
-          <Badge variant="outline" className="border-gray-300 text-gray-400 text-xs dark:border-neutral-700 dark:text-neutral-500">
-            실시간
-          </Badge>
+          <Star size={15} className="fill-yellow-400 text-yellow-400" />
+          <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">My Stocks</h2>
         </div>
-        <StockGrid stocks={stocks} isLoading={stocks.length === 0} />
+
+        {watchedStocks.length === 0 ? (
+          <div className="flex items-center justify-center h-20 rounded-lg border border-dashed border-gray-200 dark:border-neutral-700">
+            <p className="text-sm text-gray-400 dark:text-neutral-600">
+              주식 랭킹에서 ★를 눌러 관심 종목을 추가하세요
+            </p>
+          </div>
+        ) : (
+          <div className="relative overflow-hidden">
+            {/* Left fade + button */}
+            {canScrollLeft && (
+              <>
+                <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-white dark:from-neutral-900 to-transparent" />
+                <button
+                  onClick={() => scrollBy("left")}
+                  className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <ChevronLeft size={14} className="text-gray-600 dark:text-neutral-300" />
+                </button>
+              </>
+            )}
+
+            {/* Right fade + button */}
+            {canScrollRight && (
+              <>
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-white dark:from-neutral-900 to-transparent" />
+                <button
+                  onClick={() => scrollBy("right")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <ChevronRight size={14} className="text-gray-600 dark:text-neutral-300" />
+                </button>
+              </>
+            )}
+
+            {/* Scroll container */}
+            <div
+              ref={scrollRef}
+              className="flex gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-0.5"
+            >
+              {watchedStocks.map((stock) => {
+                const isPos = !stock.rate.startsWith("-");
+                return (
+                  <div
+                    key={stock.code}
+                    className="flex-shrink-0 w-52 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-lg"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-500 dark:text-neutral-500">{stock.code}</p>
+                        <p className="mt-0.5 text-base font-semibold text-gray-900 dark:text-white truncate">
+                          {stock.name}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`ml-2 shrink-0 ${
+                          isPos
+                            ? "border-emerald-700 text-emerald-500 dark:text-emerald-400"
+                            : "border-rose-700 text-rose-500 dark:text-rose-400"
+                        }`}
+                      >
+                        {stock.rate}%
+                      </Badge>
+                    </div>
+                    <p className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
+                      {Number(stock.price).toLocaleString()}
+                      <span className="ml-1 text-sm font-normal text-gray-500 dark:text-neutral-400">원</span>
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* Balance + Holdings list */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Balance card (with bar chart) */}
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex items-center gap-2 mb-4">
+            <Wallet size={14} className="text-gray-400 dark:text-neutral-500" />
+            <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">예수금</p>
+          </div>
+          {isLoggedIn ? (
+            <>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                ₩{cashBalance.toLocaleString()}
+              </p>
+
+              <div className="mt-4 space-y-1.5 pt-4 border-t border-gray-100 dark:border-neutral-800">
+                <div className="flex justify-between text-xs text-gray-500 dark:text-neutral-500">
+                  <span>주식 평가액</span>
+                  <span className="font-medium text-gray-700 dark:text-neutral-300">
+                    ₩{stockValue.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 dark:text-neutral-500">
+                  <span>총 자산</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    ₩{totalAssets.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* 자산 비율 바 */}
+              <div className="mt-5">
+                <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-neutral-800">
+                  <div
+                    className="bg-emerald-500 transition-all duration-700"
+                    style={{ width: `${cashRatio}%` }}
+                  />
+                  <div
+                    className="bg-indigo-400 transition-all duration-700"
+                    style={{ width: `${stockRatio}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                    <span className="text-xs text-gray-500 dark:text-neutral-500">
+                      현금 {cashRatio.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2 w-2 shrink-0 rounded-full bg-indigo-400" />
+                    <span className="text-xs text-gray-500 dark:text-neutral-500">
+                      주식 {stockRatio.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-gray-400 dark:text-neutral-600">로그인 후 확인하세요</p>
+          )}
+        </div>
+
+        {/* Holdings list card */}
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={14} className="text-gray-400 dark:text-neutral-500" />
+            <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">보유 종목</p>
+          </div>
+          {holdings.length === 0 ? (
+            <div className="flex items-center justify-center h-20">
+              <p className="text-sm text-gray-400 dark:text-neutral-600">보유 종목이 없습니다</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+              {holdings.map((h) => (
+                <div key={h.code} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{h.name}</p>
+                    <p className="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">
+                      {h.quantity.toLocaleString()}주 · 평균 ₩{h.buyPrice.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="ml-4 shrink-0 text-right">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      ₩{h.currentPrice.toLocaleString()}
+                    </p>
+                    <p
+                      className={`mt-0.5 text-xs font-semibold ${
+                        h.profitRate >= 0 ? "text-emerald-500" : "text-rose-500"
+                      }`}
+                    >
+                      {h.profitRate >= 0 ? "+" : ""}{h.profitRate.toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

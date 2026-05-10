@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { boardApi } from "@/services/boardApi";
@@ -12,6 +12,10 @@ export default function BoardPage() {
   const { boards, setBoards } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<BoardCreateDto>({ title: "", content: "", author: "", password: "" });
+
+  useEffect(() => {
+    boardApi.getList().then(setBoards);
+  }, [setBoards]);
 
   const handleCreate = async () => {
     const created = await boardApi.create(form);
