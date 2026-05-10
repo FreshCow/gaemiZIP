@@ -8,6 +8,7 @@ interface AppState {
   holdings: HoldingItem[];
   tradeHistories: TradeHistory[];
   boards: BoardPost[];
+  watchlist: string[];
   isAutoTrading: boolean;
   wsConnected: boolean;
   latestTick: TickData | null;
@@ -17,10 +18,20 @@ interface AppState {
   setHoldings: (holdings: HoldingItem[]) => void;
   setTradeHistories: (histories: TradeHistory[]) => void;
   setBoards: (boards: BoardPost[]) => void;
+  toggleWatchlist: (code: string) => void;
   toggleAutoTrading: () => void;
   setWsConnected: (connected: boolean) => void;
   setLatestTick: (tick: TickData) => void;
 }
+
+const loadWatchlist = (): string[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem("gaemi_watchlist") ?? "[]");
+  } catch {
+    return [];
+  }
+};
 
 // 장 마감 시간 등 서버 데이터가 없을 때 UI 확인용 목 데이터
 const MOCK_STOCKS: StockItem[] = [
@@ -41,6 +52,7 @@ export const useAppStore = create<AppState>((set) => ({
   holdings: [],
   tradeHistories: [],
   boards: [],
+  watchlist: loadWatchlist(),
   isAutoTrading: false,
   wsConnected: false,
   latestTick: null,
@@ -62,6 +74,16 @@ export const useAppStore = create<AppState>((set) => ({
   setHoldings: (holdings) => set({ holdings }),
   setTradeHistories: (tradeHistories) => set({ tradeHistories }),
   setBoards: (boards) => set({ boards }),
+  toggleWatchlist: (code) =>
+    set((s) => {
+      const next = s.watchlist.includes(code)
+        ? s.watchlist.filter((c) => c !== code)
+        : [...s.watchlist, code];
+      if (typeof window !== "undefined") {
+        localStorage.setItem("gaemi_watchlist", JSON.stringify(next));
+      }
+      return { watchlist: next };
+    }),
   toggleAutoTrading: () =>
     set((s) => ({ isAutoTrading: !s.isAutoTrading })),
   setWsConnected: (wsConnected) => set({ wsConnected }),

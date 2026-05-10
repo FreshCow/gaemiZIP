@@ -8,4 +8,5 @@ import lombok.Getter;
 public class LoginResponseDto {
     private String token;
     private String nickname;
+    private Long balance;
 }
