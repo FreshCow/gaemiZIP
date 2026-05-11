@@ -20,6 +20,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        // /api/auth/ 로 시작하는 모든 요청은 이 필터(JWT 검사)를 아예 건너뛰도록 설정
+        String path = request.getRequestURI();
+        return path.startsWith("/api/auth/");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         // HTTP헤더에서 토큰 꺼내기
