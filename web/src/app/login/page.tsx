@@ -6,6 +6,7 @@ import Link from "next/link";
 import { authApi } from "@/services/authApi";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,6 +30,21 @@ export default function LoginPage() {
     } catch (e: unknown) {
       const err = e as { response?: { data?: string } };
       setError(err.response?.data ?? "로그인에 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (idToken: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await authApi.googleLogin(idToken);
+      setAuth(response);
+      router.push("/");
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: string } };
+      setError(err.response?.data ?? "구글 로그인에 실패했습니다.");
     } finally {
       setLoading(false);
     }
@@ -74,6 +90,18 @@ export default function LoginPage() {
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
             {loading ? "로그인 중..." : "로그인"}
           </Button>
+
+          <div className="relative flex items-center gap-3 py-1">
+            <div className="h-px flex-1 bg-gray-200 dark:bg-neutral-700" />
+            <span className="text-xs text-gray-400 dark:text-neutral-500">또는</span>
+            <div className="h-px flex-1 bg-gray-200 dark:bg-neutral-700" />
+          </div>
+
+          <GoogleLoginButton
+            onSuccess={handleGoogleSuccess}
+            onError={setError}
+            disabled={loading}
+          />
         </div>
 
         <p className="text-center text-sm text-gray-500 dark:text-neutral-400">
