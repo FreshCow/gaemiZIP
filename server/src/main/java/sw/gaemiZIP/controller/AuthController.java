@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import sw.gaemiZIP.dto.GoogleLoginRequest;
 import sw.gaemiZIP.dto.LoginReqeustDto;
 import sw.gaemiZIP.dto.LoginResponseDto;
 import sw.gaemiZIP.dto.SignUpRequestDto;
@@ -46,6 +47,18 @@ public class AuthController {
         }catch (IllegalArgumentException e){
             //비번 틀림, 아이디 없음 등의 에러 발생 시 401 에러 반환
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/google") // POST /api/auth/google 으로 요청이 오면 실행
+    public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
+        try {
+            LoginResponseDto responseDto = authService.googleLogin(request.getIdToken());
+            return ResponseEntity.ok(responseDto);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("구글 로그인 처리 중 오류가 발생했습니다.");
         }
     }
 
