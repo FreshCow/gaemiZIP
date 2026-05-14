@@ -57,14 +57,6 @@ public class BoardController {
         Board board = boardRepository.findById(id).orElse(null);
         if (board == null) return ResponseEntity.status(404).body("게시글을 찾을 수 없습니다.");
 
-        // 익명 작성자인 경우에만 비밀번호 검증
-        if ("익명".equals(board.getAuthor())) {
-            if (board.getPassword() == null || !board.getPassword().equals(password)) {
-                log.warn("게시글 삭제 비밀번호 불일치: id={}", id);
-                return ResponseEntity.status(403).body("비밀번호가 일치하지 않습니다.");
-            }
-        }
-
         boardRepository.deleteById(id);
         log.info("게시글 삭제 완료: id={}", id);
         return ResponseEntity.ok("삭제 완료");
