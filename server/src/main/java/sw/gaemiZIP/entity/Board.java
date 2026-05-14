@@ -36,4 +36,7 @@ public class Board {
 
     @Column(nullable = true)
     private String password;
+
+    @Column(nullable = false)
+    private int likeCount = 0;
 }

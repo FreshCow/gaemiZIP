@@ -23,6 +23,23 @@ public class BoardController {
         return ResponseEntity.ok(boardRepository.findAllByOrderByCreatedAtDesc());
     }
 
+    // 게시글 단건 조회
+    @GetMapping("/{id}")
+    public ResponseEntity<Board> getBoard(@PathVariable Long id) {
+        Board board = boardRepository.findById(id).orElse(null);
+        if (board == null) return ResponseEntity.status(404).body(null);
+        return ResponseEntity.ok(board);
+    }
+
+    // 게시글 추천
+    @PostMapping("/{id}/like")
+    public ResponseEntity<Board> likeBoard(@PathVariable Long id) {
+        Board board = boardRepository.findById(id).orElse(null);
+        if (board == null) return ResponseEntity.status(404).body(null);
+        board.setLikeCount(board.getLikeCount() + 1);
+        return ResponseEntity.ok(boardRepository.save(board));
+    }
+
     // 게시글 작성
     @PostMapping
     public ResponseEntity<Board> createBoard(@RequestBody Board board) {
