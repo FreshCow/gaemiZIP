@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, TrendingUp, History, MessageSquare, Wifi, WifiOff, Newspaper, Sun, Moon, LogIn, LogOut, User } from "lucide-react";
+import { LayoutDashboard, TrendingUp, MessageSquare, Wifi, WifiOff, Newspaper, Sun, Moon, LogIn, LogOut, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -15,7 +15,6 @@ const navItems = [
   { href: "/news", icon: Newspaper, label: "뉴스 소식" },
   { href: "/", icon: LayoutDashboard, label: "대시보드" },
   { href: "/stocks", icon: TrendingUp, label: "주식 랭킹" },
-  { href: "/trades", icon: History, label: "거래 이력" },
   { href: "/board", icon: MessageSquare, label: "게시판" },
 ];
 
