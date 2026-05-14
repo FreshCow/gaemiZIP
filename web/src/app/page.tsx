@@ -4,11 +4,12 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { motion } from "framer-motion";
-import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 export default function DashboardPage() {
-  const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading } = useAppStore();
+  const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading, tradeHistories, boards } = useAppStore();
   const { nickname, balance, isLoggedIn } = useAuthStore();
 
   const [mounted, setMounted] = useState(false);
@@ -165,8 +166,8 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Balance + Holdings list */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Balance + Holdings + My Posts */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Balance card (with bar chart) */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
           <div className="flex items-center gap-2 mb-4">
@@ -264,7 +265,96 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* My Posts card */}
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FileText size={14} className="text-gray-400 dark:text-neutral-500" />
+              <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">내 게시글</p>
+            </div>
+            <Link
+              href="/board"
+              className="text-xs text-gray-400 hover:text-gray-700 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+            >
+              전체 보기
+            </Link>
+          </div>
+          {(() => {
+            const myPosts = boards.filter((b) => b.author === nickname);
+            if (myPosts.length === 0) {
+              return (
+                <div className="flex items-center justify-center h-20">
+                  <p className="text-sm text-gray-400 dark:text-neutral-600">작성한 게시글이 없습니다</p>
+                </div>
+              );
+            }
+            return (
+              <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+                {myPosts.slice(0, 5).map((post) => (
+                  <div key={post.id} className="py-2.5 first:pt-0 last:pb-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{post.title}</p>
+                    <p className="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">{post.createdAt}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
       </div>
+      {/* Trade History */}
+      <section className="rounded-xl border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-neutral-800">
+          <History size={14} className="text-gray-400 dark:text-neutral-500" />
+          <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">거래 이력</h2>
+        </div>
+        {tradeHistories.length === 0 ? (
+          <div className="flex items-center justify-center h-20">
+            <p className="text-sm text-gray-400 dark:text-neutral-600">거래 내역이 없습니다</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-gray-500 dark:border-neutral-800 dark:text-neutral-500">
+                  <th className="px-5 py-3 text-left font-medium">종목</th>
+                  <th className="px-5 py-3 text-left font-medium">유형</th>
+                  <th className="px-5 py-3 text-right font-medium">가격</th>
+                  <th className="px-5 py-3 text-right font-medium">수량</th>
+                  <th className="px-5 py-3 text-right font-medium">체결일시</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tradeHistories.map((t) => (
+                  <tr key={t.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40">
+                    <td className="px-5 py-3 text-gray-900 dark:text-white">
+                      <p className="font-medium">{t.stockName}</p>
+                      <p className="text-xs text-gray-500 dark:text-neutral-500">{t.stockCode}</p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <Badge
+                        variant="outline"
+                        className={
+                          t.tradeType === "BUY"
+                            ? "border-emerald-700 text-emerald-500 dark:text-emerald-400"
+                            : "border-rose-700 text-rose-500 dark:text-rose-400"
+                        }
+                      >
+                        {t.tradeType === "BUY" ? "매수" : "매도"}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3 text-right text-gray-900 dark:text-white">
+                      {t.price.toLocaleString()}원
+                    </td>
+                    <td className="px-5 py-3 text-right text-gray-700 dark:text-neutral-300">{t.quantity}주</td>
+                    <td className="px-5 py-3 text-right text-xs text-gray-500 dark:text-neutral-500">{t.tradeAt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
