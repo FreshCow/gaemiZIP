@@ -1,12 +1,12 @@
 version: '3.8'
 services:
-  # 우리가 띄울 PostgreSQL DB 서비스 이름
+  # PostgreSQL DB 서비스 이름
   postgres-db:
-    image: postgres:18.1  # 노트북에서 쓰던 버전과 똑같이 맞춰줘! (14, 15 등)
-    container_name: scalper-postgres # 내 PC에 뜰 컨테이너의 예쁜 이름
+    image: postgres:18.1  # 노트북에서 쓰던 버전
+    container_name: scalper-postgres # PC에 뜰 컨테이너 이름
     ports:
-      - "5432:5432"     # 데스크톱의 5432 포트를 도커 안의 5432 포트와 연결!
+      - "5432:5432"     # 데스크톱의 5432 포트를 도커 안의 5432 포트 연결
     environment:
       POSTGRES_USER: postgres        # 노트북에서 쓰던 DB 아이디
       POSTGRES_PASSWORD: 5736  # 노트북에서 쓰던 DB 비밀번호
-      POSTGRES_DB: scalper_db      # 우리가 쓸 데이터베이스 이름
+      POSTGRES_DB: scalper_db      #데이터베이스 이름
