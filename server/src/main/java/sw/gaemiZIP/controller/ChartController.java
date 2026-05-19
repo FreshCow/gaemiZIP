@@ -3,7 +3,7 @@ package sw.gaemiZIP.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import sw.gaemiZIP.dto.CandleResponse;
+import sw.gaemiZIP.dto.stock.CandleResponse;
 import sw.gaemiZIP.service.ChartService;
 
 import java.util.List;

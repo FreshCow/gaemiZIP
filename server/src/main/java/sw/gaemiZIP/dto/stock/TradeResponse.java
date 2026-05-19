@@ -1,4 +1,4 @@
-package sw.gaemiZIP.dto;
+package sw.gaemiZIP.dto.stock;
 
 import lombok.Getter;
 import sw.gaemiZIP.entity.TradeHistory;

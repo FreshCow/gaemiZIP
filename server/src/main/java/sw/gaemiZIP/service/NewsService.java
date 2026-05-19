@@ -7,8 +7,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
-import sw.gaemiZIP.dto.NaverNewsItem;
-import sw.gaemiZIP.dto.NaverNewsResponse;
+import sw.gaemiZIP.dto.news.NaverNewsItem;
+import sw.gaemiZIP.dto.news.NaverNewsResponse;
 import sw.gaemiZIP.entity.News;
 import sw.gaemiZIP.repository.NewsRepository;
 

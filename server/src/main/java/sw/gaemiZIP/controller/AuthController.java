@@ -7,10 +7,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import sw.gaemiZIP.dto.GoogleLoginRequest;
-import sw.gaemiZIP.dto.LoginReqeustDto;
-import sw.gaemiZIP.dto.LoginResponseDto;
-import sw.gaemiZIP.dto.SignUpRequestDto;
+import sw.gaemiZIP.dto.auth.GoogleLoginRequest;
+import sw.gaemiZIP.dto.auth.LoginReqeustDto;
+import sw.gaemiZIP.dto.auth.LoginResponseDto;
+import sw.gaemiZIP.dto.auth.SignUpRequestDto;
 import sw.gaemiZIP.service.AuthService;
 
 @RestController//데이터(JSON)를 반환하는 컨트롤러 명시

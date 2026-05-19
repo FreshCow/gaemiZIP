@@ -3,7 +3,7 @@ package sw.gaemiZIP.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import sw.gaemiZIP.dto.CommentRequest;
+import sw.gaemiZIP.dto.community.CommentRequest;
 import sw.gaemiZIP.entity.Comment;
 import sw.gaemiZIP.repository.CommentRepository;
 
