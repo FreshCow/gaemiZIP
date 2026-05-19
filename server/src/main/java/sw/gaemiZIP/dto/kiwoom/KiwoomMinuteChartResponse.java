@@ -1,4 +1,4 @@
-package sw.gaemiZIP.dto;
+package sw.gaemiZIP.dto.kiwoom;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;

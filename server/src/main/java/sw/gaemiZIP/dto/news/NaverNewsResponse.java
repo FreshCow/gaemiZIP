@@ -1,4 +1,4 @@
-package sw.gaemiZIP.dto;
+package sw.gaemiZIP.dto.news;
 
 import java.util.List;
 

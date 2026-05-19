@@ -1,4 +1,4 @@
-package sw.gaemiZIP.dto;
+package sw.gaemiZIP.dto.community;
 
 import lombok.Getter;
 import lombok.Setter;
