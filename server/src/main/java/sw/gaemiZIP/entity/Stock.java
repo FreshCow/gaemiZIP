@@ -16,7 +16,8 @@ import org.checkerframework.checker.units.qual.A;
 public class Stock {
 
     @Id
-    private String code; //종목코드
-    private String name; //종목명
-    private String initial; //초성
+    private String code;    // 종목코드 (6자리)
+    private String name;    // 종목명
+    private String initial; // 초성 (한글 검색용)
+    private String market;  // KOSPI / KOSDAQ
 }

@@ -6,5 +6,6 @@ import sw.gaemiZIP.entity.Stock;
 import java.util.List;
 
 public interface StockRepository extends JpaRepository<Stock, String> {
-    List<Stock> findTop10ByNameContainingOrInitialContaining(String name, String chosung);
+    // 종목명 또는 초성으로 최대 10건 검색
+    List<Stock> findTop10ByNameContainingOrInitialContaining(String name, String initial);
 }

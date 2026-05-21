@@ -39,6 +39,7 @@ public class SecurityConfig {
                         // 아래 주소들은 로그인 없이도 누구나 접근 가능하도록 허용
                         .requestMatchers("/api/auth/**", "/ws/**", "/api/news/**", "/api/ai/**").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/google").permitAll()
+                        .requestMatchers("/api/stocks/search", "/api/stocks/*/price").permitAll()
                         // 그 외의 모든 요청은 토큰이 있어야만(인증되어야만) 접근 가능
                         .anyRequest().authenticated()
                 )
