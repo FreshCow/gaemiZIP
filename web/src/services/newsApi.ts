@@ -7,6 +7,6 @@ export async function fetchLatestNews(): Promise<NewsItem[]> {
 }
 
 export async function fetchAiTheme(): Promise<AiThemeResponse> {
-  const { data } = await api.get<AiThemeResponse>("/ai/theme");
+  const { data } = await api.get<AiThemeResponse>("/ai/theme", { timeout: 30000 });
   return data;
 }
