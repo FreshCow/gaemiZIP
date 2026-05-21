@@ -25,6 +25,19 @@ export interface CandlePoint {
 
 export type ChartInterval = "1" | "D" | "W";
 
+export interface StockSearchResult {
+  code: string;
+  name: string;
+  chosung: string;
+}
+
+export interface StockPriceItem {
+  code: string;
+  name: string;
+  price: string; // 랭킹 이력 없으면 "—"
+  rate: string;  // 부호 포함, % 제외 (예: "+1.49")
+}
+
 export interface TickData {
   code: string;
   time: number;   // 분 경계 epoch seconds (KST 기준)
