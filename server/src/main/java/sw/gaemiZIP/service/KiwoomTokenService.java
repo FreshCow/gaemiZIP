@@ -65,24 +65,6 @@ public class KiwoomTokenService {
         return accessToken;
     }
 
-    // KiwoomTokenService.java에 추가
-    public String getApprovalKey() {
-        Map<String, String> body = Map.of(
-                "grant_type", "client_credentials",
-                "appkey", appKey,
-                "secretkey", appSecret // 실시간 키 발급 시에는 secretkey 필드명을 사용하기도 함
-        );
-
-        return webClientBuilder.build()
-                .post()
-                .uri(baseUrl + "/oauth2/Approval") // 실시간 보안키 발급 엔드포인트
-                .bodyValue(body)
-                .retrieve()
-                .bodyToMono(Map.class)
-                .map(res -> res.get("approval_key").toString())
-                .block();
-    }
-
     // 12시간마다 자동으로 토큰 갱신 (만료 시간 고려)
     @Scheduled(fixedRate = 1000 * 60 * 60 * 12)
     public void scheduledTokenRefresh() {

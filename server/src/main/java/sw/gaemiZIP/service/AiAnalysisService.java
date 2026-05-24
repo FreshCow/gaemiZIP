@@ -74,8 +74,13 @@ public class AiAnalysisService {
             log.debug("Gemini 응답: {}", generatedText);
 
             return objectMapper.readValue(generatedText, AiThemeResponse.class);
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException.ServiceUnavailable e) {
+            // 503 에러를 콕 집어서 잡아냄
+            log.warn("Gemini API 서버 트래픽 초과 (503): {}", e.getMessage());
+            // 프론트엔드에 보여줄 기본값(Fallback) 응답
+            return null;
         } catch (Exception e) {
-            log.error("Gemini API 호출/파싱 에러: {}", e.getMessage());
+            log.error("Gemini API 호출 중 알 수 없는 에러: {}", e.getMessage());
             return null;
         }
     }
