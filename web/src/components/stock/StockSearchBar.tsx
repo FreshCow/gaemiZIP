@@ -58,7 +58,7 @@ export function StockSearchBar() {
     setQuery("");
     setResults([]);
     setIsOpen(false);
-    router.push(`/stock/${stock.code}`);
+    router.push(`/stocks/${stock.code}`);
   }
 
   return (

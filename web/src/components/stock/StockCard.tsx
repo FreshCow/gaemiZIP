@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,12 @@ interface Props {
 export function StockCard({ stock, onClick, layoutId }: Props) {
   const isPositive = !stock.rate.startsWith("-");
   const { watchlist, toggleWatchlist } = useAppStore();
-  const isWatched = watchlist.includes(stock.code);
+
+  // 서버와 클라이언트의 첫 렌더 트리를 일치시키기 위해 마운트 후에만 watchlist 상태를 반영
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
+
+  const isWatched = isMounted && watchlist.includes(stock.code);
 
   return (
     <motion.div

@@ -1,5 +1,5 @@
 import api from "./api";
-import type { StockSearchResult, StockPriceItem } from "@/types/stock";
+import type { StockSearchResult, StockPriceItem, StockInfoData } from "@/types/stock";
 
 export async function searchStocks(keyword: string): Promise<StockSearchResult[]> {
   const { data } = await api.get<StockSearchResult[]>("/stocks/search", {
@@ -10,5 +10,10 @@ export async function searchStocks(keyword: string): Promise<StockSearchResult[]
 
 export async function fetchStockPrice(code: string): Promise<StockPriceItem> {
   const { data } = await api.get<StockPriceItem>(`/stocks/${code}/price`);
+  return data;
+}
+
+export async function fetchStockInfo(code: string): Promise<StockInfoData> {
+  const { data } = await api.get<StockInfoData>(`/stocks/${code}/info`);
   return data;
 }
