@@ -44,6 +44,60 @@ export interface TickData {
   price: number;
 }
 
+export interface StockInfoData {
+  code: string;
+  name: string;
+  market: string;
+  // 기본 정보
+  setlMm: string;
+  cap: string;
+  floStk: string;
+  crdRt: string;
+  oyrHgst: string;
+  oyrLwst: string;
+  mac: string;
+  macWght: string;
+  forExhRt: string;
+  replPric: string;
+  // 재무 지표
+  per: string;
+  eps: string;
+  roe: string;
+  pbr: string;
+  ev: string;
+  bps: string;
+  saleAmt: string;
+  busPro: string;
+  cupNga: string;
+  // 가격 정보
+  hgst250: string;
+  lwst250: string;
+  openPric: string;
+  highPric: string;
+  lowPric: string;
+  uptPric: string;
+  lstPric: string;
+  basePric: string;
+  expCntrPric: string;
+  expCntrQty: string;
+  // 250일 통계
+  hgst250PricDt: string;
+  hgst250PricPreRt: string;
+  lwst250PricDt: string;
+  lwst250PricPreRt: string;
+  // 실시간 거래
+  curPric: string;
+  preSig: string;
+  predPre: string;
+  fluRt: string;
+  trdeQty: string;
+  trdePre: string;
+  favUnit: string;
+  dstrStk: string;
+  dstrRt: string;
+  mktRt: string;
+}
+
 // REALTIME_UPDATE 수신용 — name 제외 (기존 name 보존)
 export interface StockUpdate {
   code: string;
