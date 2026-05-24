@@ -165,15 +165,16 @@ public class KiwoomRealtimeService {
             return;
         }
         try {
-            String approvalKey = tokenService.getApprovalKey();
-            if (approvalKey == null || approvalKey.isBlank()) {
-                log.error("approvalKey 발급 실패 — {} 구독 중단", code);
+            String accessToken = tokenService.getAccessToken();
+            if (accessToken == null || accessToken.isBlank()) {
+                log.error("액세스 토큰이 없습니다 — {} 구독 중단", code);
                 return;
             }
+
             String subscribeJson = String.format("""
                 {
                     "header": {
-                        "approval_key": "%s",
+                        "authorization": "Bearer %s",
                         "custtype": "P",
                         "tr_type": "1",
                         "content-type": "utf-8"
@@ -185,13 +186,14 @@ public class KiwoomRealtimeService {
                         }
                     }
                 }
-                """, approvalKey, code);
+                """, accessToken, code);
+
             kiwoomSession.sendMessage(new TextMessage(subscribeJson));
             log.info("실시간 구독 요청: {}", code);
         } catch (IOException e) {
             log.error("구독 메시지 전송 실패 ({}): {}", code, e.getMessage());
         } catch (Exception e) {
-            log.error("approvalKey 발급 중 오류 ({}): {}", code, e.getMessage());
+            log.error("실시간 구독 요청 중 오류 ({}): {}", code, e.getMessage());
         }
     }
 }

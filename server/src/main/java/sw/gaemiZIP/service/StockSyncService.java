@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
-import sw.gaemiZIP.dto.kiwoom.KiwoomStockInfoResponse;
+import sw.gaemiZIP.dto.kiwoom.KiwoomStockListResponse;
 import sw.gaemiZIP.dto.kiwoom.KiwoomStockItem;
 import sw.gaemiZIP.entity.Stock;
 import sw.gaemiZIP.repository.StockRepository;
@@ -55,7 +55,7 @@ public class StockSyncService {
 
     private void fetchAndSave(String mrktTp, String market) {
         try {
-            KiwoomStockInfoResponse response = webClientBuilder.build()
+            KiwoomStockListResponse response = webClientBuilder.build()
                     .post()
                     .uri(baseUrl + "/api/dostk/stkinfo")
                     .header("authorization", "Bearer " + tokenService.getAccessToken())
@@ -64,7 +64,7 @@ public class StockSyncService {
                     .header("Content-Type", "application/json;charset=UTF-8")
                     .bodyValue(Map.of("mrkt_tp", mrktTp))
                     .retrieve()
-                    .bodyToMono(KiwoomStockInfoResponse.class)
+                    .bodyToMono(KiwoomStockListResponse.class)
                     .block();
 
             if (response == null || response.getList() == null || response.getList().isEmpty()) {

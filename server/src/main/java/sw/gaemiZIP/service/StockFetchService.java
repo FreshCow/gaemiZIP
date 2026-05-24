@@ -1,9 +1,11 @@
 package sw.gaemiZIP.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,8 +22,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-// 키움증권 ka00198 (실시간종목조회순위) REST API를 5분마다 호출해
-// DB에 저장하고 웹 클라이언트에 브로드캐스트하는 서비스
+// 키움증권 ka00198 (실시간종목조회순위) REST API 호출
+// DB에 저장하고 웹 클라이언트에 브로드캐스트
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -36,6 +38,10 @@ public class StockFetchService {
     private final WebClient.Builder webClientBuilder;
     private final KiwoomRealtimeService kiwoomRealtimeService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String RANKING_CACHE_KEY = "stock:ranking:top10";
 
     private volatile List<StockRankingResponse> currentRankings = Collections.emptyList();
 
@@ -72,6 +78,9 @@ public class StockFetchService {
                 return;
             }
 
+            String jsonRankings = objectMapper.writeValueAsString(rankings);
+            redisTemplate.opsForValue().set(RANKING_CACHE_KEY, jsonRankings);
+
             persistRankings(rankings);
             currentRankings = rankings;
 
@@ -83,8 +92,15 @@ public class StockFetchService {
             kiwoomRealtimeService.subscribeAll(codes);
 
             log.info("주식 랭킹 갱신 완료: {}개 종목", rankings.size());
-        } catch (Exception e) {
+        }
+        catch (org.springframework.web.reactive.function.UnsupportedMediaTypeException e) {
+            // 키움 서버가 JSON이 아닌 HTML을 던질 때 방어 (주말 점검 등)
+            log.warn("키움 서버 응답 타입 오류(HTML 반환)");
+            fallbackToRedisCache();
+        }
+        catch (Exception e) {
             log.error("주식 랭킹 갱신 실패: {}", e.getMessage());
+            fallbackToRedisCache();
         }
     }
 
@@ -151,5 +167,25 @@ public class StockFetchService {
             entity.setVolume(r.getVolume());
             stockRankingRepository.save(entity);
         });
+    }
+
+    private void fallbackToRedisCache() {
+        try {
+            String cachedData = redisTemplate.opsForValue().get(RANKING_CACHE_KEY);
+            if (cachedData != null) {
+                // JSON 문자열을 다시 리스트 객체로 변환
+                List<StockRankingResponse> cachedRankings = objectMapper.readValue(
+                        cachedData, new TypeReference<List<StockRankingResponse>>() {}
+                );
+                log.info("Redis 폴백 성공: 마지막 랭킹 데이터를 사용합니다.");
+
+                // 프론트엔드로 브로드캐스트 (웹소켓 전송 등 기존 처리 로직 연결)
+                // webSocketHandler.broadcast(cachedRankings);
+            } else {
+                log.warn("Redis에 저장된 랭킹 캐시 데이터가 없습니다.");
+            }
+        } catch (Exception e) {
+            log.error("Redis 폴백 처리 중 에러: {}", e.getMessage());
+        }
     }
 }

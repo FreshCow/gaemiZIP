@@ -3,11 +3,13 @@ package sw.gaemiZIP.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import sw.gaemiZIP.dto.stock.StockInfoResponse;
 import sw.gaemiZIP.dto.stock.StockPriceResponse;
 import sw.gaemiZIP.entity.Stock;
 import sw.gaemiZIP.entity.StockRanking;
 import sw.gaemiZIP.repository.StockRankingRepository;
 import sw.gaemiZIP.repository.StockRepository;
+import sw.gaemiZIP.service.StockInfoService;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,6 +21,7 @@ public class StockController {
 
     private final StockRepository stockRepository;
     private final StockRankingRepository stockRankingRepository;
+    private final StockInfoService stockInfoService;
 
     // 종목명·초성 검색 (최대 10건)
     @GetMapping("/search")
@@ -29,6 +32,14 @@ public class StockController {
         return ResponseEntity.ok(
                 stockRepository.findTop10ByNameContainingOrInitialContaining(keyword, keyword)
         );
+    }
+
+    // ka10001: 종목 기본정보 조회 (5분 DB 캐시)
+    @GetMapping("/{code}/info")
+    public ResponseEntity<StockInfoResponse> getStockInfo(@PathVariable String code) {
+        return stockInfoService.getStockInfo(code)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     // 특정 종목의 최신 현재가 조회
