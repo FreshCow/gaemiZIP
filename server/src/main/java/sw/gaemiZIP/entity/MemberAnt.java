@@ -50,8 +50,14 @@ public class MemberAnt extends BaseTimeEntity {
     public MemberAnt(String email, String password, String nickname, Role role, String provider, String providerId, Long balance) {
         this.email = email;
         this.password = password;
+        this.nickname = nickname;
         this.role = role;
         this.provider = provider;
         this.providerId = providerId;
+        this.balance = balance;
+    }
+
+    public void updateBalance(long delta) {
+        this.balance += delta;
     }
 }
