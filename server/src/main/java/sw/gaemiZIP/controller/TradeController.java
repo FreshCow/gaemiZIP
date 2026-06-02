@@ -2,42 +2,46 @@ package sw.gaemiZIP.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import sw.gaemiZIP.dto.stock.HoldingResponse;
 import sw.gaemiZIP.dto.stock.TradeRequest;
 import sw.gaemiZIP.dto.stock.TradeResponse;
-import sw.gaemiZIP.entity.TradeHistory;
-import sw.gaemiZIP.repository.TradeHistoryRepository;
+import sw.gaemiZIP.service.TradeService;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/trades")
 @RequiredArgsConstructor
 public class TradeController {
 
-    private final TradeHistoryRepository tradeHistoryRepository;
+    private final TradeService tradeService;
 
-    // 매매 기록 저장 (웹 클라이언트 TradeRequest → TradeHistory 엔티티 변환)
+    // 매수/매도 실행 — JWT에서 회원 식별, 잔고·보유수량 검증 후 체결
     @PostMapping
-    public ResponseEntity<TradeResponse> saveTradeLog(@RequestBody TradeRequest request) {
-        TradeHistory entity = new TradeHistory();
-        entity.setStockCode(request.getStockCode());
-        entity.setStockName(request.getStockName());
-        entity.setTradeType(request.getTradeType());
-        entity.setPrice(request.getPrice());
-        entity.setQuantity(request.getQuantity());
-        entity.setProfitRate(request.getProfitRate());
-        return ResponseEntity.ok(TradeResponse.from(tradeHistoryRepository.save(entity)));
+    public ResponseEntity<?> executeTrade(@RequestBody TradeRequest request, Authentication auth) {
+        try {
+            String email = auth.getName();
+            TradeResponse response = "BUY".equals(request.getTradeType())
+                    ? tradeService.executeBuy(email, request)
+                    : tradeService.executeSell(email, request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
-    // 매매 이력 전체 조회 (최신순, tradeTime → tradeAt으로 직렬화)
+    // 내 거래 이력 조회 (본인 것만)
     @GetMapping
-    public ResponseEntity<List<TradeResponse>> getTradeHistory() {
-        List<TradeResponse> responses = tradeHistoryRepository
-                .findAllByOrderByTradeTimeDesc()
-                .stream()
-                .map(TradeResponse::from)
-                .toList();
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<List<TradeResponse>> getMyTradeHistory(Authentication auth) {
+        return ResponseEntity.ok(tradeService.getMyTradeHistory(auth.getName()));
+    }
+
+    // 내 보유 종목 조회
+    @GetMapping("/holdings")
+    public ResponseEntity<List<HoldingResponse>> getMyHoldings(Authentication auth) {
+        return ResponseEntity.ok(tradeService.getMyHoldings(auth.getName()));
     }
 }

@@ -15,8 +15,9 @@ public class TradeResponse {
     private Integer quantity;
     private Double profitRate;
     private String tradeAt;
+    private Long newBalance; // 거래 후 갱신된 잔고
 
-    public static TradeResponse from(TradeHistory entity) {
+    public static TradeResponse from(TradeHistory entity, Long newBalance) {
         TradeResponse dto = new TradeResponse();
         dto.id = entity.getId();
         dto.stockCode = entity.getStockCode();
@@ -26,6 +27,7 @@ public class TradeResponse {
         dto.quantity = entity.getQuantity();
         dto.profitRate = entity.getProfitRate();
         dto.tradeAt = entity.getTradeTime().toString();
+        dto.newBalance = newBalance;
         return dto;
     }
 }
