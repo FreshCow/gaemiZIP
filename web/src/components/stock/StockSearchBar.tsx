@@ -5,9 +5,15 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { searchStocks } from "@/services/stockApi";
+import { cn } from "@/lib/utils";
 import type { StockSearchResult } from "@/types/stock";
 
-export function StockSearchBar() {
+interface StockSearchBarProps {
+  large?: boolean;
+  onSelect?: (stock: StockSearchResult) => void; // 제공 시 페이지 이동 대신 콜백 호출
+}
+
+export function StockSearchBar({ large = false, onSelect }: StockSearchBarProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -58,23 +64,36 @@ export function StockSearchBar() {
     setQuery("");
     setResults([]);
     setIsOpen(false);
-    router.push(`/stocks/${stock.code}`);
+    if (onSelect) {
+      onSelect(stock);
+    } else {
+      router.push(`/stocks/${stock.code}`);
+    }
   }
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
-        <Search size={14} className="shrink-0 text-gray-400 dark:text-neutral-500" />
+      <div className={cn(
+        "flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 dark:border-neutral-800 dark:bg-neutral-900",
+        large ? "px-4 py-3.5" : "px-3 py-2",
+      )}>
+        <Search size={large ? 18 : 14} className="shrink-0 text-gray-400 dark:text-neutral-500" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          placeholder="종목 검색"
-          className="w-full bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-white dark:placeholder-neutral-500"
+          placeholder="종목명 또는 코드 검색"
+          className={cn(
+            "w-full bg-transparent text-gray-900 placeholder-gray-400 outline-none dark:text-white dark:placeholder-neutral-500",
+            large ? "text-base" : "text-sm",
+          )}
         />
         {isLoading && (
-          <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-emerald-500 dark:border-neutral-600 dark:border-t-emerald-400" />
+          <span className={cn(
+            "shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-emerald-500 dark:border-neutral-600 dark:border-t-emerald-400",
+            large ? "h-4 w-4" : "h-3 w-3",
+          )} />
         )}
       </div>
 
