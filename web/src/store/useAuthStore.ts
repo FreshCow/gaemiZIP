@@ -9,6 +9,7 @@ interface AuthState {
   init: () => void;
   setAuth: (auth: AuthResponse) => void;
   clearAuth: () => void;
+  updateBalance: (newBalance: number) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -39,5 +40,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem("gaemi_balance");
     document.cookie = "gaemi_token=; path=/; max-age=0";
     set({ token: null, nickname: null, balance: null, isLoggedIn: false });
+  },
+
+  updateBalance: (newBalance: number) => {
+    localStorage.setItem("gaemi_balance", String(newBalance));
+    set({ balance: newBalance });
   },
 }));

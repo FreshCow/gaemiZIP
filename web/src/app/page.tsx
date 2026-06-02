@@ -249,16 +249,21 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className="ml-4 shrink-0 text-right">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      ₩{h.currentPrice.toLocaleString()}
+                    <p className="text-xs text-gray-400 dark:text-neutral-500">
+                      매수 ₩{(h.buyPrice * h.quantity).toLocaleString()}
                     </p>
-                    <p
-                      className={`mt-0.5 text-xs font-semibold ${
-                        h.profitRate >= 0 ? "text-emerald-500" : "text-rose-500"
-                      }`}
-                    >
-                      {h.profitRate >= 0 ? "+" : ""}{h.profitRate.toFixed(2)}%
-                    </p>
+                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        ₩{(h.currentPrice * h.quantity).toLocaleString()}
+                      </p>
+                      <span
+                        className={`text-xs font-semibold ${
+                          h.profitRate >= 0 ? "text-emerald-500" : "text-rose-500"
+                        }`}
+                      >
+                        {h.profitRate >= 0 ? "+" : ""}{h.profitRate.toFixed(2)}%
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}

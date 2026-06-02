@@ -1,15 +1,19 @@
 import api from "./api";
 import type { TradeHistory } from "@/types/trade";
-import type { StockItem } from "@/types/stock";
+import type { StockItem, HoldingData } from "@/types/stock";
 
 export const tradeApi = {
-  // 매매 이력 조회 (서버는 tradeAt 필드로 응답)
+  // 내 거래 이력 조회
   getHistory: () => api.get<TradeHistory[]>("/trades").then((r) => r.data),
 
-  // 매매 기록 저장
-  sendTradeLog: (payload: Omit<TradeHistory, "id" | "tradeAt">) =>
+  // 매수/매도 실행 — 응답에 newBalance 포함
+  executeTrade: (payload: Omit<TradeHistory, "id" | "tradeAt" | "newBalance">) =>
     api.post<TradeHistory>("/trades", payload).then((r) => r.data),
 
-  // 현재 거래량 상위 10개 종목 조회 (초기 로드 또는 폴링 용도)
+  // 내 보유 종목 조회
+  getHoldings: () =>
+    api.get<HoldingData[]>("/trades/holdings").then((r) => r.data),
+
+  // 거래량 상위 10개 종목 조회
   getRanking: () => api.get<StockItem[]>("/stocks/ranking").then((r) => r.data),
 };

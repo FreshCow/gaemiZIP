@@ -16,6 +16,7 @@ interface AppState {
   setStocks: (stocks: StockItem[]) => void;
   updateStock: (update: StockUpdate) => void;
   setHoldings: (holdings: HoldingItem[]) => void;
+  updateHoldingPrice: (code: string, currentPrice: number) => void;
   setTradeHistories: (histories: TradeHistory[]) => void;
   setBoards: (boards: BoardPost[]) => void;
   toggleWatchlist: (code: string) => void;
@@ -72,6 +73,20 @@ export const useAppStore = create<AppState>((set) => ({
       ),
     })),
   setHoldings: (holdings) => set({ holdings }),
+  updateHoldingPrice: (code, currentPrice) =>
+    set((s) => ({
+      holdings: s.holdings.map((h) =>
+        h.code === code
+          ? {
+              ...h,
+              currentPrice,
+              profitRate: h.buyPrice > 0
+                ? ((currentPrice - h.buyPrice) / h.buyPrice) * 100
+                : 0,
+            }
+          : h
+      ),
+    })),
   setTradeHistories: (tradeHistories) => set({ tradeHistories }),
   setBoards: (boards) => set({ boards }),
   toggleWatchlist: (code) =>
