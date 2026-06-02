@@ -105,10 +105,18 @@ public class StockFetchService {
     }
 
     private List<StockRankingResponse> fetchKiwoomRanking() {
+        return fetchKiwoomRankingWithRetry(false);
+    }
+
+    private List<StockRankingResponse> fetchKiwoomRankingWithRetry(boolean isRetry) {
+        String token = tokenService.getAccessToken();
+        log.debug("ka00198 요청 — 토큰 앞 20자: {}",
+                token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null");
+
         KiwoomRankingResponse response = webClientBuilder.build()
                 .post()
                 .uri(baseUrl + "/api/dostk/stkinfo")
-                .header("authorization", "Bearer " + tokenService.getAccessToken())
+                .header("authorization", "Bearer " + token)
                 .header("api-id", "ka00198")
                 .header("Content-Type", "application/json;charset=UTF-8")
                 .bodyValue(Map.of("qry_tp", "5"))  // 1:1분, 2:10분, 3:1시간, 4:당일 누적, 5:30초
@@ -116,8 +124,20 @@ public class StockFetchService {
                 .bodyToMono(KiwoomRankingResponse.class)
                 .block();
 
+        // 8005 인증 실패 → 토큰 강제 갱신 후 1회 재시도
+        if (response != null && Integer.valueOf(3).equals(response.returnCode())) {
+            log.warn("ka00198 인증 실패(return_code=3): {}", response.returnMsg());
+            if (!isRetry) {
+                log.info("토큰 강제 갱신 후 재시도");
+                tokenService.forceRefresh();
+                return fetchKiwoomRankingWithRetry(true);
+            }
+            log.error("재시도 후에도 인증 실패 — 토큰 원문 응답 로그 확인 필요 (app-key/secret 또는 필드명 불일치 의심)");
+            return Collections.emptyList();
+        }
+
         if (response == null || response.itemInqRank() == null || response.itemInqRank().isEmpty()) {
-            log.warn("ka00198 빈 응답");
+            log.warn("ka00198 빈 응답 (return_code={})", response != null ? response.returnCode() : "null");
             return Collections.emptyList();
         }
 
