@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import Script from "next/script";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { WebSocketProvider } from "@/components/layout/WebSocketProvider";
@@ -18,14 +19,27 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className={`${geist.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="flex h-full">
+      <body className="flex flex-col h-full">
+        {/* Google GSI 스크립트를 next/script로 선제 로드 — @react-oauth/google 라이브러리가
+            JSX 내부에서 <script> 태그를 직접 렌더링하면 React가 경고를 발생시키므로
+            여기서 먼저 로드해 라이브러리가 재주입하지 않도록 함 */}
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="beforeInteractive"
+        />
         <ThemeProvider>
           <GoogleAuthProvider>
             <TooltipProvider>
               <AuthStoreInitializer />
               <WebSocketProvider>
                 <Sidebar />
-                <main className="flex-1 overflow-y-auto">{children}</main>
+                <main className="flex-1 overflow-y-auto">
+                  <div className="min-h-full grid grid-cols-1 lg:grid-cols-[14vw_1fr_14vw]">
+                    <aside className="hidden lg:block" />
+                    <div className="min-w-0">{children}</div>
+                    <aside className="hidden lg:block" />
+                  </div>
+                </main>
               </WebSocketProvider>
             </TooltipProvider>
           </GoogleAuthProvider>
