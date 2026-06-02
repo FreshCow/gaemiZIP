@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import sw.gaemiZIP.dto.AiThemeResponse;
@@ -30,7 +33,28 @@ public class AiAnalysisService {
     @Value("${gemini.api.key}")
     private String geminiApiKey;
 
+    private volatile AiThemeResponse cachedTheme;
+
+    // 서버 기동 후 최초 1회 분석
+    @EventListener(ApplicationReadyEvent.class)
+    public void initCache() {
+        AiThemeResponse result = callGeminiApi();
+        if (result != null) cachedTheme = result;
+    }
+
+    // 평일 오전 8시~15시 매시 정각 갱신 (한국시간)
+    @Scheduled(cron = "0 0 8-15 * * MON-FRI", zone = "Asia/Seoul")
+    public void scheduleRefresh() {
+        log.info("AI 테마 정기 갱신 시작");
+        AiThemeResponse result = callGeminiApi();
+        if (result != null) cachedTheme = result;
+    }
+
     public AiThemeResponse analyzeTodayTheme() {
+        return cachedTheme;
+    }
+
+    private AiThemeResponse callGeminiApi() {
         List<News> recentNews = newsRepository.findTop10ByOrderByIdDesc();
         if (recentNews.isEmpty()) return null;
 
@@ -53,7 +77,6 @@ public class AiAnalysisService {
         String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
 
         try {
-            // Jackson으로 요청 JSON 직렬화 (수동 escape 제거)
             String requestJson = objectMapper.writeValueAsString(Map.of(
                     "contents", List.of(Map.of(
                             "parts", List.of(Map.of("text", prompt))
@@ -75,12 +98,10 @@ public class AiAnalysisService {
 
             return objectMapper.readValue(generatedText, AiThemeResponse.class);
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException.ServiceUnavailable e) {
-            // 503 에러를 콕 집어서 잡아냄
             log.warn("Gemini API 서버 트래픽 초과 (503): {}", e.getMessage());
-            // 프론트엔드에 보여줄 기본값(Fallback) 응답
             return null;
         } catch (Exception e) {
-            log.error("Gemini API 호출 중 알 수 없는 에러: {}", e.getMessage());
+            log.error("Gemini API 호출 중 에러: {}", e.getMessage());
             return null;
         }
     }
