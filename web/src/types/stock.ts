@@ -105,3 +105,11 @@ export interface StockUpdate {
   rate?: string;
   volume?: number;
 }
+
+// GET /api/trades/holdings 서버 응답
+export interface HoldingData {
+  stockCode: string;
+  stockName: string;
+  quantity: number;
+  avgPrice: number;
+}

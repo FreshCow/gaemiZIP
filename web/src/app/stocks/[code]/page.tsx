@@ -15,8 +15,10 @@ import {
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { fetchStockInfo } from "@/services/stockApi";
+import { tradeApi } from "@/services/tradeApi";
 import { useAppStore } from "@/store/useAppStore";
-import type { StockInfoData } from "@/types/stock";
+import { useAuthStore } from "@/store/useAuthStore";
+import type { StockInfoData, HoldingItem } from "@/types/stock";
 
 // ── Mock 뉴스 (종목별 뉴스 API 미제공) ────────────────────────────────────────
 
@@ -70,6 +72,18 @@ export default function StockDetailPage() {
   const [error, setError] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // 매매 패널 상태
+  const [tab, setTab] = useState<"BUY" | "SELL">("BUY");
+  const [qty, setQty] = useState(1);
+  const [isTrading, setIsTrading] = useState(false);
+  const [tradeMsg, setTradeMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // 인증 / 보유 / 실시간 가격
+  const { isLoggedIn, balance, updateBalance } = useAuthStore();
+  const setHoldings = useAppStore((s) => s.setHoldings);
+  const holding = useAppStore((s) => s.holdings.find((h) => h.code === code));
+  const latestTick = useAppStore((s) => s.latestTick);
+
   // 실시간 랭킹에서 현재가 fallback
   const rankStock = useAppStore((s) => s.stocks.find((s) => s.code === code));
 
@@ -90,6 +104,45 @@ export default function StockDetailPage() {
   const predPre   = absNum(info?.predPre);
   const fluRt     = apiRate;
   const priceUp   = isUp(fluRt);
+
+  // 매매 체결 기준가: WebSocket 틱 > 현재가 순으로 우선
+  const tradePrice = (latestTick?.code === code && latestTick.price > 0)
+    ? latestTick.price
+    : curPrice;
+
+  const handleTrade = async () => {
+    if (!tradePrice || qty < 1) return;
+    setIsTrading(true);
+    setTradeMsg(null);
+    try {
+      const result = await tradeApi.executeTrade({
+        stockCode: code,
+        stockName: info?.name ?? rankStock?.name ?? code,
+        tradeType: tab,
+        price: tradePrice,
+        quantity: qty,
+      });
+      if (result.newBalance != null) updateBalance(result.newBalance);
+      // 보유 종목 서버에서 재동기화
+      const fresh = await tradeApi.getHoldings();
+      setHoldings(fresh.map((h) => ({
+        code: h.stockCode,
+        name: h.stockName,
+        buyPrice: h.avgPrice,
+        currentPrice: h.avgPrice,
+        quantity: h.quantity,
+        profitRate: 0,
+      } as HoldingItem)));
+      setTradeMsg({ type: "ok", text: tab === "BUY" ? "매수 완료" : "매도 완료" });
+      setQty(1);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error ?? "거래 처리 중 오류가 발생했습니다.";
+      setTradeMsg({ type: "err", text: msg });
+    } finally {
+      setIsTrading(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-5">
@@ -239,6 +292,112 @@ export default function StockDetailPage() {
 
           {/* ── 우측 ────────────────────────────────────────────────────── */}
           <div className="flex flex-col gap-5">
+
+            {/* 모의매매 패널 */}
+            {isLoggedIn && (
+              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+                <h2 className="mb-4 text-sm font-medium text-gray-700 dark:text-neutral-300">모의매매</h2>
+
+                {/* 매수/매도 탭 */}
+                <div className="flex mb-4 rounded-lg overflow-hidden border border-gray-200 dark:border-neutral-700">
+                  {(["BUY", "SELL"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => { setTab(t); setTradeMsg(null); }}
+                      className={`flex-1 py-2 text-sm font-semibold transition-colors ${
+                        tab === t
+                          ? t === "BUY"
+                            ? "bg-emerald-500 text-white"
+                            : "bg-rose-500 text-white"
+                          : "text-gray-500 hover:bg-gray-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      {t === "BUY" ? "매수" : "매도"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 체결 기준가 */}
+                <div className="flex justify-between text-xs mb-3">
+                  <span className="text-gray-500 dark:text-neutral-500">체결 기준가</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {tradePrice > 0 ? `${tradePrice.toLocaleString()}원` : "—"}
+                  </span>
+                </div>
+
+                {/* 잔고 or 보유 수량 */}
+                <div className="flex justify-between text-xs mb-4">
+                  {tab === "BUY" ? (
+                    <>
+                      <span className="text-gray-500 dark:text-neutral-500">주문 가능 잔고</span>
+                      <span className="font-medium text-gray-700 dark:text-neutral-300">
+                        {(balance ?? 0).toLocaleString()}원
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-gray-500 dark:text-neutral-500">보유 수량</span>
+                      <span className="font-medium text-gray-700 dark:text-neutral-300">
+                        {holding?.quantity ?? 0}주
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* 수량 입력 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <button
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={qty}
+                    onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                    className="flex-1 rounded-lg border border-gray-200 bg-transparent px-3 py-1.5 text-center text-sm font-medium text-gray-900 outline-none dark:border-neutral-700 dark:text-white"
+                  />
+                  <button
+                    onClick={() => setQty((q) => q + 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* 예상 금액 */}
+                <div className="flex justify-between text-xs mb-4 rounded-lg bg-gray-50 px-3 py-2 dark:bg-neutral-800">
+                  <span className="text-gray-500 dark:text-neutral-500">
+                    예상 {tab === "BUY" ? "매수" : "매도"}금액
+                  </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {(tradePrice * qty).toLocaleString()}원
+                  </span>
+                </div>
+
+                {/* 결과 메시지 */}
+                {tradeMsg && (
+                  <p className={`mb-3 text-xs text-center ${tradeMsg.type === "ok" ? "text-emerald-500" : "text-rose-500"}`}>
+                    {tradeMsg.text}
+                  </p>
+                )}
+
+                {/* 실행 버튼 */}
+                <button
+                  onClick={handleTrade}
+                  disabled={isTrading || tradePrice === 0}
+                  className={`w-full rounded-lg py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
+                    tab === "BUY"
+                      ? "bg-emerald-500 hover:bg-emerald-600"
+                      : "bg-rose-500 hover:bg-rose-600"
+                  }`}
+                >
+                  {isTrading ? "처리 중..." : tab === "BUY" ? "매수하기" : "매도하기"}
+                </button>
+              </div>
+            )}
 
             {/* 시장 정보 */}
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">

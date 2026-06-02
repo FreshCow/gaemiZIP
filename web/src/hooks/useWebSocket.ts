@@ -16,6 +16,7 @@ export function useWebSocket() {
   const updateStock = useAppStore((s) => s.updateStock);
   const setWsConnected = useAppStore((s) => s.setWsConnected);
   const setLatestTick = useAppStore((s) => s.setLatestTick);
+  const updateHoldingPrice = useAppStore((s) => s.updateHoldingPrice);
 
   const connect = useCallback(() => {
     const ws = new WebSocket(WS_URL);
@@ -42,6 +43,8 @@ export function useWebSocket() {
         try {
           const update: StockUpdate = JSON.parse(data.slice("REALTIME_UPDATE:".length));
           updateStock(update);
+          // 보유 종목의 현재가·수익률 실시간 갱신
+          if (update.price) updateHoldingPrice(update.code, Number(update.price));
         } catch (err) {
           console.error("[WS] REALTIME_UPDATE 파싱 실패:", err, "raw:", data.slice("REALTIME_UPDATE:".length, 300));
         }
@@ -67,7 +70,7 @@ export function useWebSocket() {
       console.error("[WS] 에러:", e);
       ws.close();
     };
-  }, [setStocks, updateStock, setWsConnected, setLatestTick]);
+  }, [setStocks, updateStock, setWsConnected, setLatestTick, updateHoldingPrice]);
 
   useEffect(() => {
     connect();
