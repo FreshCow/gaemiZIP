@@ -11,15 +11,20 @@ import type { StockSearchResult, HoldingItem } from "@/types/stock";
 
 async function reloadHoldings(setHoldings: (h: HoldingItem[]) => void) {
   const fresh = await tradeApi.getHoldings();
+  const stocks = useAppStore.getState().stocks;
   setHoldings(
-    fresh.map((h) => ({
-      code: h.stockCode,
-      name: h.stockName,
-      buyPrice: h.avgPrice,
-      currentPrice: h.avgPrice,
-      quantity: h.quantity,
-      profitRate: 0,
-    }))
+    fresh.map((h) => {
+      const stock = stocks.find((s) => s.code === h.stockCode);
+      const currentPrice = stock ? Number(stock.price) : h.avgPrice;
+      return {
+        code: h.stockCode,
+        name: h.stockName,
+        buyPrice: h.avgPrice,
+        currentPrice,
+        quantity: h.quantity,
+        profitRate: h.avgPrice > 0 ? ((currentPrice - h.avgPrice) / h.avgPrice) * 100 : 0,
+      };
+    })
   );
 }
 
