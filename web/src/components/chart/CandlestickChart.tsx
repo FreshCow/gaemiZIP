@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createChart, ColorType, CrosshairMode, CandlestickSeries } from "lightweight-charts";
+import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineSeries } from "lightweight-charts";
 import type { UTCTimestamp } from "lightweight-charts";
 import { useTheme } from "next-themes";
 import { fetchChart } from "@/services/chartApi";
@@ -33,6 +33,8 @@ export function CandlestickChart({ stockCode }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const seriesRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lineSeriesRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
   const tickCandleRef = useRef<{ time: number; open: number; high: number; low: number; close: number } | null>(null);
   const lastLoadedCandleRef = useRef<CandlePoint | null>(null);
@@ -41,7 +43,12 @@ export function CandlestickChart({ stockCode }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
-  const latestTick = useAppStore((s) => s.latestTick);
+  const latestTick  = useAppStore((s) => s.latestTick);
+  // REALTIME_UPDATE 로 갱신되는 현재가 — 틱 라인 전용
+  const livePrice = useAppStore((s) => {
+    const found = s.stocks.find((x) => x.code === stockCode);
+    return found ? Number(found.price) : 0;
+  });
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -81,6 +88,22 @@ export function CandlestickChart({ stockCode }: Props) {
     });
 
     seriesRef.current = series;
+
+    // 1분봉에서만 실시간 틱 라인 표시
+    if (interval === "1") {
+      const line = chart.addSeries(LineSeries, {
+        color:                  "#38bdf8",
+        lineWidth:              1,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius:  3,
+        priceLineVisible:       false,
+        lastValueVisible:       false,
+      });
+      lineSeriesRef.current = line;
+    } else {
+      lineSeriesRef.current = null;
+    }
+
     tickCandleRef.current = null;
     lastLoadedCandleRef.current = null;
 
@@ -173,6 +196,7 @@ export function CandlestickChart({ stockCode }: Props) {
       if (pollTimer) clearInterval(pollTimer);
       ro.disconnect();
       seriesRef.current = null;
+      lineSeriesRef.current = null;
       chartRef.current = null;
       tickCandleRef.current = null;
       lastLoadedCandleRef.current = null;
@@ -180,14 +204,15 @@ export function CandlestickChart({ stockCode }: Props) {
     };
   }, [stockCode, interval, resolvedTheme]);
 
-  // WebSocket 틱 → 1분봉 현재 캔들 실시간 업데이트
+  // WebSocket 틱 → 1분봉 현재 캔들 실시간 업데이트 + 틱 라인
   useEffect(() => {
     if (!latestTick || latestTick.code !== stockCode || interval !== "1") return;
     if (!seriesRef.current) return;
 
-    const { time, price } = latestTick;
+    const { time, tickTime, price } = latestTick;
     const prev = tickCandleRef.current;
 
+    // ── 캔들 업데이트 ───────────────────────────────────────────────
     if (!prev) {
       const lastCandle = lastLoadedCandleRef.current;
       if (lastCandle && lastCandle.time === time) {
@@ -222,6 +247,16 @@ export function CandlestickChart({ stockCode }: Props) {
       close: tickCandleRef.current.close,
     });
   }, [latestTick, stockCode, interval]);
+
+  // REALTIME_UPDATE 도착 즉시 벽시계 시간(Date.now)으로 틱 라인 업데이트
+  useEffect(() => {
+    if (!livePrice || livePrice <= 0 || interval !== "1") return;
+    if (!lineSeriesRef.current) return;
+    lineSeriesRef.current.update({
+      time:  Math.floor(Date.now() / 1000) as UTCTimestamp,
+      value: livePrice,
+    });
+  }, [livePrice, interval]);
 
   return (
     <div className="flex flex-col h-full gap-2">

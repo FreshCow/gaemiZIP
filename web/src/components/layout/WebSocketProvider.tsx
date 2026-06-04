@@ -6,17 +6,21 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useAppStore } from "@/store/useAppStore";
 import { tradeApi } from "@/services/tradeApi";
 import { boardApi } from "@/services/boardApi";
-import type { HoldingItem } from "@/types/stock";
+import type { HoldingItem, StockItem } from "@/types/stock";
 
-// HoldingData(서버) → HoldingItem(스토어) 변환
-function toHoldingItem(h: { stockCode: string; stockName: string; quantity: number; avgPrice: number }): HoldingItem {
+function toHoldingItem(
+  h: { stockCode: string; stockName: string; quantity: number; avgPrice: number },
+  stocks: StockItem[]
+): HoldingItem {
+  const stock = stocks.find((s) => s.code === h.stockCode);
+  const currentPrice = stock ? Number(stock.price) : h.avgPrice;
   return {
     code: h.stockCode,
     name: h.stockName,
     buyPrice: h.avgPrice,
-    currentPrice: h.avgPrice, // WebSocket REALTIME_UPDATE로 이후 실시간 갱신
+    currentPrice,
     quantity: h.quantity,
-    profitRate: 0,
+    profitRate: h.avgPrice > 0 ? ((currentPrice - h.avgPrice) / h.avgPrice) * 100 : 0,
   };
 }
 
@@ -33,7 +37,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     if (!isLoggedIn) return;
 
     tradeApi.getHoldings()
-      .then((data) => setHoldings(data.map(toHoldingItem)))
+      .then((data) => {
+        const stocks = useAppStore.getState().stocks;
+        setHoldings(data.map((h) => toHoldingItem(h, stocks)));
+      })
       .catch(() => {});
 
     tradeApi.getHistory()

@@ -40,7 +40,8 @@ export interface StockPriceItem {
 
 export interface TickData {
   code: string;
-  time: number;   // 분 경계 epoch seconds (KST 기준)
+  time: number;      // 분 경계 epoch seconds — 캔들 집계용
+  tickTime: number;  // 초 단위 epoch seconds — 틱 라인용
   price: number;
 }
 
