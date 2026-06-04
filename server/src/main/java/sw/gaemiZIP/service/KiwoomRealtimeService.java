@@ -132,12 +132,16 @@ public class KiwoomRealtimeService {
             frontEndHandler.broadcast("REALTIME_UPDATE:" + objectMapper.writeValueAsString(stockData));
 
             // TICK_UPDATE: 차트 실시간 캔들 업데이트용
+            // time     = 분 경계 epoch (캔들 집계용)
+            // tickTime = 초 단위 epoch (틱 라인용)
             long minuteEpoch = parseMinuteBoundary(cntrTm);
+            long secondEpoch = parseSecondEpoch(cntrTm);
             if (minuteEpoch > 0) {
                 Map<String, Object> tickData = new LinkedHashMap<>();
-                tickData.put("code",  code);
-                tickData.put("time",  minuteEpoch);
-                tickData.put("price", Long.parseLong(price));
+                tickData.put("code",     code);
+                tickData.put("time",     minuteEpoch);
+                tickData.put("tickTime", secondEpoch);
+                tickData.put("price",    Long.parseLong(price));
                 frontEndHandler.broadcast("TICK_UPDATE:" + objectMapper.writeValueAsString(tickData));
             }
         } catch (Exception e) {
@@ -145,7 +149,7 @@ public class KiwoomRealtimeService {
         }
     }
 
-    // "093500" (HHmmss) → 오늘 KST 해당 분의 epoch seconds (UTC 오프셋으로 저장 → 차트 표시 09:35)
+    // "093547" (HHmmss) → 오늘 KST 해당 분의 epoch seconds (캔들 집계용, 초 버림)
     private long parseMinuteBoundary(String cntrTm) {
         if (cntrTm == null || cntrTm.length() < 4) return 0;
         try {
@@ -156,6 +160,21 @@ public class KiwoomRealtimeService {
                     .toEpochSecond(ZoneOffset.UTC);
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    // "093547" (HHmmss) → 초 단위 epoch seconds (틱 라인용)
+    private long parseSecondEpoch(String cntrTm) {
+        if (cntrTm == null || cntrTm.length() < 6) return parseMinuteBoundary(cntrTm);
+        try {
+            int hh = Integer.parseInt(cntrTm.substring(0, 2));
+            int mm = Integer.parseInt(cntrTm.substring(2, 4));
+            int ss = Integer.parseInt(cntrTm.substring(4, 6));
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+            return LocalDateTime.of(today, LocalTime.of(hh, mm, ss))
+                    .toEpochSecond(ZoneOffset.UTC);
+        } catch (Exception e) {
+            return parseMinuteBoundary(cntrTm);
         }
     }
 
