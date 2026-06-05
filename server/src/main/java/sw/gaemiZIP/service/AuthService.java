@@ -14,7 +14,9 @@ import sw.gaemiZIP.dto.auth.LoginResponseDto;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
 import sw.gaemiZIP.entity.MemberAnt;
 import sw.gaemiZIP.entity.Role;
+import sw.gaemiZIP.repository.HoldingRepository;
 import sw.gaemiZIP.repository.MemberAntRepository;
+import sw.gaemiZIP.repository.TradeHistoryRepository;
 import sw.gaemiZIP.util.JwtUtil;
 
 import java.util.Collections;
@@ -25,7 +27,9 @@ public class AuthService {
 
     private final MemberAntRepository memberAntRepository;
     private final BCryptPasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil; // 토큰 발급을 위해 추가 주입
+    private final JwtUtil jwtUtil;
+    private final TradeHistoryRepository tradeHistoryRepository;
+    private final HoldingRepository holdingRepository;
 
     @Transactional
     public Long signUp(SignUpRequestDto signUpRequestDto) {
@@ -58,7 +62,24 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(member.getUsername(), member.getRole().getKey());
 
-        return new LoginResponseDto(token, member.getNickname(), member.getBalance());
+        return new LoginResponseDto(token, member.getNickname(), member.getBalance(), member.getProvider());
+    }
+
+    public void verifyPassword(String loginId, String password) {
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(loginId, loginId)
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+        if (!passwordEncoder.matches(password, member.getPassword())) {
+            throw new IllegalStateException("비밀번호가 일치하지 않습니다.");
+        }
+    }
+
+    @Transactional
+    public void withdraw(String loginId) {
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(loginId, loginId)
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+        tradeHistoryRepository.deleteAllByMemberId(member.getId());
+        holdingRepository.deleteAllByMemberId(member.getId());
+        memberAntRepository.delete(member);
     }
 
     @Value("${oauth.google.client-id}")
@@ -97,7 +118,6 @@ public class AuthService {
         // 5. 우리 서비스 전용 JWT 발급
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());
 
-        // 6. 🟢 기존 LoginResponseDto에 담아서 반환
-        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance());
+        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider());
     }
 }
