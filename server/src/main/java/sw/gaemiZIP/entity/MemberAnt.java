@@ -16,8 +16,11 @@ public class MemberAnt extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String email; //로그인 아이디 겸용
+    @Column(unique = true)
+    private String email; // GOOGLE 계정 식별용 (LOCAL은 null)
+
+    @Column(unique = true)
+    private String username; // LOCAL 계정 로그인 아이디 (GOOGLE은 null)
 
     private String password;
 
@@ -47,8 +50,9 @@ public class MemberAnt extends BaseTimeEntity {
     }
 
     @Builder
-    public MemberAnt(String email, String password, String nickname, Role role, String provider, String providerId, Long balance) {
+    public MemberAnt(String email, String username, String password, String nickname, Role role, String provider, String providerId, Long balance) {
         this.email = email;
+        this.username = username;
         this.password = password;
         this.nickname = nickname;
         this.role = role;

@@ -98,8 +98,8 @@ public class TradeService {
                 .toList();
     }
 
-    private MemberAnt findMember(String email) {
-        return memberAntRepository.findByEmail(email)
+    private MemberAnt findMember(String loginId) {
+        return memberAntRepository.findByUsernameOrEmail(loginId, loginId)
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
     }
 

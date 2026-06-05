@@ -14,7 +14,9 @@ import sw.gaemiZIP.dto.auth.LoginResponseDto;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
 import sw.gaemiZIP.entity.MemberAnt;
 import sw.gaemiZIP.entity.Role;
+import sw.gaemiZIP.repository.HoldingRepository;
 import sw.gaemiZIP.repository.MemberAntRepository;
+import sw.gaemiZIP.repository.TradeHistoryRepository;
 import sw.gaemiZIP.util.JwtUtil;
 
 import java.util.Collections;
@@ -25,21 +27,21 @@ public class AuthService {
 
     private final MemberAntRepository memberAntRepository;
     private final BCryptPasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil; // 토큰 발급을 위해 추가 주입
+    private final JwtUtil jwtUtil;
+    private final TradeHistoryRepository tradeHistoryRepository;
+    private final HoldingRepository holdingRepository;
 
-    @Transactional // 하나의 트랜잭션으로 묶음 실패시 롤백
+    @Transactional
     public Long signUp(SignUpRequestDto signUpRequestDto) {
 
-        //이메일 중복 체크
-        if(memberAntRepository.findByEmail(signUpRequestDto.getEmail()).isPresent()){
-            throw new IllegalStateException("이미 존재하는 이메일입니다.");
+        if(memberAntRepository.findByUsername(signUpRequestDto.getUsername()).isPresent()){
+            throw new IllegalStateException("이미 존재하는 아이디입니다.");
         }
 
-        //비밀번호 단반향 암호화
         String encodedPassword = passwordEncoder.encode(signUpRequestDto.getPassword());
 
         MemberAnt memberAnt = MemberAnt.builder()
-                .email(signUpRequestDto.getEmail())
+                .username(signUpRequestDto.getUsername())
                 .password(encodedPassword)
                 .role(Role.USER)
                 .provider("LOCAL")
@@ -48,25 +50,36 @@ public class AuthService {
         return memberAntRepository.save(memberAnt).getId();
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)// 조회만 함
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public LoginResponseDto login(LoginReqeustDto reqeustDto) {
 
-        //이메일 검증
-        MemberAnt member = memberAntRepository.findByEmail(reqeustDto.getEmail())
-                .orElseThrow(() -> new IllegalStateException("가입되지 않은 이메일입니다."));
+        MemberAnt member = memberAntRepository.findByUsername(reqeustDto.getUsername())
+                .orElseThrow(() -> new IllegalStateException("가입되지 않은 아이디입니다."));
 
-
-        //비밀번호 검증
-        // passwordEncoder.matches(입력된 평문 비번, DB에 저장된 암호화 비번)
         if (!passwordEncoder.matches(reqeustDto.getPassword(), member.getPassword())) {
             throw new IllegalStateException("비밀번호가 일치하지 않습니다.");
         }
 
-        //인증 성공 시 JWT 토큰 생성
-        String token = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());
+        String token = jwtUtil.generateToken(member.getUsername(), member.getRole().getKey());
 
-        //토큰과 닉네임 반환
-        return new LoginResponseDto(token, member.getNickname(), member.getBalance());
+        return new LoginResponseDto(token, member.getNickname(), member.getBalance(), member.getProvider());
+    }
+
+    public void verifyPassword(String loginId, String password) {
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(loginId, loginId)
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+        if (!passwordEncoder.matches(password, member.getPassword())) {
+            throw new IllegalStateException("비밀번호가 일치하지 않습니다.");
+        }
+    }
+
+    @Transactional
+    public void withdraw(String loginId) {
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(loginId, loginId)
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+        tradeHistoryRepository.deleteAllByMemberId(member.getId());
+        holdingRepository.deleteAllByMemberId(member.getId());
+        memberAntRepository.delete(member);
     }
 
     @Value("${oauth.google.client-id}")
@@ -105,7 +118,6 @@ public class AuthService {
         // 5. 우리 서비스 전용 JWT 발급
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());
 
-        // 6. 🟢 기존 LoginResponseDto에 담아서 반환
-        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance());
+        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider());
     }
 }

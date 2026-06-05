@@ -21,9 +21,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-        // /api/auth/ 로 시작하는 모든 요청은 이 필터(JWT 검사)를 아예 건너뛰도록 설정
         String path = request.getRequestURI();
-        return path.startsWith("/api/auth/");
+        // 인증이 필요 없는 공개 엔드포인트만 JWT 필터 스킵
+        // verify-password, /me 등 인증 필요 엔드포인트는 필터를 통과해야 함
+        return path.equals("/api/auth/login")
+                || path.equals("/api/auth/signup")
+                || path.equals("/api/auth/google");
     }
 
     @Override
@@ -34,11 +37,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if(token != null && jwtUtil.validateToken(token)){
 
-            //유효하면 토큰에서 이메일 추출
-            String email = jwtUtil.getEmailFromToken(token);
+            String subject = jwtUtil.getSubjectFromToken(token);
 
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
+                    new UsernamePasswordAuthenticationToken(subject, null, Collections.emptyList());
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }

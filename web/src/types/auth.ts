@@ -1,10 +1,10 @@
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface SignUpRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -12,4 +12,5 @@ export interface AuthResponse {
   token: string;
   nickname: string;
   balance: number;
+  provider: string;
 }

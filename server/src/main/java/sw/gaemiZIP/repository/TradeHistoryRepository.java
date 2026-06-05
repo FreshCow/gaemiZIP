@@ -7,5 +7,6 @@ import java.util.List;
 public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Long> {
     List<TradeHistory> findAllByOrderByTradeTimeDesc();
     List<TradeHistory> findByMemberIdOrderByTradeTimeDesc(Long memberId);
+    void deleteAllByMemberId(Long memberId);
 }
 

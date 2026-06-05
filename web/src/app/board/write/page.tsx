@@ -20,7 +20,7 @@ export default function BoardWritePage() {
     if (!title.trim() || !content.trim()) return;
     setSubmitting(true);
     try {
-      const created = await boardApi.create({ title, content, author: nickname ?? "익명" });
+      const created = await boardApi.create({ title, content, author: nickname ?? "익명의 개미" });
       setBoards([created, ...boards]);
       router.push("/board");
     } finally {
@@ -45,7 +45,7 @@ export default function BoardWritePage() {
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 space-y-4 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-2 pb-3 border-b border-gray-100 dark:border-neutral-800">
           <span className="text-xs text-gray-400 dark:text-neutral-500">작성자</span>
-          <span className="text-sm font-medium text-gray-700 dark:text-neutral-300">{nickname ?? "익명"}</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-neutral-300">{nickname ?? "익명의 개미"}</span>
         </div>
 
         <input
