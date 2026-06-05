@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import sw.gaemiZIP.dto.kiwoom.KiwoomDailyChartResponse;
 import sw.gaemiZIP.dto.kiwoom.KiwoomMinuteChartResponse;
+import sw.gaemiZIP.dto.kiwoom.KiwoomTickChartResponse;
 import sw.gaemiZIP.dto.kiwoom.KiwoomWeeklyChartResponse;
 import sw.gaemiZIP.dto.stock.CandleResponse;
 
@@ -57,6 +58,31 @@ public class ChartService {
                 ))
                 .filter(c -> c.time() > 0)
                 .sorted(Comparator.comparingLong(CandleResponse::time))  // 키움은 최신순 → 오름차순 정렬
+                .toList();
+    }
+
+    // 틱봉 조회 (ticScope: "1","3","5","10","30")
+    public List<CandleResponse> getTickChart(String stockCode, String ticScope) {
+        KiwoomTickChartResponse res = post("ka10079",
+                Map.of("stk_cd", stockCode, "tic_scope", ticScope, "upd_stkpc_tp", "1"),
+                KiwoomTickChartResponse.class);
+
+        if (res == null || res.items() == null) {
+            log.warn("ka10079 빈 응답 (code={}, tic={})", stockCode, ticScope);
+            return Collections.emptyList();
+        }
+
+        return res.items().stream()
+                .map(item -> new CandleResponse(
+                        parseMinuteTime(item.cntrTm()),
+                        parsePrice(item.openPric()),
+                        parsePrice(item.highPric()),
+                        parsePrice(item.lowPric()),
+                        parsePrice(item.curPrc()),
+                        parseLong(item.trdeQty())
+                ))
+                .filter(c -> c.time() > 0)
+                .sorted(Comparator.comparingLong(CandleResponse::time))
                 .toList();
     }
 
