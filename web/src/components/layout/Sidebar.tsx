@@ -11,6 +11,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/utils";
 import { StockSearchBar } from "@/components/stock/StockSearchBar";
+import { WithdrawModal } from "@/components/auth/WithdrawModal";
 
 const navItems = [
   { href: "/stocks",   icon: TrendingUp,     label: "AI 탐색"  },
@@ -23,9 +24,10 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const wsConnected = useAppStore((s) => s.wsConnected);
-  const { isLoggedIn, nickname, clearAuth } = useAuthStore();
+  const { isLoggedIn, nickname, provider, clearAuth } = useAuthStore();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -37,6 +39,7 @@ export function Sidebar() {
   };
 
   return (
+  <>
     <header className="w-full border-b border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
       {/* 상단 네비게이션 행 */}
       <div className="flex items-center h-14 px-4 gap-2">
@@ -131,6 +134,12 @@ export function Sidebar() {
                 >
                   <LogOut size={14} />
                 </button>
+                <button
+                  onClick={() => setShowWithdraw(true)}
+                  className="hidden lg:block text-[11px] text-gray-300 hover:text-rose-400 transition-colors dark:text-neutral-700 dark:hover:text-rose-500"
+                >
+                  탈퇴
+                </button>
               </div>
             ) : (
               <Link
@@ -150,5 +159,10 @@ export function Sidebar() {
         <StockSearchBar large />
       </div>
     </header>
+
+    {showWithdraw && (
+      <WithdrawModal provider={provider} onClose={() => setShowWithdraw(false)} />
+    )}
+  </>
   );
 }

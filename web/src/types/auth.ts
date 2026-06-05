@@ -12,4 +12,5 @@ export interface AuthResponse {
   token: string;
   nickname: string;
   balance: number;
+  provider: string;
 }

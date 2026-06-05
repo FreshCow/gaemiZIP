@@ -10,4 +10,10 @@ export const authApi = {
 
   googleLogin: (idToken: string) =>
     api.post<AuthResponse>("/auth/google", { idToken }).then((r) => r.data),
+
+  verifyPassword: (password: string) =>
+    api.post<void>("/auth/verify-password", { password }),
+
+  withdraw: () =>
+    api.delete<string>("/auth/me"),
 };
