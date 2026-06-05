@@ -3,15 +3,15 @@ package sw.gaemiZIP.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 import sw.gaemiZIP.dto.auth.GoogleLoginRequest;
 import sw.gaemiZIP.dto.auth.LoginReqeustDto;
 import sw.gaemiZIP.dto.auth.LoginResponseDto;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
 import sw.gaemiZIP.service.AuthService;
+
+import java.util.Map;
 
 @RestController//데이터(JSON)를 반환하는 컨트롤러 명시
 @RequestMapping("/api/auth") // 이 컨트롤러의 모든 API 주소 앞에 "/api/auth"를 기본으로 붙임
@@ -26,11 +26,8 @@ public class AuthController {
 
         try{
             Long memberId = authService.signUp(signUpRequestDto);
-
-            //성공 시 201 상태 코드 반환
             return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
-        }catch (IllegalArgumentException e){
-            //실패 시 400 상태 코드 반환
+        }catch (IllegalStateException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
 
@@ -39,18 +36,14 @@ public class AuthController {
     @PostMapping("/login") // POST /api/auth/login 으로 요청이 오면 실행
     public ResponseEntity<?> login(@RequestBody LoginReqeustDto reqeustDto) {
         try {
-            //서비스 계층에서 검증 및 토큰 발급
             LoginResponseDto responseDto = authService.login(reqeustDto);
-
-            //성공 시 200 상태 반환
             return ResponseEntity.ok(responseDto);
-        }catch (IllegalArgumentException e){
-            //비번 틀림, 아이디 없음 등의 에러 발생 시 401 에러 반환
+        }catch (IllegalStateException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
-    @PostMapping("/google") // POST /api/auth/google 으로 요청이 오면 실행
+    @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
         try {
             LoginResponseDto responseDto = authService.googleLogin(request.getIdToken());
@@ -59,6 +52,26 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("구글 로그인 처리 중 오류가 발생했습니다.");
+        }
+    }
+
+    @PostMapping("/verify-password")
+    public ResponseEntity<?> verifyPassword(Authentication auth, @RequestBody Map<String, String> body) {
+        try {
+            authService.verifyPassword(auth.getName(), body.get("password"));
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<?> withdraw(Authentication auth) {
+        try {
+            authService.withdraw(auth.getName());
+            return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 

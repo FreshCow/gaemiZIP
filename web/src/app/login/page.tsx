@@ -11,20 +11,20 @@ import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!email || !password) {
-      setError("이메일과 비밀번호를 입력해주세요.");
+    if (!username || !password) {
+      setError("아이디와 비밀번호를 입력해주세요.");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      const response = await authApi.login({ email, password });
+      const response = await authApi.login({ username, password });
       setAuth(response);
       router.push("/");
     } catch (e: unknown) {
@@ -66,13 +66,13 @@ export default function LoginPage() {
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">이메일</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">아이디</label>
             <input
-              type="email"
+              type="text"
               className="w-full rounded-lg bg-white px-3 py-2 text-sm text-gray-900 border border-gray-200 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
-              placeholder="email@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="아이디 입력"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
             />
           </div>
 

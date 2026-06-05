@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor //테스트 환경에서 객체 쉽게 생성하기 위해 추가
 public class SignUpRequestDto {
 
-    private String email;
+    private String username;
     private String password;
 
 }

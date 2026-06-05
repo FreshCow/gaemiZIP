@@ -3,6 +3,7 @@ package sw.gaemiZIP.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -36,9 +37,11 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable) // - JWT를 사용하므로 CSRF 방어 비활성화
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // - 세션을 사용하지 않음 (무상태성 유지)
                 .authorizeHttpRequests(auth -> auth
-                        // 아래 주소들은 로그인 없이도 누구나 접근 가능하도록 허용
+                        // 탈퇴·비밀번호 확인은 반드시 인증 필요 (permitAll인 /api/auth/** 보다 먼저 선언)
+                        .requestMatchers(HttpMethod.DELETE, "/api/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/verify-password").authenticated()
                         .requestMatchers("/api/auth/**", "/ws/**", "/api/news/**", "/api/ai/**").permitAll()
-                        .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/google").permitAll()
+                        .requestMatchers("/api/boards/**", "/api/comments/**").permitAll()
                         .requestMatchers("/api/stocks/search", "/api/stocks/*/price").permitAll()
                         // 그 외의 모든 요청은 토큰이 있어야만(인증되어야만) 접근 가능
                         .anyRequest().authenticated()

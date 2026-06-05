@@ -36,7 +36,7 @@ export default function BoardDetailPage() {
     setSubmitting(true);
     try {
       const created = await boardApi.createComment(id, {
-        author: nickname ?? "익명",
+        author: nickname ?? "익명의 개미",
         content: commentText,
         parentCommentId: null,
       });
@@ -52,7 +52,7 @@ export default function BoardDetailPage() {
     setSubmitting(true);
     try {
       const created = await boardApi.createComment(id, {
-        author: nickname ?? "익명",
+        author: nickname ?? "익명의 개미",
         content: replyText,
         parentCommentId,
       });
