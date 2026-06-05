@@ -26,11 +26,8 @@ public class AuthController {
 
         try{
             Long memberId = authService.signUp(signUpRequestDto);
-
-            //성공 시 201 상태 코드 반환
             return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
-        }catch (IllegalArgumentException e){
-            //실패 시 400 상태 코드 반환
+        }catch (IllegalStateException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
 
@@ -39,13 +36,9 @@ public class AuthController {
     @PostMapping("/login") // POST /api/auth/login 으로 요청이 오면 실행
     public ResponseEntity<?> login(@RequestBody LoginReqeustDto reqeustDto) {
         try {
-            //서비스 계층에서 검증 및 토큰 발급
             LoginResponseDto responseDto = authService.login(reqeustDto);
-
-            //성공 시 200 상태 반환
             return ResponseEntity.ok(responseDto);
-        }catch (IllegalArgumentException e){
-            //비번 틀림, 아이디 없음 등의 에러 발생 시 401 에러 반환
+        }catch (IllegalStateException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }

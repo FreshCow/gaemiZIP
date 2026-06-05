@@ -28,12 +28,12 @@ public class JwtUtil {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
     }
 
-    public  String generateToken(String email, String role){
+    public  String generateToken(String subject, String role){
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationTime);
 
         return Jwts.builder()
-                .setSubject(email) // 토큰 주인 설정
+                .setSubject(subject)
                 .claim("role", role) // 추가 정보를 키-밸류 형태로 저장
                 .setIssuedAt(now)// 토큰 발행 시간
                 .setExpiration(expiryDate) //토큰 만료 시간
@@ -41,8 +41,7 @@ public class JwtUtil {
                 .compact();
     }
 
-    //토큰에서 이메일 추출
-    public String getEmailFromToken(String token){
+    public String getSubjectFromToken(String token){
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()

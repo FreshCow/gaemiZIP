@@ -27,19 +27,17 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil; // 토큰 발급을 위해 추가 주입
 
-    @Transactional // 하나의 트랜잭션으로 묶음 실패시 롤백
+    @Transactional
     public Long signUp(SignUpRequestDto signUpRequestDto) {
 
-        //이메일 중복 체크
-        if(memberAntRepository.findByEmail(signUpRequestDto.getEmail()).isPresent()){
-            throw new IllegalStateException("이미 존재하는 이메일입니다.");
+        if(memberAntRepository.findByUsername(signUpRequestDto.getUsername()).isPresent()){
+            throw new IllegalStateException("이미 존재하는 아이디입니다.");
         }
 
-        //비밀번호 단반향 암호화
         String encodedPassword = passwordEncoder.encode(signUpRequestDto.getPassword());
 
         MemberAnt memberAnt = MemberAnt.builder()
-                .email(signUpRequestDto.getEmail())
+                .username(signUpRequestDto.getUsername())
                 .password(encodedPassword)
                 .role(Role.USER)
                 .provider("LOCAL")
@@ -48,24 +46,18 @@ public class AuthService {
         return memberAntRepository.save(memberAnt).getId();
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)// 조회만 함
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public LoginResponseDto login(LoginReqeustDto reqeustDto) {
 
-        //이메일 검증
-        MemberAnt member = memberAntRepository.findByEmail(reqeustDto.getEmail())
-                .orElseThrow(() -> new IllegalStateException("가입되지 않은 이메일입니다."));
+        MemberAnt member = memberAntRepository.findByUsername(reqeustDto.getUsername())
+                .orElseThrow(() -> new IllegalStateException("가입되지 않은 아이디입니다."));
 
-
-        //비밀번호 검증
-        // passwordEncoder.matches(입력된 평문 비번, DB에 저장된 암호화 비번)
         if (!passwordEncoder.matches(reqeustDto.getPassword(), member.getPassword())) {
             throw new IllegalStateException("비밀번호가 일치하지 않습니다.");
         }
 
-        //인증 성공 시 JWT 토큰 생성
-        String token = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());
+        String token = jwtUtil.generateToken(member.getUsername(), member.getRole().getKey());
 
-        //토큰과 닉네임 반환
         return new LoginResponseDto(token, member.getNickname(), member.getBalance());
     }
 
