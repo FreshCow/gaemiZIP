@@ -24,9 +24,10 @@ public class ChartController {
             @RequestParam(defaultValue = "D") String interval
     ) {
         List<CandleResponse> candles = switch (interval) {
-            case "D"  -> chartService.getDailyChart(code);
-            case "W"  -> chartService.getWeeklyChart(code);
-            default   -> chartService.getMinuteChart(code, interval);  // "1","3","5",...
+            case "D"                          -> chartService.getDailyChart(code);
+            case "W"                          -> chartService.getWeeklyChart(code);
+            case "T1","T3","T5","T10","T30"   -> chartService.getTickChart(code, interval.substring(1));
+            default                           -> chartService.getMinuteChart(code, interval);  // "1","3","5",...
         };
         return ResponseEntity.ok(candles);
     }
