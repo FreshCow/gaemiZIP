@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Sparkles, TrendingUp } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAppStore } from "@/store/useAppStore";
 import { fetchAiTheme, fetchLatestNews } from "@/services/newsApi";
 import { fetchStockPrice } from "@/services/stockApi";
 import type { StockPriceItem } from "@/types/stock";
@@ -27,8 +25,6 @@ interface LiveKeywordGroup {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function StocksPage() {
-  const stocks = useAppStore((s) => s.stocks);
-
   const [liveTheme, setLiveTheme] = useState<LiveKeywordGroup[]>([]);
   const [selectedKeyword, setSelectedKeyword] = useState("");
   const [themeLoading, setThemeLoading] = useState(true);
@@ -93,11 +89,8 @@ export default function StocksPage() {
     <div className="h-full overflow-y-auto bg-white dark:bg-neutral-950">
       <div className="mx-auto max-w-7xl space-y-6 p-6">
 
-        {/* ── 메인 그리드 ── */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-          {/* ── 좌측 (col-span-2) ── */}
-          <div className="space-y-6 lg:col-span-2">
+        {/* ── 메인 콘텐츠 ── */}
+        <div className="space-y-6">
 
             {/* A. 오늘의 AI 테마 */}
             <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
@@ -208,62 +201,6 @@ export default function StocksPage() {
                 </div>
               )}
             </section>
-          </div>
-
-          {/* ── 우측 사이드바: 실시간 급등 랭킹 ── */}
-          <aside>
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-              <div className="mb-4 flex items-center gap-2">
-                <TrendingUp size={15} className="text-emerald-500" />
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">실시간 급등 랭킹</h2>
-              </div>
-
-              {stocks.length === 0 ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 rounded-lg bg-gray-100 dark:bg-neutral-800" />
-                  ))}
-                </div>
-              ) : (
-                <ol className="divide-y divide-gray-100 dark:divide-neutral-800">
-                  {stocks.map((stock, idx) => {
-                    const isUp = !stock.rate.startsWith("-");
-                    return (
-                      <li key={`rank-${stock.code}-${idx}`} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                        <span
-                          className={`w-5 shrink-0 text-center text-xs font-bold ${
-                            idx < 3 ? "text-emerald-500" : "text-gray-400 dark:text-neutral-600"
-                          }`}
-                        >
-                          {idx + 1}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                            {stock.name}
-                          </p>
-                          <p className="text-[10px] text-gray-400 dark:text-neutral-500">{stock.code}</p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {Number(stock.price).toLocaleString()}
-                          </p>
-                          <span
-                            className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                              isUp
-                                ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
-                                : "bg-blue-50 text-blue-500 dark:bg-blue-900/20 dark:text-blue-400"
-                            }`}
-                          >
-                            {stock.rate}%
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </div>
-          </aside>
         </div>
       </div>
     </div>
