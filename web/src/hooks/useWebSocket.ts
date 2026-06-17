@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import type { StockItem, StockUpdate, TickData } from "@/types/stock";
+import type { StockItem, StockUpdate, TickData, IndexItem } from "@/types/stock";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://127.0.0.1:8080/ws";
 const RECONNECT_DELAY = 5000;
@@ -17,6 +17,7 @@ export function useWebSocket() {
   const setWsConnected = useAppStore((s) => s.setWsConnected);
   const setLatestTick = useAppStore((s) => s.setLatestTick);
   const updateHoldingPrice = useAppStore((s) => s.updateHoldingPrice);
+  const setIndices = useAppStore((s) => s.setIndices);
 
   const connect = useCallback(() => {
     const ws = new WebSocket(WS_URL);
@@ -55,6 +56,13 @@ export function useWebSocket() {
         } catch (err) {
           console.error("[WS] TICK_UPDATE 파싱 실패:", err, "raw:", data.slice("TICK_UPDATE:".length, 300));
         }
+      } else if (data.startsWith("INDEX_UPDATE:")) {
+        try {
+          const indices: IndexItem[] = JSON.parse(data.slice("INDEX_UPDATE:".length));
+          setIndices(indices);
+        } catch (err) {
+          console.error("[WS] INDEX_UPDATE 파싱 실패:", err, "raw:", data.slice("INDEX_UPDATE:".length, 300));
+        }
       } else {
         console.warn("[WS] 알 수 없는 메시지:", data.slice(0, 100));
       }
@@ -70,7 +78,7 @@ export function useWebSocket() {
       console.error("[WS] 에러:", e);
       ws.close();
     };
-  }, [setStocks, updateStock, setWsConnected, setLatestTick, updateHoldingPrice]);
+  }, [setStocks, updateStock, setWsConnected, setLatestTick, updateHoldingPrice, setIndices]);
 
   useEffect(() => {
     connect();

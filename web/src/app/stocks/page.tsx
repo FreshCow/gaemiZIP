@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Sparkles, TrendingUp } from "lucide-react";
+import { Loader2, Sparkles, TrendingUp, BarChart3 } from "lucide-react";
 import { fetchAiTheme, fetchLatestNews } from "@/services/newsApi";
 import { fetchStockPrice } from "@/services/stockApi";
+import { useAppStore } from "@/store/useAppStore";
 import type { StockPriceItem } from "@/types/stock";
 import type { NewsItem } from "@/types/news";
 
@@ -22,6 +23,11 @@ interface LiveKeywordGroup {
   stocks: LiveStock[];
 }
 
+const INDEX_TABS = [
+  { code: "001", label: "KOSPI" },
+  { code: "101", label: "KOSDAQ" },
+] as const;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function StocksPage() {
@@ -29,6 +35,8 @@ export default function StocksPage() {
   const [selectedKeyword, setSelectedKeyword] = useState("");
   const [themeLoading, setThemeLoading] = useState(true);
   const [news, setNews] = useState<NewsItem[]>([]);
+  const indices = useAppStore((s) => s.indices);
+  const [activeIndexCode, setActiveIndexCode] = useState<string>(INDEX_TABS[0].code);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,8 +100,11 @@ export default function StocksPage() {
         {/* ── 메인 콘텐츠 ── */}
         <div className="space-y-6">
 
+          {/* A + 지수: 좌우 분할 */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
             {/* A. 오늘의 AI 테마 */}
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+            <section className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-2 dark:border-neutral-800 dark:bg-neutral-900">
               <div className="mb-4 flex items-center gap-2">
                 <Sparkles size={15} className="text-emerald-500" />
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">오늘의 AI 테마</h2>
@@ -166,41 +177,106 @@ export default function StocksPage() {
               )}
             </section>
 
-            {/* B. 증권 뉴스 */}
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+            {/* 코스피 / 코스닥 지수 */}
+            <section className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-1 dark:border-neutral-800 dark:bg-neutral-900">
               <div className="mb-4 flex items-center gap-2">
-                <TrendingUp size={15} className="text-blue-500" />
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">증권 뉴스</h2>
+                <BarChart3 size={15} className="text-indigo-500" />
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">코스피 · 코스닥</h2>
               </div>
 
-              {news.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-8">
-                  <Loader2 size={24} className="animate-spin text-blue-500" />
-                  <p className="text-xs text-gray-400 dark:text-neutral-500">뉴스를 불러오는 중...</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100 dark:divide-neutral-800">
-                  {news.map((item) => (
-                    <div key={item.id} className="py-4 first:pt-0 last:pb-0">
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-semibold leading-snug text-gray-900 hover:text-emerald-600 dark:text-white dark:hover:text-emerald-400 transition-colors"
-                      >
-                        {item.title}
-                      </a>
-                      <p className="mt-1 text-xs text-gray-400 dark:text-neutral-500">{item.publishDate}</p>
-                      {item.content && (
-                        <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-neutral-400 line-clamp-2">
-                          {item.content}
-                        </p>
-                      )}
+              {/* 탭 */}
+              <div className="mb-5 flex gap-2">
+                {INDEX_TABS.map((tab) => (
+                  <button
+                    key={tab.code}
+                    onClick={() => setActiveIndexCode(tab.code)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      activeIndexCode === tab.code
+                        ? "bg-indigo-500 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 선택된 지수 표시 */}
+              {(() => {
+                const activeIndex = indices.find((idx) => idx.code === activeIndexCode);
+                const activeLabel = INDEX_TABS.find((tab) => tab.code === activeIndexCode)?.label ?? "";
+
+                if (!activeIndex) {
+                  return (
+                    <div className="flex flex-col items-center gap-3 py-8">
+                      <Loader2 size={24} className="animate-spin text-indigo-500" />
+                      <p className="text-xs text-gray-400 dark:text-neutral-500">지수 정보를 불러오는 중...</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                }
+
+                const isUp = !activeIndex.rate.startsWith("-");
+                return (
+                  <div className="relative flex min-h-[200px] flex-col rounded-xl border border-gray-200 bg-gray-50 px-4 pt-3 pb-10 dark:border-neutral-700 dark:bg-neutral-800">
+                    <p className="text-xs font-medium leading-none text-gray-400 dark:text-neutral-500">{activeLabel}</p>
+                    <p
+                      className={`my-auto text-center text-6xl font-bold ${
+                        isUp ? "text-red-500 dark:text-red-400" : "text-blue-500 dark:text-blue-400"
+                      }`}
+                    >
+                      {Number(activeIndex.price).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                    <span
+                      className={`absolute bottom-4 right-4 text-1xs font-semibold ${
+                        isUp ? "text-green-500 dark:text-green-400" : "text-blue-500 dark:text-blue-400"
+                      }`}
+                    >
+                      {activeIndex.rate}%
+                    </span>
+                  </div>
+                );
+              })()}
             </section>
+          </div>
+
+          {/* B. 증권 뉴스 */}
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="mb-4 flex items-center gap-2">
+              <TrendingUp size={15} className="text-blue-500" />
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">증권 뉴스</h2>
+            </div>
+
+            {news.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <Loader2 size={24} className="animate-spin text-blue-500" />
+                <p className="text-xs text-gray-400 dark:text-neutral-500">뉴스를 불러오는 중...</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+                {news.map((item) => (
+                  <div key={item.id} className="py-4 first:pt-0 last:pb-0">
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-semibold leading-snug text-gray-900 hover:text-emerald-600 dark:text-white dark:hover:text-emerald-400 transition-colors"
+                    >
+                      {item.title}
+                    </a>
+                    <p className="mt-1 text-xs text-gray-400 dark:text-neutral-500">{item.publishDate}</p>
+                    {item.content && (
+                      <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-neutral-400 line-clamp-2">
+                        {item.content}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
