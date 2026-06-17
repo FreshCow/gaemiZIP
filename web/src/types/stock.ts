@@ -107,6 +107,14 @@ export interface StockUpdate {
   volume?: number;
 }
 
+// INDEX_UPDATE 수신용 — 코스피("001")/코스닥("101") 지수
+export interface IndexItem {
+  code: string;
+  name: string;
+  price: string;
+  rate: string; // 부호 포함, % 제외 (예: "+1.58")
+}
+
 // GET /api/trades/holdings 서버 응답
 export interface HoldingData {
   stockCode: string;

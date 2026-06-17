@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { StockItem, HoldingItem, TickData, StockUpdate } from "@/types/stock";
+import type { StockItem, HoldingItem, TickData, StockUpdate, IndexItem } from "@/types/stock";
 import type { TradeHistory } from "@/types/trade";
 import type { BoardPost } from "@/types/board";
 
@@ -12,8 +12,10 @@ interface AppState {
   isAutoTrading: boolean;
   wsConnected: boolean;
   latestTick: TickData | null;
+  indices: IndexItem[];
 
   setStocks: (stocks: StockItem[]) => void;
+  setIndices: (indices: IndexItem[]) => void;
   updateStock: (update: StockUpdate) => void;
   setHoldings: (holdings: HoldingItem[]) => void;
   updateHoldingPrice: (code: string, currentPrice: number) => void;
@@ -57,8 +59,10 @@ export const useAppStore = create<AppState>((set) => ({
   isAutoTrading: false,
   wsConnected: false,
   latestTick: null,
+  indices: [],
 
   setStocks: (stocks) => set({ stocks }),
+  setIndices: (indices) => set({ indices }),
   updateStock: (update) =>
     set((s) => ({
       stocks: s.stocks.map((item) =>
