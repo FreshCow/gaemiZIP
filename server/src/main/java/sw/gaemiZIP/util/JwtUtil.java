@@ -1,6 +1,5 @@
 package sw.gaemiZIP.util;
 
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -12,7 +11,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Date;
 
-@Component // 스프링 빈으로 ㄷㅇ록하여 어디서든 주입받아 사용 가능하게 함
+@Component // 스프링 빈으로 등록하여 어디서든 주입받아 사용 가능하게 함
 public class JwtUtil {
 
     @Value("${jwt.secret}") //application.yml에 설정한 jwt.secret 값을 가져옴
@@ -41,6 +40,7 @@ public class JwtUtil {
                 .compact();
     }
 
+
     public String getSubjectFromToken(String token){
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -48,6 +48,15 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
         return claims.getSubject();
+    }
+
+    public String getRoleFromToken(String token){
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("role", String.class);
     }
 
     //토큰 유효성 검증

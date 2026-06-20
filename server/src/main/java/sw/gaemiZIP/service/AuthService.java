@@ -13,6 +13,7 @@ import sw.gaemiZIP.dto.auth.LoginReqeustDto;
 import sw.gaemiZIP.dto.auth.LoginResponseDto;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
 import sw.gaemiZIP.entity.MemberAnt;
+import sw.gaemiZIP.entity.MemberStatus;
 import sw.gaemiZIP.entity.Role;
 import sw.gaemiZIP.repository.HoldingRepository;
 import sw.gaemiZIP.repository.MemberAntRepository;
@@ -58,6 +59,10 @@ public class AuthService {
 
         if (!passwordEncoder.matches(reqeustDto.getPassword(), member.getPassword())) {
             throw new IllegalStateException("비밀번호가 일치하지 않습니다.");
+        }
+
+        if(member.getStatus() == MemberStatus.SUSPENDED){
+            throw new  IllegalStateException("정지된 계정입니다.");
         }
 
         String token = jwtUtil.generateToken(member.getUsername(), member.getRole().getKey());
@@ -108,12 +113,16 @@ public class AuthService {
                     .email(email)
                     .password("")
                     .nickname(name + " 개미")
-                    .balance(100000000L) // 🟢 신규 가입 시 초기 자산 1억 지급
+                    .balance(100000000L)
                     .provider("GOOGLE")
                     .role(Role.USER)
                     .build();
             return memberAntRepository.save(newMember);
         });
+
+        if(member.getStatus() == MemberStatus.SUSPENDED){
+            throw new  IllegalStateException("정지된 계정입니다.");
+        }
 
         // 5. 우리 서비스 전용 JWT 발급
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());

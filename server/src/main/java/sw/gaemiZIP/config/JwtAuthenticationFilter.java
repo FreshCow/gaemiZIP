@@ -6,13 +6,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 import sw.gaemiZIP.util.JwtUtil;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 
 @RequiredArgsConstructor //final이 붙은 생성자에 자동 주입
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -36,12 +37,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
 
         if(token != null && jwtUtil.validateToken(token)){
-
             String subject = jwtUtil.getSubjectFromToken(token);
+            String role = jwtUtil.getRoleFromToken(token);
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(subject, null, Collections.emptyList());
-
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(subject, null, List.of(new SimpleGrantedAuthority(role)));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
 
