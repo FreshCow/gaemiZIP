@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/ws/**", "/api/news/**", "/api/ai/**").permitAll()
                         .requestMatchers("/api/boards/**", "/api/comments/**").permitAll()
                         .requestMatchers("/api/stocks/search", "/api/stocks/*/price").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         // 그 외의 모든 요청은 토큰이 있어야만(인증되어야만) 접근 가능
                         .anyRequest().authenticated()
                 )

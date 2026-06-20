@@ -30,6 +30,9 @@ public class MemberAnt extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private Role role; //user, admin
 
+    @Enumerated(EnumType.STRING)
+    private MemberStatus status;
+
     private String provider; //Local, kakao, google
 
     private String providerId;
@@ -46,6 +49,10 @@ public class MemberAnt extends BaseTimeEntity {
         // 2. 예수금이 비어있으면 기본금 1억 원 강제 부여
         if (this.balance == null) {
             this.balance = 100000000L;
+        }
+
+        if(this.status == null) {
+            this.status = MemberStatus.ACTIVE;
         }
     }
 
@@ -64,4 +71,6 @@ public class MemberAnt extends BaseTimeEntity {
     public void updateBalance(long delta) {
         this.balance += delta;
     }
+    public void suspend() {this.status = MemberStatus.SUSPENDED;}
+    public void activate() {this.status = MemberStatus.ACTIVE;}
 }

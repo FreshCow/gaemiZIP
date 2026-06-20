@@ -36,4 +36,7 @@ public class Comment {
 
     @Column(nullable = false)
     private int dislikeCount = 0;
+
+    @Column(nullable = false)
+    private boolean isBlinded = false;
 }

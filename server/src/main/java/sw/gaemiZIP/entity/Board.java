@@ -39,4 +39,7 @@ public class Board {
 
     @Column(nullable = false)
     private int likeCount = 0;
+
+    @Column(nullable = false)
+    private boolean isBlinded = false;
 }
