@@ -42,4 +42,7 @@ public class Board {
 
     @Column(nullable = false)
     private boolean isBlinded = false;
+
+    public void blind() {this.isBlinded = true;}
+    public void unblind() {this.isBlinded = false;}
 }
