@@ -8,6 +8,8 @@ import sw.gaemiZIP.entity.Comment;
 import sw.gaemiZIP.repository.BoardRepository;
 import sw.gaemiZIP.repository.CommentRepository;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AdminContentService {
@@ -39,6 +41,18 @@ public class AdminContentService {
         }else{
             board.unblind();
         }
+    }
+
+    //관리자 전용 - 블라인드 처리된 게시글 가져오기
+    @Transactional(readOnly = true)
+    public List<Board> getAllBoards() {
+        return boardRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    //관리자 전용 - 블라인드 처리된 댓글 가져오기
+    @Transactional(readOnly = true)
+    public List<Comment> getComments(Long boardId) {
+        return commentRepository.findAllByBoardIdOrderByCreatedAtAsc(boardId);
     }
 
 

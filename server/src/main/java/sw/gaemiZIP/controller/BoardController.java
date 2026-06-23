@@ -20,7 +20,7 @@ public class BoardController {
     // 게시글 전체 목록 조회 (최신순)
     @GetMapping
     public ResponseEntity<List<Board>> getAllBoards() {
-        return ResponseEntity.ok(boardRepository.findAllByOrderByCreatedAtDesc());
+        return ResponseEntity.ok(boardRepository.findAllByIsBlindedFalseOrderByCreatedAtDesc());
     }
 
     // 게시글 단건 조회

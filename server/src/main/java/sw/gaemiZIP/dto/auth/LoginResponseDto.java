@@ -10,4 +10,5 @@ public class LoginResponseDto {
     private String nickname;
     private Long balance;
     private String provider;
+    private String role; // ROLE_USER / ROLE_ADMIN — JWT의 role claim과 동일한 값
 }

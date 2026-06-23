@@ -18,7 +18,7 @@ public class CommentController {
     // 댓글 목록 조회 (작성 시간 오름차순)
     @GetMapping("/api/boards/{boardId}/comments")
     public ResponseEntity<List<Comment>> getComments(@PathVariable Long boardId) {
-        List<Comment> comments = commentRepository.findAllByBoardIdOrderByCreatedAtAsc(boardId);
+        List<Comment> comments = commentRepository.findAllByBoardIdAndIsBlindedFalseOrderByCreatedAtAsc(boardId);
         return ResponseEntity.ok(comments);
     }
 

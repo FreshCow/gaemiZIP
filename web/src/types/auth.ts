@@ -13,4 +13,5 @@ export interface AuthResponse {
   nickname: string;
   balance: number;
   provider: string;
+  role: string; // "ROLE_USER" | "ROLE_ADMIN"
 }
