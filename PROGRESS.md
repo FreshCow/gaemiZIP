@@ -1,6 +1,6 @@
 # PROGRESS
 
-## 관리자 모드 (1~8단계 진행 중)
+## 관리자 모드 (핵심 백엔드/프론트엔드 구현 완료, 일부 검증·정리 남음)
 
 ### 백엔드 (`server/`)
 - 권한 인프라: `entity/MemberStatus`(ACTIVE/SUSPENDED) 추가, 기존 `Role`(USER/ADMIN)과 별도 축으로 관리
@@ -49,9 +49,24 @@
 - `components/layout/Sidebar.tsx`: `isAdmin`일 때만 상단 네비게이션에 "관리자" 탭 노출
 
 ### 남은 TODO
-- `ddl-auto: update`는 기존 row가 있는 테이블에 `NOT NULL` 컬럼 추가를 silent하게 실패시킬 수 있음 — `MemberStatus`/`board.is_blinded`/`comment.is_blinded` 추가 시 전부 겪었음(특히 `comment`는 이번 세션에 실제 운영 오류로 터짐). 앞으로 엔티티에 `NOT NULL` 컬럼 추가할 때마다 DB에서 컬럼 존재 여부를 직접 확인하는 습관 필요
-- `app/admin/content`는 게시글당 댓글을 펼칠 때마다 개별 요청(N+1 패턴) — 트래픽이 커지면 전체 댓글 조회 API 신설 고려
-- 실제 DB(PostgreSQL) 기준 로그인/회원목록/블라인드/잔고조정/통계/트레이딩 화면 전체 실행 검증 완료
+
+**우선순위 1 — 실행 검증 마무리**
+- 이번 세션에 보고된 버그(콘텐츠 블라인드 미반영, 매수 NPE, 댓글 작성 SQL 오류, 통계 LocalDate 캐스팅)는 전부 수정 후 실제 DB로 재검증 완료
+- 단, **`app/admin/members` 화면(회원 정지/활성 토글, 잔고 수동 조정 모달)은 이번 버그 수정 라운드에서 직접 재검증하지 않음** — 다음 작업 시작 시 이것부터 확인할 것
+  - 체크리스트: 정지 처리한 계정으로 로그인 시도 시 `AuthService.login`/`googleLogin`이 실제로 차단하는지, `AdminTradeService.adjustBalance`의 음수 잔고 방지 검증이 실제로 막아주는지, 잔고 조정 후 회원 목록에 즉시 반영되는지
+
+**우선순위 2 — 정리할 기술 부채**
+- `repository/CommentRepository.java`의 `findAllByBoardIdAndIsBlindedFalseOrderByCreatedAtAsc` 파라미터명이 `memberId`로 되어 있음(실제로는 boardId를 받는 자리) — 파생 쿼리라 동작에는 문제 없지만 가독성 문제, `boardId`로 이름만 정정 권장
+- `app/admin/content`는 게시글 행을 펼칠 때마다 댓글을 개별 요청(N+1 패턴) — 트래픽이 커지면 댓글 수만 미리 포함하거나 일괄 조회 API 검토
+- `ddl-auto: update`가 기존 row 있는 테이블에 `NOT NULL` 컬럼 추가를 silent하게 실패시키는 패턴을 이번 세션에 `board.is_blinded`/`comment.is_blinded` 두 번 겪음(`comment`는 실제 운영 오류로 터짐) — 앞으로 엔티티에 컬럼 추가할 때마다 DB에 실제 반영됐는지 직접 확인하는 습관 필요. 같은 사고가 반복되면 Flyway/Liquibase 같은 마이그레이션 도구 도입도 고려
+
+**우선순위 3 — admin mode 범위 밖이라 손 안 댔지만 코드 읽다가 발견한 이슈**
+- `controller/BoardController.java`의 `deleteBoard`가 `password` 쿼리 파라미터를 받지만, 실제로 `board.getPassword()`와 비교 검증하는 코드가 없음(주석은 "비밀번호 검증 후 삭제"라고 되어 있는데 무조건 삭제됨) — 익명 게시글 삭제 권한 검증이 비어있는 보안 구멍
+- `BoardController`가 `Board` 엔티티를 DTO 없이 그대로 `GET /api/boards`/`GET /api/boards/{id}` 응답으로 반환하고 있어서, `password` 필드(평문/해시 여부 별도 확인 필요)가 모든 사용자에게 그대로 노출됨
+- `AdminTradeService.deleteTrade`/`adjustBalance`에 "누가 언제 무엇을 변경했는지" 감사 로그가 없음 — 운영 단계 진입 전에 필요 여부 결정 필요
+
+**우선순위 4 — 다음 세션 시작 전에 확인할 것**
+- 이전 헤더에 있던 "1~8단계"라는 표현은 저장소 어디에도 구체적인 단계 정의가 없는 텍스트였음(누가/언제 적었는지 추적 안 됨) — 다음에 작업 이어받을 때 "8단계가 정확히 뭘 가리키는지"를 사용자에게 먼저 확인하고 시작할 것. 현재까지 구현된 범위는 권한 인프라·회원 정지·콘텐츠 블라인드(+공개 필터링)·잔고 증감/거래 보정·통계 API·관리자 프론트엔드 4화면(회원/콘텐츠/거래/통계)으로, 사실상 "관리자 모드"의 핵심 기능은 다 구현된 상태. 추가 단계가 있다면 위 우선순위 1~3 정리 후 새로 논의 필요
 
 ## 코스피·코스닥 실시간 지수 (완료)
 
