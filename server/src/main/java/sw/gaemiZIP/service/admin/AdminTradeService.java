@@ -8,12 +8,19 @@ import sw.gaemiZIP.entity.TradeHistory;
 import sw.gaemiZIP.repository.MemberAntRepository;
 import sw.gaemiZIP.repository.TradeHistoryRepository;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AdminTradeService {
 
     private final MemberAntRepository memberAntRepository;
     private final TradeHistoryRepository tradeHistoryRepository;
+
+    @Transactional(readOnly = true)
+    public List<TradeHistory> getAllTrades() {
+        return tradeHistoryRepository.findAllByOrderByTradeTimeDesc();
+    }
 
     @Transactional
     public void adjustBalance(long id, long delta) {

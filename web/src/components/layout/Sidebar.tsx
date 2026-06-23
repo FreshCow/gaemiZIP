@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, TrendingUp, MessageSquare, Activity, Wifi, WifiOff, Sun, Moon, LogIn, LogOut, User } from "lucide-react";
+import { LayoutDashboard, TrendingUp, MessageSquare, Activity, Wifi, WifiOff, Sun, Moon, LogIn, LogOut, User, ShieldCheck } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -99,7 +99,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const wsConnected = useAppStore((s) => s.wsConnected);
-  const { isLoggedIn, nickname, provider, clearAuth } = useAuthStore();
+  const { isLoggedIn, nickname, provider, isAdmin, clearAuth } = useAuthStore();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
@@ -141,8 +141,8 @@ export function Sidebar() {
 
         {/* 탭 */}
         <nav className="flex items-center gap-1">
-          {navItems.map(({ href, icon: Icon, label }) => {
-            const active = pathname === href;
+          {[...navItems, ...(isAdmin ? [{ href: "/admin/members", icon: ShieldCheck, label: "관리자" }] : [])].map(({ href, icon: Icon, label }) => {
+            const active = href === "/admin/members" ? pathname.startsWith("/admin") : pathname === href;
             return (
               <Link key={href} href={href} className="relative">
                 {active && (

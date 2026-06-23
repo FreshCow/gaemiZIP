@@ -7,6 +7,8 @@ export interface BoardPost {
   likeCount: number;
   stockCode?: string;
   stockName?: string;
+  // 서버 boolean 게터 isBlinded() → Jackson이 "blinded"로 직렬화
+  blinded: boolean;
 }
 
 export interface BoardCreateDto {
@@ -24,6 +26,7 @@ export interface Comment {
   createdAt: string;
   likeCount: number;
   dislikeCount: number;
+  blinded: boolean;
 }
 
 export interface CommentCreateDto {

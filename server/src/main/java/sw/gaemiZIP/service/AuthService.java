@@ -67,7 +67,7 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(member.getUsername(), member.getRole().getKey());
 
-        return new LoginResponseDto(token, member.getNickname(), member.getBalance(), member.getProvider());
+        return new LoginResponseDto(token, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey());
     }
 
     public void verifyPassword(String loginId, String password) {
@@ -127,6 +127,6 @@ public class AuthService {
         // 5. 우리 서비스 전용 JWT 발급
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());
 
-        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider());
+        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey());
     }
 }

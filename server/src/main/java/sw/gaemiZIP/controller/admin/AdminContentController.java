@@ -3,8 +3,11 @@ package sw.gaemiZIP.controller.admin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import sw.gaemiZIP.entity.Board;
+import sw.gaemiZIP.entity.Comment;
 import sw.gaemiZIP.service.admin.AdminContentService;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -39,4 +42,13 @@ public class AdminContentController {
         }
     }
 
+    @GetMapping("/boards")
+    public ResponseEntity<List<Board>> getAllBoards() {
+        return ResponseEntity.ok(adminContentService.getAllBoards());
+    }
+
+    @GetMapping("/boards/{boardId}/comments")
+    public ResponseEntity<List<Comment>> getComments(@PathVariable Long boardId) {
+        return ResponseEntity.ok(adminContentService.getComments(boardId));
+    }
 }
