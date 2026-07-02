@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sw.gaemiZIP.dto.admin.BalanceAdjustRequest;
-import sw.gaemiZIP.entity.TradeHistory;
+import sw.gaemiZIP.entity.stock.TradeHistory;
 import sw.gaemiZIP.service.admin.AdminTradeService;
 
 import java.util.List;

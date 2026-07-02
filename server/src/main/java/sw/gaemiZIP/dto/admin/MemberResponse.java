@@ -1,9 +1,9 @@
 package sw.gaemiZIP.dto.admin;
 
 import lombok.Getter;
-import sw.gaemiZIP.entity.MemberAnt;
-import sw.gaemiZIP.entity.MemberStatus;
-import sw.gaemiZIP.entity.Role;
+import sw.gaemiZIP.entity.member.MemberAnt;
+import sw.gaemiZIP.entity.member.MemberStatus;
+import sw.gaemiZIP.entity.member.Role;
 
 import java.time.LocalDateTime;
 

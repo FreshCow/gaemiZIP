@@ -4,9 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sw.gaemiZIP.dto.admin.MemberResponse;
-import sw.gaemiZIP.entity.MemberAnt;
-import sw.gaemiZIP.entity.MemberStatus;
-import sw.gaemiZIP.repository.MemberAntRepository;
+import sw.gaemiZIP.entity.member.MemberAnt;
+import sw.gaemiZIP.entity.member.MemberStatus;
+import sw.gaemiZIP.repository.member.MemberAntRepository;
 
 import java.util.List;
 

@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import sw.gaemiZIP.dto.admin.SignupTrendResponse;
 import sw.gaemiZIP.dto.admin.TradeVolumeResponse;
-import sw.gaemiZIP.entity.TradeHistory;
+import sw.gaemiZIP.entity.stock.TradeHistory;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static sw.gaemiZIP.entity.QMemberAnt.memberAnt;
-import static sw.gaemiZIP.entity.QTradeHistory.tradeHistory;
+import static sw.gaemiZIP.entity.member.QMemberAnt.memberAnt;
+import static sw.gaemiZIP.entity.stock.QTradeHistory.tradeHistory;
 
 @Repository
 @RequiredArgsConstructor

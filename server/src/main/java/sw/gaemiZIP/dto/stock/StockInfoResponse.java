@@ -2,8 +2,8 @@ package sw.gaemiZIP.dto.stock;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import sw.gaemiZIP.entity.Stock;
-import sw.gaemiZIP.entity.StockInfo;
+import sw.gaemiZIP.entity.stock.Stock;
+import sw.gaemiZIP.entity.stock.StockInfo;
 
 @Getter
 @AllArgsConstructor
