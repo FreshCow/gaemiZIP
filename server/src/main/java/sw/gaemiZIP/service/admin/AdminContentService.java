@@ -3,10 +3,10 @@ package sw.gaemiZIP.service.admin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import sw.gaemiZIP.entity.Board;
-import sw.gaemiZIP.entity.Comment;
-import sw.gaemiZIP.repository.BoardRepository;
-import sw.gaemiZIP.repository.CommentRepository;
+import sw.gaemiZIP.entity.board.Board;
+import sw.gaemiZIP.entity.board.Comment;
+import sw.gaemiZIP.repository.board.BoardRepository;
+import sw.gaemiZIP.repository.board.CommentRepository;
 
 import java.util.List;
 

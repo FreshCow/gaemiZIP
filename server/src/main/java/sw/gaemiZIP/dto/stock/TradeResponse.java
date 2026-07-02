@@ -1,7 +1,7 @@
 package sw.gaemiZIP.dto.stock;
 
 import lombok.Getter;
-import sw.gaemiZIP.entity.TradeHistory;
+import sw.gaemiZIP.entity.stock.TradeHistory;
 
 // 웹 클라이언트 TradeHistory 인터페이스와 필드명을 맞춘 응답 DTO
 // entity의 tradeTime → tradeAt으로 변환

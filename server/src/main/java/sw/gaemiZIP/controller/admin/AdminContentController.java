@@ -3,8 +3,8 @@ package sw.gaemiZIP.controller.admin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import sw.gaemiZIP.entity.Board;
-import sw.gaemiZIP.entity.Comment;
+import sw.gaemiZIP.entity.board.Board;
+import sw.gaemiZIP.entity.board.Comment;
 import sw.gaemiZIP.service.admin.AdminContentService;
 
 import java.util.List;

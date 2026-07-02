@@ -1,7 +1,7 @@
 package sw.gaemiZIP.dto.stock;
 
 import lombok.Getter;
-import sw.gaemiZIP.entity.Holding;
+import sw.gaemiZIP.entity.stock.Holding;
 
 @Getter
 public class HoldingResponse {

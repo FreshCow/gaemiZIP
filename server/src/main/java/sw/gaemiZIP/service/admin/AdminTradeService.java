@@ -3,10 +3,10 @@ package sw.gaemiZIP.service.admin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import sw.gaemiZIP.entity.MemberAnt;
-import sw.gaemiZIP.entity.TradeHistory;
-import sw.gaemiZIP.repository.MemberAntRepository;
-import sw.gaemiZIP.repository.TradeHistoryRepository;
+import sw.gaemiZIP.entity.member.MemberAnt;
+import sw.gaemiZIP.entity.stock.TradeHistory;
+import sw.gaemiZIP.repository.member.MemberAntRepository;
+import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 
 import java.util.List;
 
