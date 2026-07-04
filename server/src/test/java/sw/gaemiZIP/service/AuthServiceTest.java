@@ -11,7 +11,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
 import sw.gaemiZIP.entity.MemberAnt;
 import sw.gaemiZIP.entity.Role;
-import sw.gaemiZIP.repository.MemberAntRepository;
+import sw.gaemiZIP.repository.member.MemberAntRepository;
 
 import java.util.Optional;
 
