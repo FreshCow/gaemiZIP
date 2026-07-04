@@ -26,7 +26,7 @@ public class StockController {
     private final StockRepository stockRepository;
     private final StockInfoService stockInfoService;
     private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 종목명·초성 검색 (최대 10건)
     @GetMapping("/search")
@@ -65,7 +65,7 @@ public class StockController {
 
         if (info.isPresent()) {
            StockInfoResponse i = info.get();
-           String price = StockFetchService.parseAbsPrice(i.getCurPric());
+           String price = resolveCurrentPrice(i);
            String rate = normalizeRate(i.getFluRt());
            return ResponseEntity.ok(new StockPriceResponse(i.getCode(), i.getName(), price, rate));
         }
@@ -75,8 +75,25 @@ public class StockController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    private String resolveCurrentPrice(StockInfoResponse i) {
+        if(i.getCurPric() != null && !i.getCurPric().isBlank()) {
+            return StockFetchService.parseAbsPrice(i.getCurPric());
+        }
+        try{
+            long base = Long.parseLong(StockFetchService.parseAbsPrice(i.getBasePric()));
+            long diff = Long.parseLong(i.getPredPre().trim().replace("+",""));
+            return String.valueOf(base+diff);
+        }catch (Exception e){
+            return "0";
+        }
+    }
+
     private String normalizeRate(String rate) {
-        if(rate == null || rate.isBlank() || rate.equals("0")) return "0";
-        return rate.startsWith("-") ? rate : "+" + rate;
+        if( rate == null || rate.isBlank()) return "0";
+        try{
+            if(Double.parseDouble(rate) == 0) return "0";
+        }catch (NumberFormatException e){
+        }
+        return rate.startsWith("+") || rate.startsWith("-") ? rate : "+" + rate;
     }
 }
