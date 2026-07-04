@@ -1,5 +1,6 @@
 package sw.gaemiZIP.service.stock;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -15,14 +16,13 @@ import sw.gaemiZIP.service.kiwoom.KiwoomRealtimeService;
 import sw.gaemiZIP.dto.kiwoom.KiwoomRankingItem;
 import sw.gaemiZIP.dto.kiwoom.KiwoomRankingResponse;
 import sw.gaemiZIP.dto.stock.StockRankingResponse;
-import sw.gaemiZIP.entity.stock.StockRanking;
-import sw.gaemiZIP.repository.stock.StockRankingRepository;
 import sw.gaemiZIP.websocket.StockWebSocketHandler;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 // 키움증권 ka00198 (실시간종목조회순위) REST API 호출
 // DB에 저장하고 웹 클라이언트에 브로드캐스트
@@ -35,7 +35,6 @@ public class StockFetchService {
     private String baseUrl;
 
     private final KiwoomTokenService tokenService;
-    private final StockRankingRepository stockRankingRepository;
     private final StockWebSocketHandler webSocketHandler;
     private final WebClient.Builder webClientBuilder;
     private final KiwoomRealtimeService kiwoomRealtimeService;
@@ -45,22 +44,22 @@ public class StockFetchService {
 
     private static final String RANKING_CACHE_KEY = "stock:ranking:top10";
 
+    //컨트롤로에서도 참조할거기 때문에 public으로 설정
+    public static final  String PRICE_KEY_PREFIX = "stock:price:";
+
     private volatile List<StockRankingResponse> currentRankings = Collections.emptyList();
 
     public List<StockRankingResponse> getCurrentRankings() {
         return currentRankings;
     }
 
+    //Redis기반
     @PostConstruct
     public void initCache() {
-        List<StockRanking> recent = stockRankingRepository.findTop10ByOrderByCreatedAtDesc();
-        if (!recent.isEmpty()) {
-            currentRankings = recent.stream()
-                    .map(e -> new StockRankingResponse(
-                            e.getCode(), e.getName(), e.getPrice(),
-                            e.getChangeRate(), e.getVolume() != null ? e.getVolume() : 0L))
-                    .toList();
-            log.info("DB에서 초기 랭킹 {}개 로드 완료", currentRankings.size());
+        Optional<List<StockRankingResponse>> recent = loadRankingsFromRedis();
+        if (recent.isPresent()) {
+            currentRankings = recent.get();
+            log.info("Redis에서 초기 랭킹 {}개 로드 완료", currentRankings.size());
             try {
                 String payload = "STOCK_UPDATE:" + objectMapper.writeValueAsString(currentRankings);
                 webSocketHandler.broadcast(payload);
@@ -69,6 +68,18 @@ public class StockFetchService {
             }
         }
     }
+
+    private Optional<List<StockRankingResponse>> loadRankingsFromRedis() {
+        try {
+            String cached = redisTemplate.opsForValue().get(RANKING_CACHE_KEY);
+            if(cached == null) return Optional.empty();
+            return Optional.of(objectMapper.readValue(cached, new TypeReference<List<StockRankingResponse>>() {}));
+        }catch (Exception e) {
+            log.warn("Redis 랭킹 역직렬화 실패 : {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
 
     @Scheduled(fixedDelay = 5_000, initialDelay = 5_000)
     @Transactional
@@ -82,8 +93,18 @@ public class StockFetchService {
 
             String jsonRankings = objectMapper.writeValueAsString(rankings);
             redisTemplate.opsForValue().set(RANKING_CACHE_KEY, jsonRankings);
+            rankings.forEach(r -> {
+                try {
+                    redisTemplate.opsForValue().set(
+                            PRICE_KEY_PREFIX + r.getCode(),
+                            objectMapper.writeValueAsString(r),
+                            java.time.Duration.ofMinutes(10)
+                    );
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            });
 
-            persistRankings(rankings);
             currentRankings = rankings;
 
             String payload = "STOCK_UPDATE:" + objectMapper.writeValueAsString(rankings);
@@ -159,7 +180,7 @@ public class StockFetchService {
     }
 
     // 키움 응답은 하락 시 음수 접두사("-78800")로 올 수 있음 → 절댓값
-    private String parseAbsPrice(String val) {
+    public static String parseAbsPrice(String val) {
         if (val == null || val.isBlank()) return "0";
         try {
             return String.valueOf(Math.abs(Long.parseLong(val.trim())));
@@ -179,30 +200,20 @@ public class StockFetchService {
         };
     }
 
-    private void persistRankings(List<StockRankingResponse> rankings) {
-        rankings.forEach(r -> {
-            StockRanking entity = new StockRanking();
-            entity.setCode(r.getCode());
-            entity.setName(r.getName());
-            entity.setPrice(r.getPrice());
-            entity.setChangeRate(r.getRate());
-            entity.setVolume(r.getVolume());
-            stockRankingRepository.save(entity);
-        });
-    }
-
     private void fallbackToRedisCache() {
         try {
-            String cachedData = redisTemplate.opsForValue().get(RANKING_CACHE_KEY);
-            if (cachedData != null) {
-                // JSON 문자열을 다시 리스트 객체로 변환
-                List<StockRankingResponse> cachedRankings = objectMapper.readValue(
-                        cachedData, new TypeReference<List<StockRankingResponse>>() {}
-                );
+            Optional<List<StockRankingResponse>> cached = loadRankingsFromRedis();
+            if (cached.isPresent()) {
+                currentRankings = cached.get();
                 log.info("Redis 폴백 성공: 마지막 랭킹 데이터를 사용합니다.");
+                try{
+                    String payload = "STOCK_UPDATE:" + objectMapper.writeValueAsString(currentRankings);
+                    // 프론트엔드로 브로드캐스트 (웹소켓 전송 등 기존 처리 로직 연결)
+                    webSocketHandler.broadcast(payload);
 
-                // 프론트엔드로 브로드캐스트 (웹소켓 전송 등 기존 처리 로직 연결)
-                // webSocketHandler.broadcast(cachedRankings);
+                }catch (Exception e){
+                    log.warn("풀백 브로드캐스트 실패 : {}", e.getMessage());
+                }
             } else {
                 log.warn("Redis에 저장된 랭킹 캐시 데이터가 없습니다.");
             }
@@ -210,4 +221,6 @@ public class StockFetchService {
             log.error("Redis 폴백 처리 중 에러: {}", e.getMessage());
         }
     }
+
+
 }

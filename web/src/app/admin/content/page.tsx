@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { adminApi } from "@/services/adminApi";
 import type { BoardPost, Comment } from "@/types/board";
@@ -100,9 +100,8 @@ export default function AdminContentPage() {
           </thead>
           <tbody>
             {boards.map((board) => (
-              <>
+              <React.Fragment key={board.id}>
                 <tr
-                  key={board.id}
                   className="cursor-pointer border-b border-gray-100 transition-colors hover:bg-gray-100/60 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40"
                   onClick={() => handleExpand(board.id)}
                 >
@@ -156,7 +155,7 @@ export default function AdminContentPage() {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
             {boards.length === 0 && (
               <tr>

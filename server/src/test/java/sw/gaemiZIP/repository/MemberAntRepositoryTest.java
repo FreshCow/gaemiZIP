@@ -8,9 +8,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import sw.gaemiZIP.entity.MemberAnt;
 import sw.gaemiZIP.entity.Role;
+import sw.gaemiZIP.repository.member.MemberAntRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest //통합테스트 환경 제공
 @ActiveProfiles("local")

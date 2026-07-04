@@ -1,27 +1,32 @@
 package sw.gaemiZIP.controller.stock;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sw.gaemiZIP.dto.stock.StockInfoResponse;
 import sw.gaemiZIP.dto.stock.StockPriceResponse;
+import sw.gaemiZIP.dto.stock.StockRankingResponse;
 import sw.gaemiZIP.entity.stock.Stock;
-import sw.gaemiZIP.entity.stock.StockRanking;
-import sw.gaemiZIP.repository.stock.StockRankingRepository;
 import sw.gaemiZIP.repository.stock.StockRepository;
+import sw.gaemiZIP.service.stock.StockFetchService;
 import sw.gaemiZIP.service.stock.StockInfoService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/stocks")
 @RequiredArgsConstructor
 public class StockController {
 
     private final StockRepository stockRepository;
-    private final StockRankingRepository stockRankingRepository;
     private final StockInfoService stockInfoService;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
     // 종목명·초성 검색 (최대 10건)
     @GetMapping("/search")
@@ -46,15 +51,32 @@ public class StockController {
     @GetMapping("/{code}/price")
     public ResponseEntity<StockPriceResponse> getPrice(@PathVariable String code) {
         // 1. 최근 랭킹 데이터에 현재가가 있으면 반환
-        Optional<StockRanking> ranking = stockRankingRepository.findTopByCodeOrderByCreatedAtDesc(code);
-        if (ranking.isPresent()) {
-            StockRanking r = ranking.get();
-            return ResponseEntity.ok(new StockPriceResponse(r.getCode(), r.getName(), r.getPrice(), r.getChangeRate()));
+        String cached = redisTemplate.opsForValue().get(StockFetchService.PRICE_KEY_PREFIX + code);
+        if(cached != null) {
+            try{
+                StockRankingResponse r = objectMapper.readValue(cached, StockRankingResponse.class);
+                return ResponseEntity.ok(new StockPriceResponse(r.getCode(), r.getName(), r.getPrice(), r.getRate()));
+            }catch (Exception e){
+                log.warn("Reids 가격정보 역직렬화 실패 [{}]: {}", code, e.getMessage());
+            }
         }
 
-        // 2. 랭킹에 없으면 Stock 테이블에서 종목명만 조회 (가격 미제공)
+        Optional<StockInfoResponse> info = stockInfoService.getStockInfo(code);
+
+        if (info.isPresent()) {
+           StockInfoResponse i = info.get();
+           String price = StockFetchService.parseAbsPrice(i.getCurPric());
+           String rate = normalizeRate(i.getFluRt());
+           return ResponseEntity.ok(new StockPriceResponse(i.getCode(), i.getName(), price, rate));
+        }
+
         return stockRepository.findById(code)
-                .map(s -> ResponseEntity.ok(new StockPriceResponse(s.getCode(), s.getName(), "—", "0")))
+                .map(s -> ResponseEntity.ok(new StockPriceResponse(s.getCode(), s.getName(), "-", "0")))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    private String normalizeRate(String rate) {
+        if(rate == null || rate.isBlank() || rate.equals("0")) return "0";
+        return rate.startsWith("-") ? rate : "+" + rate;
     }
 }

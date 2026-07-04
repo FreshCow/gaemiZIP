@@ -38,13 +38,13 @@ export function CandlestickChart({ stockCode }: Props) {
   const chartRef = useRef<any>(null);
   const tickCandleRef = useRef<{ time: number; open: number; high: number; low: number; close: number } | null>(null);
   const lastLoadedCandleRef = useRef<CandlePoint | null>(null);
+  const lastMinuteBoundaryRef = useRef<number>(0); // 틱 라인 분 경계 추적용
 
   const [interval, setIntervalState] = useState<ChartInterval>("D");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
-  const latestTick  = useAppStore((s) => s.latestTick);
-  // REALTIME_UPDATE 로 갱신되는 현재가 — 틱 라인 전용
+  // REALTIME_UPDATE 로 갱신되는 현재가 — 캔들 + 틱 라인 공용
   const livePrice = useAppStore((s) => {
     const found = s.stocks.find((x) => x.code === stockCode);
     return found ? Number(found.price) : 0;
@@ -200,62 +200,72 @@ export function CandlestickChart({ stockCode }: Props) {
       chartRef.current = null;
       tickCandleRef.current = null;
       lastLoadedCandleRef.current = null;
+      lastMinuteBoundaryRef.current = 0;
       chart.remove();
     };
   }, [stockCode, interval, resolvedTheme]);
 
-  // WebSocket 틱 → 1분봉 현재 캔들 실시간 업데이트 + 틱 라인
-  useEffect(() => {
-    if (!latestTick || latestTick.code !== stockCode || interval !== "1") return;
-    if (!seriesRef.current) return;
-
-    const { time, tickTime, price } = latestTick;
-    const prev = tickCandleRef.current;
-
-    // ── 캔들 업데이트 ───────────────────────────────────────────────
-    if (!prev) {
-      const lastCandle = lastLoadedCandleRef.current;
-      if (lastCandle && lastCandle.time === time) {
-        tickCandleRef.current = {
-          time,
-          open: lastCandle.open,
-          high: Math.max(lastCandle.high, price),
-          low: Math.min(lastCandle.low, price),
-          close: price,
-        };
-      } else {
-        tickCandleRef.current = { time, open: price, high: price, low: price, close: price };
-      }
-    } else if (prev.time === time) {
-      tickCandleRef.current = {
-        time,
-        open: prev.open,
-        high: Math.max(prev.high, price),
-        low: Math.min(prev.low, price),
-        close: price,
-      };
-    } else {
-      // 새 분 시작 — 폴링이 곧 정식 캔들 추가, 틱은 선행 표시
-      tickCandleRef.current = { time, open: price, high: price, low: price, close: price };
-    }
-
-    seriesRef.current.update({
-      time: tickCandleRef.current.time as UTCTimestamp,
-      open: tickCandleRef.current.open,
-      high: tickCandleRef.current.high,
-      low: tickCandleRef.current.low,
-      close: tickCandleRef.current.close,
-    });
-  }, [latestTick, stockCode, interval]);
-
-  // REALTIME_UPDATE 도착 즉시 벽시계 시간(Date.now)으로 틱 라인 업데이트
+  // REALTIME_UPDATE 도착 즉시 캔들 + 틱 라인 동시 업데이트
+  // 타임스탬프: KST 시각을 UTC처럼 취급 (ChartService와 동일 규칙)
   useEffect(() => {
     if (!livePrice || livePrice <= 0 || interval !== "1") return;
-    if (!lineSeriesRef.current) return;
-    lineSeriesRef.current.update({
-      time:  Math.floor(Date.now() / 1000) as UTCTimestamp,
-      value: livePrice,
-    });
+
+    // KST = UTC+9 → Date.now()에 9h 더해 KST-as-UTC 에포크 생성
+    const kstNow = Date.now() + 9 * 3600 * 1000;
+    const minuteBoundary = Math.floor(kstNow / 60000) * 60; // 분 경계 (캔들용)
+    const secondTs       = Math.floor(kstNow / 1000);       // 초 단위 (틱 라인용)
+
+    // ── 캔들 실시간 업데이트 ─────────────────────────────────────────
+    if (seriesRef.current) {
+      const prev = tickCandleRef.current;
+
+      if (!prev) {
+        const lastCandle = lastLoadedCandleRef.current;
+        if (lastCandle && lastCandle.time === minuteBoundary) {
+          tickCandleRef.current = {
+            time: minuteBoundary,
+            open: lastCandle.open,
+            high: Math.max(lastCandle.high, livePrice),
+            low:  Math.min(lastCandle.low,  livePrice),
+            close: livePrice,
+          };
+        } else {
+          tickCandleRef.current = { time: minuteBoundary, open: livePrice, high: livePrice, low: livePrice, close: livePrice };
+        }
+      } else if (prev.time === minuteBoundary) {
+        tickCandleRef.current = {
+          time: minuteBoundary,
+          open: prev.open,
+          high: Math.max(prev.high, livePrice),
+          low:  Math.min(prev.low,  livePrice),
+          close: livePrice,
+        };
+      } else {
+        // 새 분 시작 — 폴링이 곧 정식 캔들 추가, 틱은 선행 표시
+        tickCandleRef.current = { time: minuteBoundary, open: livePrice, high: livePrice, low: livePrice, close: livePrice };
+      }
+
+      seriesRef.current.update({
+        time:  tickCandleRef.current.time as UTCTimestamp,
+        open:  tickCandleRef.current.open,
+        high:  tickCandleRef.current.high,
+        low:   tickCandleRef.current.low,
+        close: tickCandleRef.current.close,
+      });
+    }
+
+    // ── 틱 라인 업데이트 ────────────────────────────────────────────
+    if (lineSeriesRef.current) {
+      // 새 분 시작 시 라인 초기화 — 이전 분 데이터가 누적되어 사선으로 이어지는 것 방지
+      if (minuteBoundary !== lastMinuteBoundaryRef.current) {
+        lineSeriesRef.current.setData([]);
+        lastMinuteBoundaryRef.current = minuteBoundary;
+      }
+      lineSeriesRef.current.update({
+        time:  secondTs as UTCTimestamp,
+        value: livePrice,
+      });
+    }
   }, [livePrice, interval]);
 
   return (

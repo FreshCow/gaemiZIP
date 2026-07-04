@@ -8,5 +8,11 @@ services:
       - "5432:5432"     # 데스크톱의 5432 포트를 도커 안의 5432 포트 연결
     environment:
       POSTGRES_USER: postgres        # 노트북에서 쓰던 DB 아이디
-      POSTGRES_PASSWORD: 5736  # 노트북에서 쓰던 DB 비밀번호
+      POSTGRES_PASSWORD: seon8227  # 노트북에서 쓰던 DB 비밀번호
       POSTGRES_DB: scalper_db      #db 이름
+
+  redis:
+    image: redis:7.2
+    container_name: scalper-redis
+    ports:
+      - "6379:6379"
