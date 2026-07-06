@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
-import { fetchStockInfo } from "@/services/stockApi";
+import { fetchStockInfo, fetchStockPrice } from "@/services/stockApi";
 import { useAppStore } from "@/store/useAppStore";
-import type { StockInfoData } from "@/types/stock";
+import type { StockInfoData, StockPriceItem } from "@/types/stock";
 
 // ── Mock 뉴스 (종목별 뉴스 API 미제공) ────────────────────────────────────────
 
@@ -66,6 +66,7 @@ export default function StockDetailPage() {
   const code = (params?.code as string) ?? "";
 
   const [info, setInfo] = useState<StockInfoData | null>(null);
+  const [price, setPrice] = useState<StockPriceItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -77,16 +78,19 @@ export default function StockDetailPage() {
     if (!code) return;
     setLoading(true);
     setError(false);
-    fetchStockInfo(code)
-      .then(setInfo)
+    Promise.all([fetchStockInfo(code), fetchStockPrice(code).catch(() => null)])
+      .then(([infoRes, priceRes]) => {
+        setInfo(infoRes);
+        setPrice(priceRes);
+      })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [code]);
 
-  // curPric이 "0" 또는 "0.00"이면 랭킹 데이터로 fallback
-  const apiPrice  = absNum(info?.curPric);
+  // /price(Redis→ka10001→마스터 폴백)가 0이면 랭킹 데이터로 fallback
+  const apiPrice  = absNum(price?.price);
   const curPrice  = apiPrice > 0 ? apiPrice : absNum(rankStock?.price);
-  const apiRate   = info?.fluRt && info.fluRt !== "0" ? info.fluRt : rankStock?.rate ?? "0";
+  const apiRate   = price?.rate && price.rate !== "0" ? price.rate : rankStock?.rate ?? "0";
   const predPre   = absNum(info?.predPre);
   const fluRt     = apiRate;
   const priceUp   = isUp(fluRt);
