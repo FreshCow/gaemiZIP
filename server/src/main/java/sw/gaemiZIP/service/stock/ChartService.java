@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.util.retry.Retry;
 import sw.gaemiZIP.service.kiwoom.KiwoomTokenService;
 import sw.gaemiZIP.dto.kiwoom.KiwoomDailyChartResponse;
 import sw.gaemiZIP.dto.kiwoom.KiwoomMinuteChartResponse;
@@ -12,6 +14,7 @@ import sw.gaemiZIP.dto.kiwoom.KiwoomTickChartResponse;
 import sw.gaemiZIP.dto.kiwoom.KiwoomWeeklyChartResponse;
 import sw.gaemiZIP.dto.stock.CandleResponse;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -150,11 +153,18 @@ public class ChartService {
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(clazz)
+                    .retryWhen(Retry.backoff(2, Duration.ofMillis(500))
+                        .filter(this::isTooManyRequest)
+                        .doBeforeRetry(sig -> log.warn("{} 429 재시도 ({}번째)", apiId, sig.totalRetries()+1)))
                     .block();
         } catch (Exception e) {
             log.error("{} 호출 실패: {}", apiId, e.getMessage());
             return null;
         }
+    }
+
+    private boolean isTooManyRequest(Throwable e) {
+        return e instanceof WebClientResponseException webClientResponseException && webClientResponseException.getStatusCode().value() == 429;
     }
 
     // "20250917132000" → epoch seconds (UTC 오프셋으로 저장 → 차트가 UTC 기준으로 표시하므로 KST 시각 그대로 보임)
