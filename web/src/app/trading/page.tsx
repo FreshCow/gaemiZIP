@@ -292,10 +292,12 @@ export default function TradingPage() {
               </button>
               <div className="flex flex-1 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min={0}
                   value={qty}
-                  onChange={(e) => setQty(e.target.value)}
+                  onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="0"
                   className="w-full bg-transparent text-center text-sm font-semibold text-gray-900 outline-none dark:text-white"
                 />
