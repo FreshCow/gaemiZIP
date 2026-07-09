@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.*;
 import sw.gaemiZIP.dto.stock.StockInfoResponse;
 import sw.gaemiZIP.dto.stock.StockPriceResponse;
 import sw.gaemiZIP.dto.stock.StockRankingResponse;
+import sw.gaemiZIP.entity.news.News;
 import sw.gaemiZIP.entity.stock.Stock;
 import sw.gaemiZIP.repository.stock.StockRepository;
+import sw.gaemiZIP.service.news.NewsService;
 import sw.gaemiZIP.service.stock.StockFetchService;
 import sw.gaemiZIP.service.stock.StockInfoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +28,7 @@ public class StockController {
     private final StockRepository stockRepository;
     private final StockInfoService stockInfoService;
     private final StringRedisTemplate redisTemplate;
+    private final NewsService newsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 종목명·초성 검색 (최대 10건)
@@ -74,6 +77,15 @@ public class StockController {
                 .map(s -> ResponseEntity.ok(new StockPriceResponse(s.getCode(), s.getName(), "-", "0")))
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    //종목별 관련 뉴스
+    @GetMapping("/{code}/news")
+    public ResponseEntity<List<News>> getStockNews(@PathVariable String code) {
+        return stockInfoService.getStockInfo(code)
+                .map(info -> ResponseEntity.ok(newsService.getStockNews(code, info.getName())))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
 
     private String resolveCurrentPrice(StockInfoResponse i) {
         if(i.getCurPric() != null && !i.getCurPric().isBlank()) {
