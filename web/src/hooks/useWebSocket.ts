@@ -84,7 +84,15 @@ export function useWebSocket() {
     connect();
     return () => {
       timerRef.current && clearTimeout(timerRef.current);
-      wsRef.current?.close();
+      // 언마운트로 인한 의도적인 종료는 에러/재연결 핸들러를 타지 않도록 먼저 해제
+      const ws = wsRef.current;
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
     };
   }, [connect]);
 }

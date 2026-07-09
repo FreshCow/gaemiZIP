@@ -6,6 +6,7 @@ import {
   Star,
   TrendingUp,
   TrendingDown,
+  Minus,
   Newspaper,
   Sparkles,
   ChevronLeft,
@@ -14,18 +15,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
-import { fetchStockInfo, fetchStockPrice } from "@/services/stockApi";
+import { fetchStockInfo, fetchStockPrice, fetchStockNews } from "@/services/stockApi";
+import { fetchStockAiAnalysis } from "@/services/newsApi";
 import { useAppStore } from "@/store/useAppStore";
 import type { StockInfoData, StockPriceItem } from "@/types/stock";
-
-// ── Mock 뉴스 (종목별 뉴스 API 미제공) ────────────────────────────────────────
-
-const MOCK_NEWS = [
-  { id: 1, title: "삼성전자, HBM4 양산 일정 앞당겨…엔비디아 공급 확정", publisher: "한국경제", time: "2시간 전" },
-  { id: 2, title: "삼성전자 2분기 영업이익 8조 전망…반도체 회복 가속",  publisher: "매일경제", time: "4시간 전" },
-  { id: 3, title: "외국인, 삼성전자 3거래일 연속 순매수…8,000억 규모",  publisher: "이데일리", time: "6시간 전" },
-  { id: 4, title: "삼성전자, 파운드리 고객사 다변화…TSMC 추격 본격화",  publisher: "조선비즈",  time: "어제"   },
-];
+import type { NewsItem, AiStockAnalysisResponse } from "@/types/news";
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────────
 
@@ -71,6 +65,12 @@ export default function StockDetailPage() {
   const [error, setError] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // AI 종목 분석 / 관련 뉴스 — 지연이 있을 수 있어 본문 로딩과 분리
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [aiAnalysis, setAiAnalysis] = useState<AiStockAnalysisResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
   // 실시간 랭킹에서 현재가 fallback
   const rankStock = useAppStore((s) => s.stocks.find((s) => s.code === code));
 
@@ -85,6 +85,23 @@ export default function StockDetailPage() {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
+  }, [code]);
+
+  useEffect(() => {
+    if (!code) return;
+
+    setNewsLoading(true);
+    fetchStockNews(code)
+      .then(setNews)
+      .catch(() => setNews([]))
+      .finally(() => setNewsLoading(false));
+
+    setAiLoading(true);
+    setAiAnalysis(null);
+    fetchStockAiAnalysis(code)
+      .then(setAiAnalysis)
+      .catch(() => setAiAnalysis(null))
+      .finally(() => setAiLoading(false));
   }, [code]);
 
   // /price(Redis→ka10001→마스터 폴백)가 0이면 랭킹 데이터로 fallback
@@ -125,16 +142,43 @@ export default function StockDetailPage() {
             <div className="mb-2 flex items-center gap-2">
               <Sparkles size={16} className="text-violet-500" />
               <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">AI 종목 분석</span>
+              {aiAnalysis && (
+                <span
+                  className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium ${
+                    aiAnalysis.trend === "UP"
+                      ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
+                      : aiAnalysis.trend === "DOWN"
+                      ? "bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400"
+                      : "bg-gray-100 text-gray-500 dark:bg-neutral-800 dark:text-neutral-400"
+                  }`}
+                >
+                  {aiAnalysis.trend === "UP" ? (
+                    <TrendingUp size={11} />
+                  ) : aiAnalysis.trend === "DOWN" ? (
+                    <TrendingDown size={11} />
+                  ) : (
+                    <Minus size={11} />
+                  )}
+                </span>
+              )}
               <span className="ml-auto rounded bg-violet-100 px-2 py-0.5 text-xs text-violet-500 dark:bg-violet-900/50 dark:text-violet-400">
                 Gemini 2.5 Flash
               </span>
             </div>
-            <p className="text-sm leading-relaxed text-gray-700 dark:text-neutral-300">
-              최근 반도체 수요 증가와 외국인 매수세로 인해{" "}
-              <strong>단기 상승 랠리</strong> 중입니다. HBM4 공급 계약 확정으로
-              메모리 사업부 실적 개선이 기대되며, 기술적으로는{" "}
-              <strong>75,000원 지지선</strong>을 확인 후 추가 상승 가능성이 높습니다.
-            </p>
+            {aiLoading ? (
+              <div className="flex items-center gap-2 py-2 text-sm text-gray-400 dark:text-neutral-500">
+                <Loader2 size={14} className="animate-spin" />
+                분석 생성 중...
+              </div>
+            ) : aiAnalysis ? (
+              <p className="text-sm leading-relaxed text-gray-700 dark:text-neutral-300">
+                {aiAnalysis.summary}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-400 dark:text-neutral-500">
+                AI 분석을 준비하지 못했습니다. 잠시 후 다시 시도해주세요.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
@@ -267,21 +311,35 @@ export default function StockDetailPage() {
                 <Newspaper size={16} className="text-gray-400 dark:text-neutral-500" />
                 <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">관련 뉴스</h2>
               </div>
-              <ul className="divide-y divide-gray-100 dark:divide-neutral-800">
-                {MOCK_NEWS.map((item) => (
-                  <li key={item.id} className="py-3 first:pt-0 last:pb-0">
-                    <p className="text-sm font-medium leading-snug text-gray-800 hover:text-blue-600 dark:text-neutral-200 dark:hover:text-blue-400 cursor-pointer transition-colors line-clamp-2">
-                      {item.title}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500">
-                      <span>{item.publisher}</span>
-                      <span>·</span>
-                      <Clock size={11} />
-                      <span>{item.time}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              {newsLoading ? (
+                <div className="flex items-center gap-2 py-3 text-sm text-gray-400 dark:text-neutral-500">
+                  <Loader2 size={14} className="animate-spin" />
+                  뉴스 불러오는 중...
+                </div>
+              ) : news.length === 0 ? (
+                <p className="py-3 text-sm text-gray-400 dark:text-neutral-500">관련 뉴스가 없습니다.</p>
+              ) : (
+                <ul className="divide-y divide-gray-100 dark:divide-neutral-800">
+                  {news.map((item) => (
+                    <li key={item.id ?? item.link} className="py-3 first:pt-0 last:pb-0">
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium leading-snug text-gray-800 hover:text-blue-600 dark:text-neutral-200 dark:hover:text-blue-400 transition-colors line-clamp-2"
+                      >
+                        {item.title}
+                      </a>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500">
+                        <span>{item.publisher}</span>
+                        <span>·</span>
+                        <Clock size={11} />
+                        <span>{item.publishDate}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             </div>
           </div>
