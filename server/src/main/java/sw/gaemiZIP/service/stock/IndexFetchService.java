@@ -90,6 +90,8 @@ public class IndexFetchService {
         KiwoomIndexResponse kospi = callKa20001("0","001"); //코스피
         Thread.sleep(1000);
         KiwoomIndexResponse kosdaq = callKa20001("1","101"); //코스닥
+        Thread.sleep(1000);
+        KiwoomIndexResponse kospi200 =  callKa20001("2","201"); //코스피 200
 
         if(kospi == null || kosdaq == null){
             log.warn("지수 조회 실패 - 이전 캐시 유지");
@@ -98,7 +100,8 @@ public class IndexFetchService {
 
         List<IndexResponse> indices = List.of(
                 toIndexResponse(kospi, "001", "코스피"),
-                toIndexResponse(kosdaq, "101", "코스닥" )
+                toIndexResponse(kosdaq, "101", "코스닥" ),
+                toIndexResponse(kospi200, "201", "코스피200")
         );
 
         currentIndices = indices;
@@ -106,7 +109,7 @@ public class IndexFetchService {
         try{
             String indiceload = objectMapper.writeValueAsString(indices);
             webSocketHandler.broadcast("INDEX_UPDATE:" + indiceload);
-            log.warn("코스피/코스닥 요청결과 : "+indiceload);
+            log.warn("코스피/코스닥/코스피200 요청결과 : "+indiceload);
         }catch (Exception e){
             log.error("지수 브로드캐스트 실패 : {}", e.getMessage());
         }
