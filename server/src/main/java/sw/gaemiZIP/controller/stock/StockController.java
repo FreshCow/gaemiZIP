@@ -11,6 +11,7 @@ import sw.gaemiZIP.dto.stock.StockRankingResponse;
 import sw.gaemiZIP.entity.news.News;
 import sw.gaemiZIP.entity.stock.Stock;
 import sw.gaemiZIP.repository.stock.StockRepository;
+import sw.gaemiZIP.service.kiwoom.KiwoomRealtimeService;
 import sw.gaemiZIP.service.news.NewsService;
 import sw.gaemiZIP.service.stock.StockFetchService;
 import sw.gaemiZIP.service.stock.StockInfoService;
@@ -29,6 +30,7 @@ public class StockController {
     private final StockInfoService stockInfoService;
     private final StringRedisTemplate redisTemplate;
     private final NewsService newsService;
+    private final KiwoomRealtimeService kiwoomRealtimeService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 종목명·초성 검색 (최대 10건)
@@ -86,6 +88,11 @@ public class StockController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/{code}/subscribe")
+    public ResponseEntity<Void>  subscribe(@PathVariable String code) {
+        kiwoomRealtimeService.subscribeAll(List.of(code));
+        return ResponseEntity.ok().build();
+    }
 
     private String resolveCurrentPrice(StockInfoResponse i) {
         if(i.getCurPric() != null && !i.getCurPric().isBlank()) {
