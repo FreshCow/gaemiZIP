@@ -23,3 +23,8 @@ export async function fetchStockNews(code: string): Promise<NewsItem[]> {
   const { data } = await api.get<NewsItem[]>(`/stocks/${code}/news`);
   return data;
 }
+
+// 상세 페이지 진입 시 키움 실시간 구독에 편입 요청 (top10 랭킹 밖 종목도 실시간 반영되도록)
+export async function subscribeStock(code: string): Promise<void> {
+  await api.post(`/stocks/${code}/subscribe`);
+}

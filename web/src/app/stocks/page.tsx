@@ -26,6 +26,7 @@ interface LiveKeywordGroup {
 const INDEX_TABS = [
   { code: "001", label: "KOSPI" },
   { code: "101", label: "KOSDAQ" },
+  { code: "201", label: "KOSPI200" },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,7 +37,6 @@ export default function StocksPage() {
   const [themeLoading, setThemeLoading] = useState(true);
   const [news, setNews] = useState<NewsItem[]>([]);
   const indices = useAppStore((s) => s.indices);
-  const [activeIndexCode, setActiveIndexCode] = useState<string>(INDEX_TABS[0].code);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,10 +101,10 @@ export default function StocksPage() {
         <div className="space-y-6">
 
           {/* A + 지수: 좌우 분할 */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
 
             {/* A. 오늘의 AI 테마 */}
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-2 dark:border-neutral-800 dark:bg-neutral-900">
+            <section className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-3 dark:border-neutral-800 dark:bg-neutral-900">
               <div className="mb-4 flex items-center gap-2">
                 <Sparkles size={15} className="text-emerald-500" />
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">오늘의 AI 테마</h2>
@@ -177,68 +177,56 @@ export default function StocksPage() {
               )}
             </section>
 
-            {/* 코스피 / 코스닥 지수 */}
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-1 dark:border-neutral-800 dark:bg-neutral-900">
+            {/* 코스피 / 코스닥 / 코스피200 지수 */}
+            <section className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-2 dark:border-neutral-800 dark:bg-neutral-900">
               <div className="mb-4 flex items-center gap-2">
                 <BarChart3 size={15} className="text-indigo-500" />
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">코스피 · 코스닥</h2>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">국내 지수</h2>
               </div>
 
-              {/* 탭 */}
-              <div className="mb-5 flex gap-2">
-                {INDEX_TABS.map((tab) => (
-                  <button
-                    key={tab.code}
-                    onClick={() => setActiveIndexCode(tab.code)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      activeIndexCode === tab.code
-                        ? "bg-indigo-500 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-white"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              {/* "오늘의 AI 테마" 키워드 필터 행과 높이를 맞추기 위한 투명 스페이서 */}
+              <div className="mb-5 invisible flex flex-wrap gap-2" aria-hidden="true">
+                <span className="rounded-full px-3 py-1 text-xs font-medium">spacer</span>
               </div>
 
-              {/* 선택된 지수 표시 */}
-              {(() => {
-                const activeIndex = indices.find((idx) => idx.code === activeIndexCode);
-                const activeLabel = INDEX_TABS.find((tab) => tab.code === activeIndexCode)?.label ?? "";
+              <div className="flex divide-x divide-gray-200 dark:divide-neutral-700">
+                {INDEX_TABS.map((tab) => {
+                  const idx = indices.find((i) => i.code === tab.code);
 
-                if (!activeIndex) {
+                  if (!idx) {
+                    return (
+                      <div
+                        key={tab.code}
+                        className="flex flex-1 flex-col items-center justify-center gap-2 px-2 py-8 first:pl-0 last:pr-0"
+                      >
+                        <Loader2 size={18} className="animate-spin text-indigo-400" />
+                      </div>
+                    );
+                  }
+
+                  const isUp = !idx.rate.startsWith("-");
                   return (
-                    <div className="flex flex-col items-center gap-3 py-8">
-                      <Loader2 size={24} className="animate-spin text-indigo-500" />
-                      <p className="text-xs text-gray-400 dark:text-neutral-500">지수 정보를 불러오는 중...</p>
+                    <div key={tab.code} className="flex-1 px-3 first:pl-0 last:pr-0">
+                      <p className="text-xs font-medium text-gray-400 dark:text-neutral-500">{tab.label}</p>
+                      <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                        {Number(idx.price).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <span
+                        className={`mt-2 inline-block rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                          isUp
+                            ? "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400"
+                            : "bg-blue-50 text-blue-500 dark:bg-blue-900/20 dark:text-blue-400"
+                        }`}
+                      >
+                        {idx.rate}%
+                      </span>
                     </div>
                   );
-                }
-
-                const isUp = !activeIndex.rate.startsWith("-");
-                return (
-                  <div className="relative flex min-h-[200px] flex-col rounded-xl border border-gray-200 bg-gray-50 px-4 pt-3 pb-10 dark:border-neutral-700 dark:bg-neutral-800">
-                    <p className="text-xs font-medium leading-none text-gray-400 dark:text-neutral-500">{activeLabel}</p>
-                    <p
-                      className={`my-auto text-center text-6xl font-bold ${
-                        isUp ? "text-red-500 dark:text-red-400" : "text-blue-500 dark:text-blue-400"
-                      }`}
-                    >
-                      {Number(activeIndex.price).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                    <span
-                      className={`absolute bottom-4 right-4 text-1xs font-semibold ${
-                        isUp ? "text-green-500 dark:text-green-400" : "text-blue-500 dark:text-blue-400"
-                      }`}
-                    >
-                      {activeIndex.rate}%
-                    </span>
-                  </div>
-                );
-              })()}
+                })}
+              </div>
             </section>
           </div>
 

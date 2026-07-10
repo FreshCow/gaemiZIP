@@ -6,23 +6,6 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useAppStore } from "@/store/useAppStore";
 import { tradeApi } from "@/services/tradeApi";
 import { boardApi } from "@/services/boardApi";
-import type { HoldingItem, StockItem } from "@/types/stock";
-
-function toHoldingItem(
-  h: { stockCode: string; stockName: string; quantity: number; avgPrice: number },
-  stocks: StockItem[]
-): HoldingItem {
-  const stock = stocks.find((s) => s.code === h.stockCode);
-  const currentPrice = stock ? Number(stock.price) : h.avgPrice;
-  return {
-    code: h.stockCode,
-    name: h.stockName,
-    buyPrice: h.avgPrice,
-    currentPrice,
-    quantity: h.quantity,
-    profitRate: h.avgPrice > 0 ? ((currentPrice - h.avgPrice) / h.avgPrice) * 100 : 0,
-  };
-}
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   useWebSocket();
@@ -36,11 +19,8 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    tradeApi.getHoldings()
-      .then((data) => {
-        const stocks = useAppStore.getState().stocks;
-        setHoldings(data.map((h) => toHoldingItem(h, stocks)));
-      })
+    tradeApi.getHoldingsWithLivePrice()
+      .then(setHoldings)
       .catch(() => {});
 
     tradeApi.getHistory()

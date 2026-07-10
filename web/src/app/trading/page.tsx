@@ -7,26 +7,7 @@ import { StockSearchBar } from "@/components/stock/StockSearchBar";
 import { tradeApi } from "@/services/tradeApi";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import type { StockSearchResult, HoldingItem } from "@/types/stock";
-
-async function reloadHoldings(setHoldings: (h: HoldingItem[]) => void) {
-  const fresh = await tradeApi.getHoldings();
-  const stocks = useAppStore.getState().stocks;
-  setHoldings(
-    fresh.map((h) => {
-      const stock = stocks.find((s) => s.code === h.stockCode);
-      const currentPrice = stock ? Number(stock.price) : h.avgPrice;
-      return {
-        code: h.stockCode,
-        name: h.stockName,
-        buyPrice: h.avgPrice,
-        currentPrice,
-        quantity: h.quantity,
-        profitRate: h.avgPrice > 0 ? ((currentPrice - h.avgPrice) / h.avgPrice) * 100 : 0,
-      };
-    })
-  );
-}
+import type { StockSearchResult } from "@/types/stock";
 
 const RATIOS = [
   { label: "25%", value: 0.25 },
@@ -105,7 +86,7 @@ export default function TradingPage() {
         quantity: qtyNum,
       });
       if (result.newBalance != null) updateBalance(result.newBalance);
-      await reloadHoldings(setHoldings);
+      await tradeApi.getHoldingsWithLivePrice().then(setHoldings);
       setTradeMsg({ type: "ok", text: tab === "BUY" ? "매수 완료" : "매도 완료" });
       setQty("");
     } catch (e: unknown) {
