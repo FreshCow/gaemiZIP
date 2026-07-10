@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
-import { fetchStockInfo, fetchStockPrice, fetchStockNews } from "@/services/stockApi";
+import { fetchStockInfo, fetchStockPrice, fetchStockNews, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
 import { useAppStore } from "@/store/useAppStore";
 import type { StockInfoData, StockPriceItem } from "@/types/stock";
@@ -73,6 +73,8 @@ export default function StockDetailPage() {
 
   // 실시간 랭킹에서 현재가 fallback
   const rankStock = useAppStore((s) => s.stocks.find((s) => s.code === code));
+  // 키움 실시간 구독으로 들어오는 최신 시세 (top10 랭킹 밖 종목도 포함)
+  const liveUpdate = useAppStore((s) => s.livePrices[code]);
 
   useEffect(() => {
     if (!code) return;
@@ -85,6 +87,9 @@ export default function StockDetailPage() {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
+
+    // 실시간 시세를 받을 수 있도록 키움 구독에 편입 요청
+    subscribeStock(code).catch(() => {});
   }, [code]);
 
   useEffect(() => {
@@ -104,10 +109,16 @@ export default function StockDetailPage() {
       .finally(() => setAiLoading(false));
   }, [code]);
 
-  // /price(Redis→ka10001→마스터 폴백)가 0이면 랭킹 데이터로 fallback
+  // 우선순위: 실시간 구독 시세 > /price(Redis→ka10001→마스터 폴백) > 랭킹 데이터
+  const livePrice = absNum(liveUpdate?.price);
   const apiPrice  = absNum(price?.price);
-  const curPrice  = apiPrice > 0 ? apiPrice : absNum(rankStock?.price);
-  const apiRate   = price?.rate && price.rate !== "0" ? price.rate : rankStock?.rate ?? "0";
+  const curPrice  = livePrice > 0 ? livePrice : apiPrice > 0 ? apiPrice : absNum(rankStock?.price);
+  const apiRate   =
+    liveUpdate?.rate && liveUpdate.rate !== "0"
+      ? liveUpdate.rate
+      : price?.rate && price.rate !== "0"
+      ? price.rate
+      : rankStock?.rate ?? "0";
   const predPre   = absNum(info?.predPre);
   const fluRt     = apiRate;
   const priceUp   = isUp(fluRt);

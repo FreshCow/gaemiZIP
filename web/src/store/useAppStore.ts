@@ -13,10 +13,12 @@ interface AppState {
   wsConnected: boolean;
   latestTick: TickData | null;
   indices: IndexItem[];
+  livePrices: Record<string, StockUpdate>;
 
   setStocks: (stocks: StockItem[]) => void;
   setIndices: (indices: IndexItem[]) => void;
   updateStock: (update: StockUpdate) => void;
+  updateLivePrice: (update: StockUpdate) => void;
   setHoldings: (holdings: HoldingItem[]) => void;
   updateHoldingPrice: (code: string, currentPrice: number) => void;
   setTradeHistories: (histories: TradeHistory[]) => void;
@@ -60,6 +62,7 @@ export const useAppStore = create<AppState>((set) => ({
   wsConnected: false,
   latestTick: null,
   indices: [],
+  livePrices: {},
 
   setStocks: (stocks) => set({ stocks }),
   setIndices: (indices) => set({ indices }),
@@ -75,6 +78,14 @@ export const useAppStore = create<AppState>((set) => ({
             }
           : item
       ),
+    })),
+  // top10 랭킹 여부와 무관하게 실시간 시세를 코드별로 저장 (종목 상세 페이지 등에서 사용)
+  updateLivePrice: (update) =>
+    set((s) => ({
+      livePrices: {
+        ...s.livePrices,
+        [update.code]: { ...s.livePrices[update.code], ...update },
+      },
     })),
   setHoldings: (holdings) => set({ holdings }),
   updateHoldingPrice: (code, currentPrice) =>
