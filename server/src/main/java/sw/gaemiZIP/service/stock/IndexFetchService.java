@@ -93,7 +93,7 @@ public class IndexFetchService {
         Thread.sleep(1000);
         KiwoomIndexResponse kospi200 =  callKa20001("2","201"); //코스피 200
 
-        if(kospi == null || kosdaq == null){
+        if(kospi == null || kosdaq == null || kospi200 == null) {
             log.warn("지수 조회 실패 - 이전 캐시 유지");
             return;
         }
