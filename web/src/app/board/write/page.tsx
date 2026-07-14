@@ -21,7 +21,20 @@ export default function BoardWritePage() {
     setSubmitting(true);
     try {
       const created = await boardApi.create({ title, content, author: nickname ?? "익명의 개미" });
-      setBoards([created, ...boards]);
+      setBoards([
+        {
+          id: created.id,
+          title: created.title,
+          author: created.author,
+          createdAt: created.createdAt,
+          likeCount: created.likeCount,
+          commentCount: 0,
+          stockCode: created.stockCode,
+          stockName: created.stockName,
+          blinded: created.blinded,
+        },
+        ...boards,
+      ]);
       router.push("/board");
     } finally {
       setSubmitting(false);

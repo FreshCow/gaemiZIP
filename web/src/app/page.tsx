@@ -8,11 +8,13 @@ import { fetchStockPrice } from "@/services/stockApi";
 import { motion } from "framer-motion";
 import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
 import type { StockItem } from "@/types/stock";
+import type { TradeHistory } from "@/types/trade";
 
 export default function DashboardPage() {
-  const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading, tradeHistories, boards } = useAppStore();
+  const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading, boards } = useAppStore();
   const { nickname, balance, isLoggedIn } = useAuthStore();
   const setHoldings = useAppStore((s) => s.setHoldings);
 
@@ -23,6 +25,19 @@ export default function DashboardPage() {
   const [refreshingHoldings, setRefreshingHoldings] = useState(false);
   // 랭킹 top10 밖이라 stocks에 없는 관심 종목의 현재가를 보강 조회한 결과
   const [extraWatchedStocks, setExtraWatchedStocks] = useState<Record<string, StockItem>>({});
+  const [tradeHistories, setTradeHistories] = useState<TradeHistory[]>([]);
+  const [tradePage, setTradePage] = useState(0);
+  const [tradeTotalPages, setTradeTotalPages] = useState(0);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    tradeApi.getHistoryPaged(tradePage, 10)
+      .then((res) => {
+        setTradeHistories(res.content);
+        setTradeTotalPages(res.totalPages);
+      })
+      .catch(() => {});
+  }, [isLoggedIn, tradePage]);
 
   const stockValue = holdings.reduce((sum, h) => sum + h.currentPrice * h.quantity, 0);
   const cashBalance = balance ?? 0;
@@ -416,6 +431,14 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+        )}
+        {tradeTotalPages > 1 && (
+          <Pagination
+            page={tradePage}
+            totalPages={tradeTotalPages}
+            onPageChange={setTradePage}
+            className="py-4"
+          />
         )}
       </section>
     </div>

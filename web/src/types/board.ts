@@ -11,6 +11,19 @@ export interface BoardPost {
   blinded: boolean;
 }
 
+// 목록 조회(GET /boards) 응답 — content 없이 commentCount 포함
+export interface BoardListItem {
+  id: number;
+  title: string;
+  author: string;
+  createdAt: string;
+  likeCount: number;
+  commentCount: number;
+  stockCode?: string;
+  stockName?: string;
+  blinded: boolean;
+}
+
 export interface BoardCreateDto {
   title: string;
   content: string;

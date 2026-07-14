@@ -5,6 +5,7 @@ import { Loader2, Sparkles, TrendingUp, BarChart3 } from "lucide-react";
 import { fetchAiTheme, fetchLatestNews } from "@/services/newsApi";
 import { fetchStockPrice } from "@/services/stockApi";
 import { useAppStore } from "@/store/useAppStore";
+import { Pagination } from "@/components/ui/pagination";
 import type { StockPriceItem } from "@/types/stock";
 import type { NewsItem } from "@/types/news";
 
@@ -36,6 +37,8 @@ export default function StocksPage() {
   const [selectedKeyword, setSelectedKeyword] = useState("");
   const [themeLoading, setThemeLoading] = useState(true);
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsPage, setNewsPage] = useState(0);
+  const [newsTotalPages, setNewsTotalPages] = useState(0);
   const indices = useAppStore((s) => s.indices);
 
   useEffect(() => {
@@ -88,8 +91,13 @@ export default function StocksPage() {
   }, []);
 
   useEffect(() => {
-    fetchLatestNews().then(setNews).catch(() => {});
-  }, []);
+    fetchLatestNews(newsPage, 10)
+      .then((res) => {
+        setNews(res.content);
+        setNewsTotalPages(res.totalPages);
+      })
+      .catch(() => {});
+  }, [newsPage]);
 
   const selectedGroup = liveTheme.find((g) => g.keyword === selectedKeyword);
 
@@ -264,6 +272,13 @@ export default function StocksPage() {
                 ))}
               </div>
             )}
+
+            <Pagination
+              page={newsPage}
+              totalPages={newsTotalPages}
+              onPageChange={setNewsPage}
+              className="mt-5"
+            />
           </section>
         </div>
       </div>

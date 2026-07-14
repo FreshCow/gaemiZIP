@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -55,7 +56,7 @@ public class AiAnalysisService {
     }
 
     private AiThemeResponse callGeminiApi() {
-        List<News> recentNews = newsRepository.findTop10ByOrderByIdDesc();
+        List<News> recentNews = newsRepository.findAllByOrderByIdDesc(PageRequest.of(0, 10)).getContent();
         if (recentNews.isEmpty()) return null;
 
         String newsTitles = recentNews.stream()

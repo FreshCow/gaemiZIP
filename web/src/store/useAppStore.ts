@@ -1,13 +1,11 @@
 import { create } from "zustand";
 import type { StockItem, HoldingItem, TickData, StockUpdate, IndexItem } from "@/types/stock";
-import type { TradeHistory } from "@/types/trade";
-import type { BoardPost } from "@/types/board";
+import type { BoardListItem } from "@/types/board";
 
 interface AppState {
   stocks: StockItem[];
   holdings: HoldingItem[];
-  tradeHistories: TradeHistory[];
-  boards: BoardPost[];
+  boards: BoardListItem[];
   watchlist: string[];
   isAutoTrading: boolean;
   wsConnected: boolean;
@@ -21,8 +19,7 @@ interface AppState {
   updateLivePrice: (update: StockUpdate) => void;
   setHoldings: (holdings: HoldingItem[]) => void;
   updateHoldingPrice: (code: string, currentPrice: number) => void;
-  setTradeHistories: (histories: TradeHistory[]) => void;
-  setBoards: (boards: BoardPost[]) => void;
+  setBoards: (boards: BoardListItem[]) => void;
   toggleWatchlist: (code: string) => void;
   toggleAutoTrading: () => void;
   setWsConnected: (connected: boolean) => void;
@@ -55,7 +52,6 @@ const MOCK_STOCKS: StockItem[] = [
 export const useAppStore = create<AppState>((set) => ({
   stocks: MOCK_STOCKS,
   holdings: [],
-  tradeHistories: [],
   boards: [],
   watchlist: loadWatchlist(),
   isAutoTrading: false,
@@ -102,7 +98,6 @@ export const useAppStore = create<AppState>((set) => ({
           : h
       ),
     })),
-  setTradeHistories: (tradeHistories) => set({ tradeHistories }),
   setBoards: (boards) => set({ boards }),
   toggleWatchlist: (code) =>
     set((s) => {

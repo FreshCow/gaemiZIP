@@ -12,7 +12,6 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const setHoldings = useAppStore((s) => s.setHoldings);
-  const setTradeHistories = useAppStore((s) => s.setTradeHistories);
   const setBoards = useAppStore((s) => s.setBoards);
 
   // 로그인 상태가 확정되면 사용자 데이터 일괄 로드
@@ -23,14 +22,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       .then(setHoldings)
       .catch(() => {});
 
-    tradeApi.getHistory()
-      .then(setTradeHistories)
-      .catch(() => {});
-
     boardApi.getList()
       .then(setBoards)
       .catch(() => {});
-  }, [isLoggedIn, setHoldings, setTradeHistories, setBoards]);
+  }, [isLoggedIn, setHoldings, setBoards]);
 
   return <>{children}</>;
 }
