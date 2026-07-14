@@ -2,10 +2,15 @@ import api from "./api";
 import { fetchStockPrice } from "./stockApi";
 import type { TradeHistory } from "@/types/trade";
 import type { StockItem, HoldingData, HoldingItem } from "@/types/stock";
+import type { PageResponse } from "@/types/common";
 
 export const tradeApi = {
-  // 내 거래 이력 조회
+  // 내 거래 이력 조회 (전체)
   getHistory: () => api.get<TradeHistory[]>("/trades").then((r) => r.data),
+
+  // 내 거래 이력 페이지 단위 조회
+  getHistoryPaged: (page = 0, size = 10) =>
+    api.get<PageResponse<TradeHistory>>("/trades/paged", { params: { page, size } }).then((r) => r.data),
 
   // 매수/매도 실행 — 응답에 newBalance 포함
   executeTrade: (payload: Omit<TradeHistory, "id" | "tradeAt" | "newBalance">) =>

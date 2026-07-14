@@ -1,10 +1,16 @@
 "use client";
 
-import { useAppStore } from "@/store/useAppStore";
+import { useEffect, useState } from "react";
+import { tradeApi } from "@/services/tradeApi";
 import { Badge } from "@/components/ui/badge";
+import type { TradeHistory } from "@/types/trade";
 
 export default function TradesPage() {
-  const tradeHistories = useAppStore((s) => s.tradeHistories);
+  const [tradeHistories, setTradeHistories] = useState<TradeHistory[]>([]);
+
+  useEffect(() => {
+    tradeApi.getHistory().then(setTradeHistories).catch(() => {});
+  }, []);
 
   return (
     <div className="p-6 space-y-6">

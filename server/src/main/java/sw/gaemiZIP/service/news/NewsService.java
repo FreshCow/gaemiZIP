@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -126,8 +128,8 @@ public class NewsService {
     }
 
     @Transactional(readOnly = true)
-    public List<News> getLatestNews() {
-        return newsRepository.findTop10ByOrderByIdDesc();
+    public Page<News> getLatestNews(Pageable pageable) {
+        return newsRepository.findAllByOrderByIdDesc(pageable);
     }
 
     // 네이버 API 응답의 <b> 하이라이트 태그와 HTML 엔티티 제거

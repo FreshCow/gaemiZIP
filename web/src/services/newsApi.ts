@@ -1,8 +1,9 @@
 import api from "./api";
 import type { NewsItem, AiThemeResponse, AiStockAnalysisResponse } from "@/types/news";
+import type { PageResponse } from "@/types/common";
 
-export async function fetchLatestNews(): Promise<NewsItem[]> {
-  const { data } = await api.get<NewsItem[]>("/news/latest");
+export async function fetchLatestNews(page = 0, size = 10): Promise<PageResponse<NewsItem>> {
+  const { data } = await api.get<PageResponse<NewsItem>>("/news/latest", { params: { page, size } });
   return data;
 }
 

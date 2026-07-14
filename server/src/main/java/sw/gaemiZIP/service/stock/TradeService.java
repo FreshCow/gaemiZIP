@@ -1,6 +1,8 @@
 package sw.gaemiZIP.service.stock;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sw.gaemiZIP.dto.stock.HoldingResponse;
@@ -88,6 +90,13 @@ public class TradeService {
                 .map(h -> TradeResponse.from(h, null))
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public Page<TradeResponse> getMyTradeHistoryPaged(String email, Pageable pageable) {
+        MemberAnt member = findMember(email);
+        return tradeHistoryRepository.findByMemberIdOrderByTradeTimeDesc(member.getId(), pageable).map(h -> TradeResponse.from(h, null));
+    }
+
 
     @Transactional(readOnly = true)
     public List<HoldingResponse> getMyHoldings(String email) {
