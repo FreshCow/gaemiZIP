@@ -5,6 +5,7 @@ import { ChevronLeft, RefreshCw } from "lucide-react";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { StockSearchBar } from "@/components/stock/StockSearchBar";
 import { tradeApi } from "@/services/tradeApi";
+import { subscribeStock } from "@/services/stockApi";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { StockSearchResult } from "@/types/stock";
@@ -46,6 +47,13 @@ export default function TradingPage() {
     setOrderPrice(currentPrice > 0 ? String(currentPrice) : "");
     setQty("");
     setTradeMsg(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.code]);
+
+  // top10 랭킹 밖 종목도 실시간 시세를 받을 수 있도록 키움 구독에 편입 요청
+  useEffect(() => {
+    if (!selected) return;
+    subscribeStock(selected.code).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.code]);
 

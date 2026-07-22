@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineSeries } from "lightweight-charts";
+import { createChart, ColorType, CrosshairMode, CandlestickSeries } from "lightweight-charts";
 import type { UTCTimestamp } from "lightweight-charts";
 import { useTheme } from "next-themes";
 import { fetchChart } from "@/services/chartApi";
@@ -13,6 +13,8 @@ interface Props {
 }
 
 const INTERVALS: { label: string; value: ChartInterval }[] = [
+  { label: "5틱", value: "T5" },
+  { label: "10틱", value: "T10" },
   { label: "1분", value: "1" },
   { label: "일봉", value: "D" },
   { label: "주봉", value: "W" },
@@ -20,32 +22,55 @@ const INTERVALS: { label: string; value: ChartInterval }[] = [
 
 // interval별 초기 표시 바 개수
 const BARS_TO_SHOW: Record<ChartInterval, number> = {
-  "1": 30,  // 30분
-  "D": 5,   // 5 거래일
-  "W": 4,   // 4주 (~1달)
+  "T5":  40,  // 최근 40봉 (=200틱)
+  "T10": 30,  // 최근 30봉 (=300틱)
+  "1": 30,    // 30분
+  "D": 5,     // 5 거래일
+  "W": 4,     // 4주 (~1달)
 };
+
+// interval → 캔들 하나에 묶을 틱 개수 (T5/T10 라이브 조립용)
+const TICK_GROUP_SIZE: Partial<Record<ChartInterval, number>> = { T5: 5, T10: 10 };
 
 const RIGHT_PAD = 3; // 오른쪽 여백 바 개수 (새 캔들 자동 표시 공간)
 const POLL_INTERVAL_MS = 30_000; // 30초마다 폴링
+
+// 키움 틱 데이터는 초 단위 정밀도까지만 제공 — 같은 초에 여러 체결이 있으면 time이 중복됨.
+// lightweight-charts는 오름차순 유일 시간을 요구하므로, 같은 시각의 캔들은 하나로 병합한다.
+function collapseSameTime(candles: CandlePoint[]): CandlePoint[] {
+  const merged: CandlePoint[] = [];
+  for (const c of candles) {
+    const last = merged[merged.length - 1];
+    if (last && last.time === c.time) {
+      last.high = Math.max(last.high, c.high);
+      last.low = Math.min(last.low, c.low);
+      last.close = c.close;
+    } else {
+      merged.push({ ...c });
+    }
+  }
+  return merged;
+}
 
 export function CandlestickChart({ stockCode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const seriesRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lineSeriesRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
   const tickCandleRef = useRef<{ time: number; open: number; high: number; low: number; close: number } | null>(null);
+  const tickCountRef = useRef<number>(0); // 현재 형성 중인 틱봉에 쌓인 틱 개수 (T5/T10 전용)
   const lastLoadedCandleRef = useRef<CandlePoint | null>(null);
-  const lastMinuteBoundaryRef = useRef<number>(0); // 틱 라인 분 경계 추적용
 
   const [interval, setIntervalState] = useState<ChartInterval>("D");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
-  // REALTIME_UPDATE 로 갱신되는 현재가 — 캔들 + 틱 라인 공용
+  // REALTIME_UPDATE 로 갱신되는 현재가 — 형성 중인 캔들 갱신용
+  // top10 랭킹 밖 종목(검색/트레이딩 화면)도 반영되도록 livePrices 맵을 우선 사용, 없으면 랭킹 배열로 폴백
   const livePrice = useAppStore((s) => {
+    const live = s.livePrices[stockCode]?.price;
+    if (live) return Number(live);
     const found = s.stocks.find((x) => x.code === stockCode);
     return found ? Number(found.price) : 0;
   });
@@ -68,7 +93,7 @@ export function CandlestickChart({ stockCode }: Props) {
       rightPriceScale: { borderColor: isDark ? "#404040" : "#e5e7eb" },
       timeScale: {
         borderColor: isDark ? "#404040" : "#e5e7eb",
-        timeVisible: interval === "1",
+        timeVisible: interval === "1" || interval === "T5" || interval === "T10",
         secondsVisible: false,
         rightOffset: RIGHT_PAD,
       },
@@ -89,22 +114,8 @@ export function CandlestickChart({ stockCode }: Props) {
 
     seriesRef.current = series;
 
-    // 1분봉에서만 실시간 틱 라인 표시
-    if (interval === "1") {
-      const line = chart.addSeries(LineSeries, {
-        color:                  "#38bdf8",
-        lineWidth:              1,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius:  3,
-        priceLineVisible:       false,
-        lastValueVisible:       false,
-      });
-      lineSeriesRef.current = line;
-    } else {
-      lineSeriesRef.current = null;
-    }
-
     tickCandleRef.current = null;
+    tickCountRef.current = 0;
     lastLoadedCandleRef.current = null;
 
     const ro = new ResizeObserver((entries) => {
@@ -135,26 +146,27 @@ export function CandlestickChart({ stockCode }: Props) {
       setIsLoading(true);
       setError(null);
       try {
-        const candles = await fetchChart(stockCode, interval);
+        const candles = collapseSameTime(await fetchChart(stockCode, interval));
         if (candles.length === 0) { setError("데이터가 없습니다."); return; }
         series.setData(candles.map(toBar));
         totalBars = candles.length;
         lastLoadedCandleRef.current = candles[candles.length - 1];
         tickCandleRef.current = null;
         applyZoom();
-      } catch {
+      } catch (e) {
+        console.error("차트 데이터 로드 실패:", e);
         setError("차트 데이터를 불러오지 못했습니다.");
       } finally {
         setIsLoading(false);
       }
     };
 
-    // 30초마다 새 분봉 캔들 확인 (1분봉 전용)
+    // 30초마다 새 캔들 확인 (1분봉·틱봉 전용)
     const pollUpdate = async () => {
-      if (interval !== "1") return;
+      if (interval !== "1" && interval !== "T5" && interval !== "T10") return;
       const lastKnownTime = lastLoadedCandleRef.current?.time ?? 0;
       try {
-        const candles = await fetchChart(stockCode, interval);
+        const candles = collapseSameTime(await fetchChart(stockCode, interval));
         if (candles.length === 0) return;
 
         // 마지막 알려진 시각 이상인 바만 update (마지막 바 갱신 + 새 바 추가)
@@ -170,6 +182,7 @@ export function CandlestickChart({ stockCode }: Props) {
           lastLoadedCandleRef.current = newLast;
           totalBars = candles.length;
           tickCandleRef.current = null;
+          tickCountRef.current = 0;
         }
 
         // 새 바가 추가됐고 사용자가 오른쪽 근처에 있으면 자동 스크롤
@@ -188,7 +201,7 @@ export function CandlestickChart({ stockCode }: Props) {
     loadInitial();
 
     let pollTimer: ReturnType<typeof setInterval> | null = null;
-    if (interval === "1") {
+    if (interval === "1" || interval === "T5" || interval === "T10") {
       pollTimer = setInterval(pollUpdate, POLL_INTERVAL_MS);
     }
 
@@ -196,26 +209,57 @@ export function CandlestickChart({ stockCode }: Props) {
       if (pollTimer) clearInterval(pollTimer);
       ro.disconnect();
       seriesRef.current = null;
-      lineSeriesRef.current = null;
       chartRef.current = null;
       tickCandleRef.current = null;
+      tickCountRef.current = 0;
       lastLoadedCandleRef.current = null;
-      lastMinuteBoundaryRef.current = 0;
       chart.remove();
     };
   }, [stockCode, interval, resolvedTheme]);
 
-  // REALTIME_UPDATE 도착 즉시 캔들 + 틱 라인 동시 업데이트
+  // REALTIME_UPDATE 도착 즉시 형성 중인 캔들 갱신
   // 타임스탬프: KST 시각을 UTC처럼 취급 (ChartService와 동일 규칙)
   useEffect(() => {
-    if (!livePrice || livePrice <= 0 || interval !== "1") return;
+    if (!livePrice || livePrice <= 0) return;
+    if (interval !== "1" && interval !== "T5" && interval !== "T10") return;
 
     // KST = UTC+9 → Date.now()에 9h 더해 KST-as-UTC 에포크 생성
     const kstNow = Date.now() + 9 * 3600 * 1000;
-    const minuteBoundary = Math.floor(kstNow / 60000) * 60; // 분 경계 (캔들용)
-    const secondTs       = Math.floor(kstNow / 1000);       // 초 단위 (틱 라인용)
 
-    // ── 캔들 실시간 업데이트 ─────────────────────────────────────────
+    // ── 틱봉(T5/T10): 틱 N개 = 캔들 1개 — N개 모일 때까지 고가/저가/종가를 누적하다가, 다 채워지면 새 캔들 시작 ──
+    const groupSize = TICK_GROUP_SIZE[interval];
+    if (groupSize) {
+      if (!seriesRef.current) return;
+      const nowSec = Math.floor(kstNow / 1000);
+      const prev = tickCandleRef.current;
+
+      if (!prev || tickCountRef.current >= groupSize) {
+        tickCandleRef.current = { time: nowSec, open: livePrice, high: livePrice, low: livePrice, close: livePrice };
+        tickCountRef.current = 1;
+      } else {
+        tickCandleRef.current = {
+          time:  prev.time, // 그룹이 다 찰 때까지 같은 봉 유지
+          open:  prev.open,
+          high:  Math.max(prev.high, livePrice),
+          low:   Math.min(prev.low,  livePrice),
+          close: livePrice,
+        };
+        tickCountRef.current += 1;
+      }
+
+      seriesRef.current.update({
+        time:  tickCandleRef.current.time as UTCTimestamp,
+        open:  tickCandleRef.current.open,
+        high:  tickCandleRef.current.high,
+        low:   tickCandleRef.current.low,
+        close: tickCandleRef.current.close,
+      });
+      return;
+    }
+
+    const minuteBoundary = Math.floor(kstNow / 60000) * 60; // 분 경계 (캔들용)
+
+    // ── 캔들 실시간 업데이트 (1분봉) ──────────────────────────────────
     if (seriesRef.current) {
       const prev = tickCandleRef.current;
 
@@ -251,19 +295,6 @@ export function CandlestickChart({ stockCode }: Props) {
         high:  tickCandleRef.current.high,
         low:   tickCandleRef.current.low,
         close: tickCandleRef.current.close,
-      });
-    }
-
-    // ── 틱 라인 업데이트 ────────────────────────────────────────────
-    if (lineSeriesRef.current) {
-      // 새 분 시작 시 라인 초기화 — 이전 분 데이터가 누적되어 사선으로 이어지는 것 방지
-      if (minuteBoundary !== lastMinuteBoundaryRef.current) {
-        lineSeriesRef.current.setData([]);
-        lastMinuteBoundaryRef.current = minuteBoundary;
-      }
-      lineSeriesRef.current.update({
-        time:  secondTs as UTCTimestamp,
-        value: livePrice,
       });
     }
   }, [livePrice, interval]);
