@@ -18,8 +18,11 @@ import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { fetchStockInfo, fetchStockPrice, fetchStockNews, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
 import { useAppStore } from "@/store/useAppStore";
+import { Pagination } from "@/components/ui/pagination";
 import type { StockInfoData, StockPriceItem } from "@/types/stock";
 import type { NewsItem, AiStockAnalysisResponse } from "@/types/news";
+
+const NEWS_PAGE_SIZE = 5;
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────────
 
@@ -68,6 +71,7 @@ export default function StockDetailPage() {
   // AI 종목 분석 / 관련 뉴스 — 지연이 있을 수 있어 본문 로딩과 분리
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
+  const [newsPage, setNewsPage] = useState(0);
   const [aiAnalysis, setAiAnalysis] = useState<AiStockAnalysisResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
 
@@ -96,6 +100,7 @@ export default function StockDetailPage() {
     if (!code) return;
 
     setNewsLoading(true);
+    setNewsPage(0);
     fetchStockNews(code)
       .then(setNews)
       .catch(() => setNews([]))
@@ -122,6 +127,9 @@ export default function StockDetailPage() {
   const predPre   = absNum(info?.predPre);
   const fluRt     = apiRate;
   const priceUp   = isUp(fluRt);
+
+  const newsTotalPages = Math.ceil(news.length / NEWS_PAGE_SIZE);
+  const pagedNews = news.slice(newsPage * NEWS_PAGE_SIZE, newsPage * NEWS_PAGE_SIZE + NEWS_PAGE_SIZE);
 
   return (
     <div className="p-6 space-y-5">
@@ -299,7 +307,7 @@ export default function StockDetailPage() {
             </div>
 
             {/* ── 우측 ────────────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-5">
+            <div className="flex h-full flex-col gap-5">
 
             {/* 시장 정보 */}
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
@@ -316,8 +324,8 @@ export default function StockDetailPage() {
               <InfoRow label="대용가"       value={fmt(info.replPric)} />
             </div>
 
-            {/* 관련 뉴스 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            {/* 관련 뉴스 — flex-1로 남은 공간을 채워 좌측(재무 지표) 하단과 높이를 맞춤 */}
+            <div className="flex flex-1 min-h-0 flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
               <div className="mb-3 flex items-center gap-2">
                 <Newspaper size={16} className="text-gray-400 dark:text-neutral-500" />
                 <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">관련 뉴스</h2>
@@ -330,26 +338,34 @@ export default function StockDetailPage() {
               ) : news.length === 0 ? (
                 <p className="py-3 text-sm text-gray-400 dark:text-neutral-500">관련 뉴스가 없습니다.</p>
               ) : (
-                <ul className="divide-y divide-gray-100 dark:divide-neutral-800">
-                  {news.map((item) => (
-                    <li key={item.id ?? item.link} className="py-3 first:pt-0 last:pb-0">
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium leading-snug text-gray-800 hover:text-blue-600 dark:text-neutral-200 dark:hover:text-blue-400 transition-colors line-clamp-2"
-                      >
-                        {item.title}
-                      </a>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500">
-                        <span>{item.publisher}</span>
-                        <span>·</span>
-                        <Clock size={11} />
-                        <span>{item.publishDate}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ul className="flex-1 min-h-0 divide-y divide-gray-100 overflow-y-auto dark:divide-neutral-800">
+                    {pagedNews.map((item) => (
+                      <li key={item.id ?? item.link} className="py-3 first:pt-0 last:pb-0">
+                        <a
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium leading-snug text-gray-800 hover:text-blue-600 dark:text-neutral-200 dark:hover:text-blue-400 transition-colors line-clamp-2"
+                        >
+                          {item.title}
+                        </a>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500">
+                          <span>{item.publisher}</span>
+                          <span>·</span>
+                          <Clock size={11} />
+                          <span>{item.publishDate}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <Pagination
+                    page={newsPage}
+                    totalPages={newsTotalPages}
+                    onPageChange={setNewsPage}
+                    className="mt-3 border-t border-gray-100 pt-3 dark:border-neutral-800"
+                  />
+                </>
               )}
             </div>
             </div>
