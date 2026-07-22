@@ -25,7 +25,7 @@ export default function BoardPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[80%]">
+    <div className="mx-auto p-6 space-y-6 max-w-[80%]">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">게시판</h1>
         <Button

@@ -80,7 +80,7 @@ export default function BoardDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-[80%] space-y-6">
+    <div className="mx-auto p-6 max-w-[80%] space-y-6">
       {/* 뒤로가기 */}
       <button
         onClick={() => router.push("/board")}
