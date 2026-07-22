@@ -21,3 +21,8 @@ export interface KeywordGroup {
 export interface AiThemeResponse {
   keywords: KeywordGroup[];
 }
+
+export interface AiStockAnalysisResponse {
+  summary: string;
+  trend: "UP" | "DOWN" | "NEUTRAL";
+}

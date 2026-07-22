@@ -3,19 +3,41 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { tradeApi } from "@/services/tradeApi";
+import { fetchStockPrice } from "@/services/stockApi";
 import { motion } from "framer-motion";
-import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
+import type { StockItem } from "@/types/stock";
+import type { TradeHistory } from "@/types/trade";
 
 export default function DashboardPage() {
-  const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading, tradeHistories, boards } = useAppStore();
+  const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading, boards } = useAppStore();
   const { nickname, balance, isLoggedIn } = useAuthStore();
+  const setHoldings = useAppStore((s) => s.setHoldings);
 
   const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [refreshingHoldings, setRefreshingHoldings] = useState(false);
+  // 랭킹 top10 밖이라 stocks에 없는 관심 종목의 현재가를 보강 조회한 결과
+  const [extraWatchedStocks, setExtraWatchedStocks] = useState<Record<string, StockItem>>({});
+  const [tradeHistories, setTradeHistories] = useState<TradeHistory[]>([]);
+  const [tradePage, setTradePage] = useState(0);
+  const [tradeTotalPages, setTradeTotalPages] = useState(0);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    tradeApi.getHistoryPaged(tradePage, 10)
+      .then((res) => {
+        setTradeHistories(res.content);
+        setTradeTotalPages(res.totalPages);
+      })
+      .catch(() => {});
+  }, [isLoggedIn, tradePage]);
 
   const stockValue = holdings.reduce((sum, h) => sum + h.currentPrice * h.quantity, 0);
   const cashBalance = balance ?? 0;
@@ -27,9 +49,41 @@ export default function DashboardPage() {
   // → 서버/클라이언트 초기 렌더 결과를 동일하게 유지해 hydration 오류 방지
   const watchedStocks = mounted
     ? watchlist
-        .map((code) => stocks.find((s) => s.code === code))
+        .map((code) => stocks.find((s) => s.code === code) ?? extraWatchedStocks[code])
         .filter((s): s is NonNullable<typeof s> => s !== undefined)
     : [];
+
+  // 관심 종목 중 랭킹 데이터에 없는 코드는 현재가를 별도 조회
+  useEffect(() => {
+    if (!mounted) return;
+    const missing = watchlist.filter(
+      (code) => !stocks.some((s) => s.code === code) && !extraWatchedStocks[code]
+    );
+    if (missing.length === 0) return;
+
+    Promise.allSettled(missing.map((code) => fetchStockPrice(code))).then((results) => {
+      setExtraWatchedStocks((prev) => {
+        const next = { ...prev };
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            const p = r.value;
+            next[missing[i]] = { code: p.code, name: p.name, price: p.price, rate: p.rate, volume: 0 };
+          }
+        });
+        return next;
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, watchlist, stocks]);
+
+  const handleRefreshHoldings = useCallback(() => {
+    setRefreshingHoldings(true);
+    tradeApi
+      .getHoldingsWithLivePrice()
+      .then(setHoldings)
+      .catch(() => {})
+      .finally(() => setRefreshingHoldings(false));
+  }, [setHoldings]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -132,9 +186,10 @@ export default function DashboardPage() {
               {watchedStocks.map((stock) => {
                 const isPos = !stock.rate.startsWith("-");
                 return (
-                  <div
+                  <Link
                     key={stock.code}
-                    className="flex-shrink-0 w-52 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-lg"
+                    href={`/stocks/${stock.code}`}
+                    className="flex-shrink-0 w-52 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-gray-300 dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-lg dark:hover:border-neutral-700"
                   >
                     <div className="flex items-start justify-between">
                       <div className="min-w-0">
@@ -158,7 +213,7 @@ export default function DashboardPage() {
                       {Number(stock.price).toLocaleString()}
                       <span className="ml-1 text-sm font-normal text-gray-500 dark:text-neutral-400">원</span>
                     </p>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -230,9 +285,19 @@ export default function DashboardPage() {
 
         {/* Holdings list card */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={14} className="text-gray-400 dark:text-neutral-500" />
-            <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">보유 종목</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} className="text-gray-400 dark:text-neutral-500" />
+              <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">보유 종목</p>
+            </div>
+            <button
+              onClick={handleRefreshHoldings}
+              disabled={refreshingHoldings}
+              className="rounded-full p-1 text-gray-400 transition-colors hover:text-gray-700 disabled:opacity-50 dark:text-neutral-600 dark:hover:text-neutral-300"
+              aria-label="보유 종목 가격 새로고침"
+            >
+              <RefreshCw size={13} className={refreshingHoldings ? "animate-spin" : ""} />
+            </button>
           </div>
           {holdings.length === 0 ? (
             <div className="flex items-center justify-center h-20">
@@ -241,7 +306,11 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-neutral-800">
               {holdings.map((h) => (
-                <div key={h.code} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                <Link
+                  key={h.code}
+                  href={`/stocks/${h.code}`}
+                  className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 transition-colors hover:opacity-70"
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{h.name}</p>
                     <p className="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">
@@ -265,7 +334,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -297,10 +366,14 @@ export default function DashboardPage() {
             return (
               <div className="divide-y divide-gray-100 dark:divide-neutral-800">
                 {myPosts.slice(0, 5).map((post) => (
-                  <div key={post.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <Link
+                    key={post.id}
+                    href={`/board/${post.id}`}
+                    className="block py-2.5 first:pt-0 last:pb-0 transition-colors hover:opacity-70"
+                  >
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{post.title}</p>
                     <p className="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">{post.createdAt}</p>
-                  </div>
+                  </Link>
                 ))}
               </div>
             );
@@ -358,6 +431,14 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+        )}
+        {tradeTotalPages > 1 && (
+          <Pagination
+            page={tradePage}
+            totalPages={tradeTotalPages}
+            onPageChange={setTradePage}
+            className="py-4"
+          />
         )}
       </section>
     </div>

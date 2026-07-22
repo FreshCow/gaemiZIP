@@ -25,7 +25,7 @@ export default function BoardPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[80%]">
+    <div className="mx-auto p-6 space-y-6 max-w-[80%]">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">게시판</h1>
         <Button
@@ -52,7 +52,6 @@ export default function BoardPage() {
             <div className="flex items-start justify-between">
               <div className="min-w-0 flex-1">
                 <h3 className="font-medium text-gray-900 dark:text-white">{post.title}</h3>
-                <p className="text-sm text-gray-500 mt-1 line-clamp-2 dark:text-neutral-400">{post.content}</p>
               </div>
               {post.author === nickname && (
                 <button
@@ -74,6 +73,7 @@ export default function BoardPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <MessageCircle size={11} />
+                  {post.commentCount ?? 0}
                 </span>
               </div>
             </div>

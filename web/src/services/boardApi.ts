@@ -1,8 +1,8 @@
 import api from "./api";
-import type { BoardPost, BoardCreateDto, Comment, CommentCreateDto } from "@/types/board";
+import type { BoardPost, BoardListItem, BoardCreateDto, Comment, CommentCreateDto } from "@/types/board";
 
 export const boardApi = {
-  getList: () => api.get<BoardPost[]>("/boards").then((r) => r.data),
+  getList: () => api.get<BoardListItem[]>("/boards").then((r) => r.data),
 
   getById: (id: number) => api.get<BoardPost>(`/boards/${id}`).then((r) => r.data),
 
