@@ -19,6 +19,7 @@ import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,15 +35,29 @@ public class KiwoomRealtimeService {
     private final StockWebSocketHandler frontEndHandler;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private WebSocketSession kiwoomSession;
+    private static final long RECONNECT_DELAY_MS = 5_000; //연결 끊기면 5초 후 재시도
 
     // 구독 중인 종목 코드 (재연결 시 복구용)
     private final Set<String> subscribedCodes = ConcurrentHashMap.newKeySet();
 
     @EventListener(ApplicationReadyEvent.class)
     public void init() {
-        Thread thread = new Thread(this::connect, "kiwoom-ws");
+        Thread thread = new Thread(this::connectLoop, "kiwoom-ws");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private void connectLoop() {
+        while (true) {
+            connect();
+            log.warn("실시간 서버 재연결 대기 ({}ms 후 재시도)", RECONNECT_DELAY_MS);
+            try{
+                Thread.sleep(RECONNECT_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     public void connect() {
@@ -214,5 +229,22 @@ public class KiwoomRealtimeService {
         } catch (Exception e) {
             log.error("실시간 구독 요청 중 오류 ({}): {}", code, e.getMessage());
         }
+    }
+
+    // 테스트용 — 실제 H0STCNT0 포맷을 흉내내서 parseAndBroadcast를 그대로 태움
+    public void simulateTick(String code, long price) {
+        String cntrTm = LocalTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("HHmmss"));
+        String[] f = new String[14];
+        f[0] = code;
+        f[1] = cntrTm;
+        f[2] = String.valueOf(price);
+        f[3] = "2";        // 상승 부호 (고정값, 필요하면 파라미터로 빼도 됨)
+        f[4] = "";
+        f[5] = "0.50";     // 등락률 (임의값)
+        for (int i = 6; i <= 12; i++) f[i] = "";
+        f[13] = "1";        // 체결량
+
+        String fakePayload = "0|H0STCNT0|001|" + String.join("^", f);
+        parseAndBroadcast(fakePayload);
     }
 }
