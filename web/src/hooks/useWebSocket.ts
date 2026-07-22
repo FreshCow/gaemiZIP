@@ -18,6 +18,7 @@ export function useWebSocket() {
   const setLatestTick = useAppStore((s) => s.setLatestTick);
   const updateHoldingPrice = useAppStore((s) => s.updateHoldingPrice);
   const setIndices = useAppStore((s) => s.setIndices);
+  const updateLivePrice = useAppStore((s) => s.updateLivePrice);
 
   const connect = useCallback(() => {
     const ws = new WebSocket(WS_URL);
@@ -44,6 +45,7 @@ export function useWebSocket() {
         try {
           const update: StockUpdate = JSON.parse(data.slice("REALTIME_UPDATE:".length));
           updateStock(update);
+          updateLivePrice(update);
           // 보유 종목의 현재가·수익률 실시간 갱신
           if (update.price) updateHoldingPrice(update.code, Number(update.price));
         } catch (err) {
@@ -78,13 +80,21 @@ export function useWebSocket() {
       console.error("[WS] 에러:", e);
       ws.close();
     };
-  }, [setStocks, updateStock, setWsConnected, setLatestTick, updateHoldingPrice, setIndices]);
+  }, [setStocks, updateStock, setWsConnected, setLatestTick, updateHoldingPrice, setIndices, updateLivePrice]);
 
   useEffect(() => {
     connect();
     return () => {
       timerRef.current && clearTimeout(timerRef.current);
-      wsRef.current?.close();
+      // 언마운트로 인한 의도적인 종료는 에러/재연결 핸들러를 타지 않도록 먼저 해제
+      const ws = wsRef.current;
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
     };
   }, [connect]);
 }

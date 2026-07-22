@@ -1,6 +1,9 @@
 package sw.gaemiZIP.controller.stock;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -43,5 +46,13 @@ public class TradeController {
     @GetMapping("/holdings")
     public ResponseEntity<List<HoldingResponse>> getMyHoldings(Authentication auth) {
         return ResponseEntity.ok(tradeService.getMyHoldings(auth.getName()));
+    }
+
+    @GetMapping("/paged")
+    public ResponseEntity<Page<TradeResponse>> getMyTradeHistoryPaged(Authentication auth,
+                                                                      @RequestParam(defaultValue = "0") int page,
+                                                                      @RequestParam(defaultValue = "10") int size)
+    {
+        return ResponseEntity.ok(tradeService.getMyTradeHistoryPaged(auth.getName(), PageRequest.of(page, size)));
     }
 }

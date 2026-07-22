@@ -4,10 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import sw.gaemiZIP.dto.board.BoardListResponse;
 import sw.gaemiZIP.entity.board.Board;
+import sw.gaemiZIP.repository.board.BoardIdCount;
 import sw.gaemiZIP.repository.board.BoardRepository;
+import sw.gaemiZIP.repository.board.CommentRepository;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -16,11 +21,32 @@ import java.util.List;
 public class BoardController {
 
     private final BoardRepository boardRepository;
+    private final CommentRepository commentRepository;
 
     // 게시글 전체 목록 조회 (최신순)
     @GetMapping
-    public ResponseEntity<List<Board>> getAllBoards() {
-        return ResponseEntity.ok(boardRepository.findAllByIsBlindedFalseOrderByCreatedAtDesc());
+    public ResponseEntity<List<BoardListResponse>> getAllBoards() {
+        List<Board> boards = boardRepository.findAllByIsBlindedFalseOrderByCreatedAtDesc();
+
+        Map<Long, Long> commentCounts = commentRepository.countByBoardIdGroup().stream()
+                .collect(Collectors.toMap(BoardIdCount::getBoardId, BoardIdCount::getCnt));
+
+        List<BoardListResponse> response = boards.stream()
+                .map(b -> new BoardListResponse(
+                        b.getId(),
+                        b.getTitle(),
+                        b.getAuthor(),
+                        b.getLikeCount(),
+                        commentCounts.getOrDefault(b.getId(), 0L),
+                        b.getCreatedAt(),
+                        b.getStockCode(),
+                        b.getStockName(),
+                        b.isBlinded()
+                ))
+                .toList();
+
+
+        return ResponseEntity.ok(response);
     }
 
     // 게시글 단건 조회
