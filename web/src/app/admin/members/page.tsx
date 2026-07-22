@@ -5,6 +5,9 @@ import { adminApi } from "@/services/adminApi";
 import type { MemberResponse } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+
+const PAGE_SIZE = 10;
 
 function getErrorMessage(e: unknown, fallback: string): string {
   const err = e as { response?: { data?: { error?: string } } };
@@ -17,6 +20,10 @@ export default function AdminMembersPage() {
   const [error, setError] = useState("");
   const [adjustingId, setAdjustingId] = useState<number | null>(null);
   const [deltaInput, setDeltaInput] = useState("");
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.ceil(members.length / PAGE_SIZE);
+  const pagedMembers = members.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   useEffect(() => {
     adminApi
@@ -82,7 +89,7 @@ export default function AdminMembersPage() {
             </tr>
           </thead>
           <tbody>
-            {members.map((m) => (
+            {pagedMembers.map((m) => (
               <tr key={m.id} className="border-b border-gray-100 transition-colors hover:bg-gray-100/60 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40">
                 <td className="px-4 py-3 text-gray-900 dark:text-white">{m.nickname}</td>
                 <td className="px-4 py-3 text-gray-700 dark:text-neutral-300">
@@ -137,6 +144,8 @@ export default function AdminMembersPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       {adjustingId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
