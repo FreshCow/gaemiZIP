@@ -6,6 +6,9 @@ import { adminApi } from "@/services/adminApi";
 import type { BoardPost, Comment } from "@/types/board";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+
+const PAGE_SIZE = 10;
 
 function getErrorMessage(e: unknown, fallback: string): string {
   const err = e as { response?: { data?: { error?: string } } };
@@ -33,6 +36,10 @@ export default function AdminContentPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [commentsByBoard, setCommentsByBoard] = useState<Record<number, Comment[]>>({});
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.ceil(boards.length / PAGE_SIZE);
+  const pagedBoards = boards.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   useEffect(() => {
     adminApi.getBoards().then(setBoards).catch((e) => setError(getErrorMessage(e, "게시글을 불러오지 못했습니다.")));
@@ -99,7 +106,7 @@ export default function AdminContentPage() {
             </tr>
           </thead>
           <tbody>
-            {boards.map((board) => (
+            {pagedBoards.map((board) => (
               <React.Fragment key={board.id}>
                 <tr
                   className="cursor-pointer border-b border-gray-100 transition-colors hover:bg-gray-100/60 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40"
@@ -167,6 +174,8 @@ export default function AdminContentPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }

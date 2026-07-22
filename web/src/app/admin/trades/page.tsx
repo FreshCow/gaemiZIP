@@ -5,6 +5,9 @@ import { adminApi } from "@/services/adminApi";
 import type { AdminTradeItem } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+
+const PAGE_SIZE = 10;
 
 function getErrorMessage(e: unknown, fallback: string): string {
   const err = e as { response?: { data?: { error?: string } } };
@@ -14,6 +17,10 @@ function getErrorMessage(e: unknown, fallback: string): string {
 export default function AdminTradesPage() {
   const [trades, setTrades] = useState<AdminTradeItem[]>([]);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.ceil(trades.length / PAGE_SIZE);
+  const pagedTrades = trades.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   useEffect(() => {
     adminApi.getTrades().then(setTrades).catch((e) => setError(getErrorMessage(e, "거래 내역을 불러오지 못했습니다.")));
@@ -23,7 +30,12 @@ export default function AdminTradesPage() {
     if (!window.confirm("해당 거래 기록을 삭제하시겠습니까? 잔고/보유종목은 자동으로 롤백되지 않습니다.")) return;
     try {
       await adminApi.deleteTrade(id);
-      setTrades((prev) => prev.filter((t) => t.id !== id));
+      setTrades((prev) => {
+        const next = prev.filter((t) => t.id !== id);
+        const lastPage = Math.max(0, Math.ceil(next.length / PAGE_SIZE) - 1);
+        if (page > lastPage) setPage(lastPage);
+        return next;
+      });
     } catch (e) {
       setError(getErrorMessage(e, "거래 기록 삭제에 실패했습니다."));
     }
@@ -55,7 +67,7 @@ export default function AdminTradesPage() {
             </tr>
           </thead>
           <tbody>
-            {trades.map((t) => (
+            {pagedTrades.map((t) => (
               <tr key={t.id} className="border-b border-gray-100 transition-colors hover:bg-gray-100/60 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40">
                 <td className="px-4 py-3 text-gray-500 dark:text-neutral-400">{t.memberId ?? "-"}</td>
                 <td className="px-4 py-3 text-gray-900 dark:text-white">
@@ -94,6 +106,8 @@ export default function AdminTradesPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }
