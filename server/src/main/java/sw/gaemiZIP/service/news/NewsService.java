@@ -20,6 +20,7 @@ import sw.gaemiZIP.entity.news.News;
 import sw.gaemiZIP.repository.news.NewsRepository;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -142,5 +143,13 @@ public class NewsService {
                    .replace("&quot;","\"")
                    .replace("&#39;", "'")
                    .trim();
+    }
+
+    @Scheduled(cron = "0 0 4 * * *")
+    @Transactional
+    public void cleanupOldNews() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
+        long deleted = newsRepository.deleteByCreatedDateBefore(cutoff);
+        log.info("{}일 이전 뉴스 {}건 삭제", 7, deleted);
     }
 }
