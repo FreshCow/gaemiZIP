@@ -18,11 +18,13 @@ import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { fetchStockInfo, fetchStockPrice, fetchStockNews, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
+import { tradeApi } from "@/services/tradeApi";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Pagination } from "@/components/ui/pagination";
 import type { StockInfoData, StockPriceItem } from "@/types/stock";
 import type { NewsItem, AiStockAnalysisResponse } from "@/types/news";
+import type { ReservedOrder } from "@/types/trade";
 
 const NEWS_PAGE_SIZE = 5;
 
@@ -83,17 +85,25 @@ export default function StockDetailPage() {
   const [aiAnalysis, setAiAnalysis] = useState<AiStockAnalysisResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
 
-  // 매수/매도 주문 (UI 우선 배치 — 실제 매매 API 연동은 다음 단계에서 진행)
+  // 매수/매도 주문
   const [tradeTab, setTradeTab] = useState<"BUY" | "SELL">("BUY");
   const [orderPrice, setOrderPrice] = useState("");
   const [qty, setQty] = useState("");
+  const [isTrading, setIsTrading] = useState(false);
+  const [tradeMsg, setTradeMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // 예약(지정가) 주문 — 주문가가 현재가와 다르면 즉시 체결 대신 예약으로 등록
+  const [reservations, setReservations] = useState<ReservedOrder[]>([]);
+  const [lockedBalance, setLockedBalance] = useState(0);
+  const [isReserving, setIsReserving] = useState(false);
 
   // 실시간 랭킹에서 현재가 fallback
   const rankStock = useAppStore((s) => s.stocks.find((s) => s.code === code));
   // 키움 실시간 구독으로 들어오는 최신 시세 (top10 랭킹 밖 종목도 포함)
   const liveUpdate = useAppStore((s) => s.livePrices[code]);
   const holding = useAppStore((s) => s.holdings.find((h) => h.code === code));
-  const { isLoggedIn, balance } = useAuthStore();
+  const setHoldings = useAppStore((s) => s.setHoldings);
+  const { isLoggedIn, balance, updateBalance } = useAuthStore();
 
   useEffect(() => {
     if (!code) return;
@@ -129,6 +139,36 @@ export default function StockDetailPage() {
       .finally(() => setAiLoading(false));
   }, [code]);
 
+  // 예약 주문 목록 폴링 — balance/lockedBalance도 함께 갱신되어
+  // 서버에서 자동 체결된 예약을 별도 알림 없이도 감지할 수 있다.
+  const refreshReservations = async () => {
+    try {
+      const res = await tradeApi.getReservations();
+      setLockedBalance(res.lockedBalance);
+      updateBalance(res.balance);
+      setReservations((prev) => {
+        const prevPendingIds = prev.filter((r) => r.status === "PENDING").map((r) => r.id);
+        const nextIds = res.reservations.map((r) => r.id);
+        const autoExecuted = prevPendingIds.some((id) => !nextIds.includes(id));
+        if (autoExecuted) {
+          tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+          setTradeMsg({ type: "ok", text: "예약 주문이 체결되었습니다." });
+        }
+        return res.reservations;
+      });
+    } catch {
+      // 폴링 실패는 조용히 무시
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    refreshReservations();
+    const timer = setInterval(refreshReservations, 5000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
   // 우선순위: 실시간 구독 시세 > /price(Redis→ka10001→마스터 폴백) > 랭킹 데이터
   const livePrice = absNum(liveUpdate?.price);
   const apiPrice  = absNum(price?.price);
@@ -149,6 +189,7 @@ export default function StockDetailPage() {
     setTradeTab("BUY");
     setOrderPrice(curPrice > 0 ? String(curPrice) : "");
     setQty("");
+    setTradeMsg(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
@@ -156,22 +197,97 @@ export default function StockDetailPage() {
   const qtyNum        = Math.max(0, Number(qty) || 0);
   const totalAmount   = orderPriceNum * qtyNum;
 
-  // 비율 버튼: 매수 → 잔고 기준, 매도 → 보유수량 기준
+  // 주문가 = 실시간 현재가일 때만 즉시 체결, 다르면 예약 주문으로 등록
+  const isPriceMatch    = curPrice > 0 && orderPriceNum === curPrice;
+  const availableBalance = Math.max(0, (balance ?? 0) - lockedBalance);
+  const availableQty     = Math.max(0, (holding?.quantity ?? 0) - (holding?.lockedQuantity ?? 0));
+  const codeReservations = reservations.filter((r) => r.stockCode === code && r.status === "PENDING");
+
+  // 비율 버튼: 매수 → 주문가능 잔고 기준, 매도 → 매도가능 수량 기준
   const handleRatio = (ratio: number) => {
     if (orderPriceNum <= 0 && tradeTab === "BUY") return;
     if (tradeTab === "BUY") {
-      const maxQty = Math.floor(((balance ?? 0) * ratio) / orderPriceNum);
+      const maxQty = Math.floor((availableBalance * ratio) / orderPriceNum);
       setQty(String(maxQty));
     } else {
-      const maxQty = holding?.quantity ?? 0;
-      setQty(String(Math.floor(maxQty * ratio)));
+      setQty(String(Math.floor(availableQty * ratio)));
     }
   };
 
-  const canTrade =
+  const canSubmit =
+    !isTrading &&
+    !isReserving &&
     orderPriceNum > 0 &&
     qtyNum > 0 &&
-    (tradeTab === "BUY" ? totalAmount <= (balance ?? 0) : qtyNum <= (holding?.quantity ?? 0));
+    (tradeTab === "BUY" ? totalAmount <= availableBalance : qtyNum <= availableQty);
+
+  const handleTrade = async () => {
+    if (!canSubmit) return;
+    setIsTrading(true);
+    setTradeMsg(null);
+    try {
+      const result = await tradeApi.executeTrade({
+        stockCode: code,
+        stockName: info?.name ?? "",
+        tradeType: tradeTab,
+        price: orderPriceNum,
+        quantity: qtyNum,
+      });
+      if (result.newBalance != null) updateBalance(result.newBalance);
+      await tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+      setTradeMsg({ type: "ok", text: tradeTab === "BUY" ? "매수 완료" : "매도 완료" });
+      setQty("");
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        "거래 처리 중 오류가 발생했습니다.";
+      setTradeMsg({ type: "err", text: msg });
+    } finally {
+      setIsTrading(false);
+    }
+  };
+
+  const handleReserve = async () => {
+    if (!canSubmit) return;
+    setIsReserving(true);
+    setTradeMsg(null);
+    try {
+      await tradeApi.createReservation({
+        stockCode: code,
+        stockName: info?.name ?? "",
+        tradeType: tradeTab,
+        price: orderPriceNum,
+        quantity: qtyNum,
+      });
+      await refreshReservations();
+      await tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+      setTradeMsg({ type: "ok", text: "예약 주문이 등록되었습니다." });
+      setQty("");
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        "예약 등록 중 오류가 발생했습니다.";
+      setTradeMsg({ type: "err", text: msg });
+    } finally {
+      setIsReserving(false);
+    }
+  };
+
+  const handleSubmit = () => (isPriceMatch ? handleTrade() : handleReserve());
+
+  const handleCancelReservation = async (id: number) => {
+    try {
+      await tradeApi.cancelReservation(id);
+      await refreshReservations();
+      await tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+      setTradeMsg({ type: "ok", text: "예약이 취소되었습니다." });
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        "예약 취소 중 오류가 발생했습니다.";
+      setTradeMsg({ type: "err", text: msg });
+    }
+  };
 
   const newsTotalPages = Math.ceil(news.length / NEWS_PAGE_SIZE);
   const pagedNews = news.slice(newsPage * NEWS_PAGE_SIZE, newsPage * NEWS_PAGE_SIZE + NEWS_PAGE_SIZE);
@@ -334,16 +450,18 @@ export default function StockDetailPage() {
                   <span>
                     주문 가능 잔고{" "}
                     <span className="font-semibold text-gray-900 dark:text-white">
-                      ₩{(balance ?? 0).toLocaleString()}
+                      ₩{availableBalance.toLocaleString()}
                     </span>
+                    {lockedBalance > 0 && ` (예약 잠금 ₩${lockedBalance.toLocaleString()})`}
                   </span>
                 ) : (
                   <span>
-                    보유 수량{" "}
+                    매도 가능 수량{" "}
                     <span className="font-semibold text-gray-900 dark:text-white">
-                      {(holding?.quantity ?? 0).toLocaleString()}주
+                      {availableQty.toLocaleString()}주
                     </span>
                     {holding ? ` · 평균 ₩${holding.buyPrice.toLocaleString()}` : ""}
+                    {(holding?.lockedQuantity ?? 0) > 0 && ` (예약 잠금 ${holding?.lockedQuantity}주)`}
                   </span>
                 )}
               </div>
@@ -391,6 +509,11 @@ export default function StockDetailPage() {
                     />
                     <span className="shrink-0 text-sm text-gray-400 dark:text-neutral-500">원</span>
                   </div>
+                  {orderPriceNum > 0 && !isPriceMatch && (
+                    <p className="text-[11px] text-amber-500">
+                      현재가와 다릅니다 — 예약 주문으로 등록되며, 현재가가 이 가격이 되면 자동 체결됩니다.
+                    </p>
+                  )}
                 </div>
 
                 {/* 수량 */}
@@ -435,22 +558,63 @@ export default function StockDetailPage() {
                     </p>
                   </div>
 
-                  {/* 실행 버튼 — UI 우선 배치, 실제 매매 연동은 다음 단계 */}
+                  {/* 실행 버튼 */}
                   <button
-                    disabled={!isLoggedIn || !canTrade}
-                    onClick={() => { /* TODO: 레이아웃 확정 후 tradeApi 연동 */ }}
+                    disabled={!isLoggedIn || !canSubmit}
+                    onClick={handleSubmit}
                     className={`shrink-0 rounded-xl px-8 py-3.5 text-base font-bold text-white transition-colors disabled:opacity-40 ${
                       tradeTab === "BUY"
                         ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700"
                         : "bg-rose-500 hover:bg-rose-600 active:bg-rose-700"
                     }`}
                   >
-                    {tradeTab === "BUY"
+                    {isTrading || isReserving
+                      ? "처리 중..."
+                      : !isPriceMatch
+                      ? "예약 주문 걸기"
+                      : tradeTab === "BUY"
                       ? `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매수하기`
                       : `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매도하기`}
                   </button>
                 </div>
               </div>
+
+              {tradeMsg && (
+                <p
+                  className={`mt-3 text-right text-sm font-medium ${
+                    tradeMsg.type === "ok" ? "text-emerald-500" : "text-rose-500"
+                  }`}
+                >
+                  {tradeMsg.text}
+                </p>
+              )}
+
+              {codeReservations.length > 0 && (
+                <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
+                  <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">예약 중인 주문</p>
+                  {codeReservations.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800"
+                    >
+                      <span
+                        className={`font-semibold ${r.tradeType === "BUY" ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {r.tradeType === "BUY" ? "매수" : "매도"}
+                      </span>
+                      <span className="text-gray-700 dark:text-neutral-300">
+                        {r.targetPrice.toLocaleString()}원 · {r.quantity.toLocaleString()}주
+                      </span>
+                      <button
+                        onClick={() => handleCancelReservation(r.id)}
+                        className="text-xs text-gray-400 hover:text-rose-500 dark:text-neutral-500 dark:hover:text-rose-400 transition-colors"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               </div>
             </div>
 
