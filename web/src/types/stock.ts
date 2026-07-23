@@ -13,6 +13,7 @@ export interface HoldingItem {
   currentPrice: number;
   quantity: number;
   profitRate: number;
+  lockedQuantity?: number; // 예약 매도 주문으로 잠긴 수량
 }
 
 export interface CandlePoint {
@@ -121,4 +122,5 @@ export interface HoldingData {
   stockName: string;
   quantity: number;
   avgPrice: number;
+  lockedQuantity?: number; // 예약 매도 주문으로 잠긴 수량
 }

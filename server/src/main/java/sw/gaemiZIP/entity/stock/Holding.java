@@ -26,8 +26,13 @@ public class Holding {
     @Column(nullable = false)
     private int quantity;
 
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int lockedQuantity;
+
     @Column(nullable = false)
     private long avgPrice; // 가중평균 매수단가
+
+
 
     // 매수: 가중평균 단가 재계산 후 수량 증가
     public void addPurchase(int qty, long price) {
@@ -39,5 +44,13 @@ public class Holding {
     // 매도: 수량만 감소 (평균단가 유지)
     public void sell(int qty) {
         this.quantity -= qty;
+    }
+
+    public void lock(int qty) {
+        this.lockedQuantity += qty;
+    }
+
+    public void unlock(int qty) {
+        this.lockedQuantity = Math.max(0, this.lockedQuantity - qty);
     }
 }
