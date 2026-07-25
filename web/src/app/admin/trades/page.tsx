@@ -6,6 +6,7 @@ import type { AdminTradeItem } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { formatDateTime } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -88,7 +89,7 @@ export default function AdminTradesPage() {
                 </td>
                 <td className="px-4 py-3 text-right text-gray-900 dark:text-white">{t.price.toLocaleString()}원</td>
                 <td className="px-4 py-3 text-right text-gray-700 dark:text-neutral-300">{t.quantity}주</td>
-                <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-neutral-500">{t.tradeTime?.slice(0, 19).replace("T", " ")}</td>
+                <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-neutral-500">{formatDateTime(t.tradeTime)}</td>
                 <td className="px-4 py-3 text-right">
                   <Button size="sm" variant="outline" className="text-rose-500 hover:text-rose-600" onClick={() => handleDelete(t.id)}>
                     삭제

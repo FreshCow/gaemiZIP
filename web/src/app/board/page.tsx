@@ -7,6 +7,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { boardApi } from "@/services/boardApi";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/utils";
 import { Plus, X, ThumbsUp, MessageCircle } from "lucide-react";
 
 export default function BoardPage() {
@@ -64,7 +65,7 @@ export default function BoardPage() {
             </div>
             <div className="flex items-center justify-between mt-3">
               <p className="text-xs text-gray-400 dark:text-neutral-600">
-                {post.author} · {post.createdAt}
+                {post.author} · {formatDateTime(post.createdAt)}
               </p>
               <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-neutral-600">
                 <span className="flex items-center gap-1">

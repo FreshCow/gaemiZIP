@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   Star,
@@ -26,7 +26,8 @@ import type { StockInfoData, StockPriceItem } from "@/types/stock";
 import type { NewsItem, AiStockAnalysisResponse } from "@/types/news";
 import type { ReservedOrder } from "@/types/trade";
 
-const NEWS_PAGE_SIZE = 5;
+const NEWS_MIN_PAGE_SIZE = 5;
+const NEWS_ITEM_HEIGHT = 76; // 뉴스 li 1개의 대략적 렌더 높이(px) — 제목 2줄 + 메타 정보 + 패딩
 
 const RATIOS = [
   { label: "25%", value: 0.25 },
@@ -82,6 +83,8 @@ export default function StockDetailPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsPage, setNewsPage] = useState(0);
+  const [newsPageSize, setNewsPageSize] = useState(NEWS_MIN_PAGE_SIZE);
+  const newsListRef = useRef<HTMLUListElement>(null);
   const [aiAnalysis, setAiAnalysis] = useState<AiStockAnalysisResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
 
@@ -139,6 +142,21 @@ export default function StockDetailPage() {
       .finally(() => setAiLoading(false));
   }, [code]);
 
+  // 관련 뉴스 카드는 좌측 컬럼 높이에 맞춰 늘어나므로, 실제 보이는 영역 높이에 맞게 페이지당 개수를 계산
+  useEffect(() => {
+    const el = newsListRef.current;
+    if (!el) return;
+
+    const updatePageSize = () => {
+      setNewsPageSize(Math.max(NEWS_MIN_PAGE_SIZE, Math.floor(el.clientHeight / NEWS_ITEM_HEIGHT)));
+    };
+
+    updatePageSize();
+    const observer = new ResizeObserver(updatePageSize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [news.length]);
+
   // 예약 주문 목록 폴링 — balance/lockedBalance도 함께 갱신되어
   // 서버에서 자동 체결된 예약을 별도 알림 없이도 감지할 수 있다.
   const refreshReservations = async () => {
@@ -187,7 +205,7 @@ export default function StockDetailPage() {
   useEffect(() => {
     if (!code) return;
     setTradeTab("BUY");
-    setOrderPrice(curPrice > 0 ? String(curPrice) : "");
+    setOrderPrice(curPrice > 0 ? curPrice.toLocaleString() : "");
     setQty("");
     setTradeMsg(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -289,8 +307,9 @@ export default function StockDetailPage() {
     }
   };
 
-  const newsTotalPages = Math.ceil(news.length / NEWS_PAGE_SIZE);
-  const pagedNews = news.slice(newsPage * NEWS_PAGE_SIZE, newsPage * NEWS_PAGE_SIZE + NEWS_PAGE_SIZE);
+  const newsTotalPages = Math.ceil(news.length / newsPageSize);
+  const clampedNewsPage = Math.min(newsPage, Math.max(0, newsTotalPages - 1));
+  const pagedNews = news.slice(clampedNewsPage * newsPageSize, clampedNewsPage * newsPageSize + newsPageSize);
 
   return (
     <div className="p-6 space-y-5">
@@ -491,7 +510,7 @@ export default function StockDetailPage() {
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">주문 가격</label>
                     <button
-                      onClick={() => setOrderPrice(curPrice > 0 ? String(curPrice) : "")}
+                      onClick={() => setOrderPrice(curPrice > 0 ? curPrice.toLocaleString() : "")}
                       className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-500 dark:text-neutral-500 dark:hover:text-emerald-400 transition-colors"
                     >
                       <RefreshCw size={12} />
@@ -500,10 +519,14 @@ export default function StockDetailPage() {
                   </div>
                   <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
                     <input
-                      type="number"
-                      min={1}
+                      type="text"
+                      inputMode="numeric"
                       value={orderPrice}
-                      onChange={(e) => { setOrderPrice(e.target.value); setQty(""); }}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/[^0-9]/g, "");
+                        setOrderPrice(digits ? Number(digits).toLocaleString() : "");
+                        setQty("");
+                      }}
                       placeholder="0"
                       className="w-full bg-transparent text-base font-semibold text-gray-900 outline-none dark:text-white"
                     />
@@ -684,7 +707,7 @@ export default function StockDetailPage() {
                 <p className="py-3 text-sm text-gray-400 dark:text-neutral-500">관련 뉴스가 없습니다.</p>
               ) : (
                 <>
-                  <ul className="flex-1 min-h-0 divide-y divide-gray-100 overflow-y-auto dark:divide-neutral-800">
+                  <ul ref={newsListRef} className="flex-1 min-h-0 divide-y divide-gray-100 overflow-y-auto dark:divide-neutral-800">
                     {pagedNews.map((item) => (
                       <li key={item.id ?? item.link} className="py-3 first:pt-0 last:pb-0">
                         <a
@@ -705,7 +728,7 @@ export default function StockDetailPage() {
                     ))}
                   </ul>
                   <Pagination
-                    page={newsPage}
+                    page={clampedNewsPage}
                     totalPages={newsTotalPages}
                     onPageChange={setNewsPage}
                     className="mt-3 border-t border-gray-100 pt-3 dark:border-neutral-800"
