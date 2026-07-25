@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
@@ -13,7 +13,8 @@ import { Plus, X, ThumbsUp, MessageCircle } from "lucide-react";
 export default function BoardPage() {
   const router = useRouter();
   const { boards, setBoards } = useAppStore();
-  const nickname = useAuthStore((s) => s.nickname);
+  const { nickname, isLoggedIn } = useAuthStore();
+  const [error, setError] = useState("");
 
   useEffect(() => {
     boardApi.getList().then(setBoards);
@@ -21,23 +22,43 @@ export default function BoardPage() {
 
   const handleDelete = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    await boardApi.remove(id);
-    setBoards(boards.filter((b) => b.id !== id));
+    setError("");
+    try {
+      await boardApi.remove(id);
+      setBoards(boards.filter((b) => b.id !== id));
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: string } })?.response?.data ??
+        "게시글 삭제 중 오류가 발생했습니다.";
+      setError(typeof msg === "string" ? msg : "게시글 삭제 중 오류가 발생했습니다.");
+    }
   };
 
   return (
     <div className="mx-auto p-6 space-y-6 max-w-[80%]">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">게시판</h1>
-        <Button
-          size="sm"
-          onClick={() => router.push("/board/write")}
-          className="gap-1.5"
-        >
-          <Plus size={14} />
-          글쓰기
-        </Button>
+        {isLoggedIn ? (
+          <Button
+            size="sm"
+            onClick={() => router.push("/board/write")}
+            className="gap-1.5"
+          >
+            <Plus size={14} />
+            글쓰기
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => router.push("/login")} className="gap-1.5">
+            로그인 후 글쓰기
+          </Button>
+        )}
       </div>
+
+      {error && (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+          {error}
+        </p>
+      )}
 
       <div className="space-y-3">
         {boards.map((post) => (
