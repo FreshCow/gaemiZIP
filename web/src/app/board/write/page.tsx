@@ -15,10 +15,12 @@ export default function BoardWritePage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) return;
     setSubmitting(true);
+    setError("");
     try {
       const created = await boardApi.create({ title, content, author: nickname ?? "익명의 개미" });
       setBoards([
@@ -36,6 +38,11 @@ export default function BoardWritePage() {
         ...boards,
       ]);
       router.push("/board");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: string } })?.response?.data ??
+        "게시글 등록 중 오류가 발생했습니다.";
+      setError(typeof msg === "string" ? msg : "게시글 등록 중 오류가 발생했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -74,6 +81,12 @@ export default function BoardWritePage() {
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
+
+        {error && (
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+            {error}
+          </p>
+        )}
 
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={() => router.push("/board")}>

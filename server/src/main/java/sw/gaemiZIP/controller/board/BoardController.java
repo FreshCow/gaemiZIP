@@ -1,20 +1,22 @@
 package sw.gaemiZIP.controller.board;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import sw.gaemiZIP.dto.board.BoardDetailResponse;
 import sw.gaemiZIP.dto.board.BoardListResponse;
 import sw.gaemiZIP.entity.board.Board;
+import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.repository.board.BoardIdCount;
 import sw.gaemiZIP.repository.board.BoardRepository;
 import sw.gaemiZIP.repository.board.CommentRepository;
+import sw.gaemiZIP.repository.member.MemberAntRepository;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/boards")
 @RequiredArgsConstructor
@@ -22,6 +24,8 @@ public class BoardController {
 
     private final BoardRepository boardRepository;
     private final CommentRepository commentRepository;
+    private final MemberAntRepository memberAntRepository;
+
 
     // 게시글 전체 목록 조회 (최신순)
     @GetMapping
@@ -51,10 +55,10 @@ public class BoardController {
 
     // 게시글 단건 조회
     @GetMapping("/{id}")
-    public ResponseEntity<Board> getBoard(@PathVariable Long id) {
+    public ResponseEntity<BoardDetailResponse> getBoard(@PathVariable Long id) {
         Board board = boardRepository.findById(id).orElse(null);
         if (board == null) return ResponseEntity.status(404).body(null);
-        return ResponseEntity.ok(board);
+        return ResponseEntity.ok(BoardDetailResponse.from(board));
     }
 
     // 게시글 추천
@@ -68,23 +72,27 @@ public class BoardController {
 
     // 게시글 작성
     @PostMapping
-    public ResponseEntity<Board> createBoard(@RequestBody Board board) {
+    public ResponseEntity<Board> createBoard(@RequestBody Board board, Authentication auth) {
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+        board.setAuthor(member.getNickname()); // 클라이언트가 보낸 author는 무시하고 서버가 덮어씀
         return ResponseEntity.ok(boardRepository.save(board));
     }
 
     // 게시글 삭제: 익명 작성글은 비밀번호 검증 후 삭제
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteBoard(
-            @PathVariable Long id,
-            @RequestParam(value = "password", required = false, defaultValue = "") String password) {
-
-        log.info("게시글 삭제 요청: id={}", id);
-
+    public ResponseEntity<?> deleteBoard(@PathVariable Long id, Authentication auth) {
         Board board = boardRepository.findById(id).orElse(null);
         if (board == null) return ResponseEntity.status(404).body("게시글을 찾을 수 없습니다.");
 
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+
+        if (!board.getAuthor().equals(member.getNickname())) {
+            return ResponseEntity.status(403).body("본인이 작성한 글만 삭제할 수 있습니다.");
+        }
+
         boardRepository.deleteById(id);
-        log.info("게시글 삭제 완료: id={}", id);
         return ResponseEntity.ok("삭제 완료");
     }
 }
