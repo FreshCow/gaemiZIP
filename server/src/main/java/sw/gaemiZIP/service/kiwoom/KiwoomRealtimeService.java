@@ -11,6 +11,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import sw.gaemiZIP.service.stock.ReservationService;
 import sw.gaemiZIP.websocket.StockWebSocketHandler;
 
 import java.io.IOException;
@@ -36,6 +37,7 @@ public class KiwoomRealtimeService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private WebSocketSession kiwoomSession;
     private static final long RECONNECT_DELAY_MS = 5_000; //연결 끊기면 5초 후 재시도
+    private final ReservationService reservationService;
 
     // 구독 중인 종목 코드 (재연결 시 복구용)
     private final Set<String> subscribedCodes = ConcurrentHashMap.newKeySet();
@@ -145,6 +147,8 @@ public class KiwoomRealtimeService {
             stockData.put("volume", volume);
             log.info("실시간: code={} price={} rate={} volume={}", code, price, rate, volume);
             frontEndHandler.broadcast("REALTIME_UPDATE:" + objectMapper.writeValueAsString(stockData));
+            reservationService.matchAndExecute(code, Long.parseLong(price));
+
 
             // TICK_UPDATE: 차트 실시간 캔들 업데이트용
             // time     = 분 경계 epoch (캔들 집계용)

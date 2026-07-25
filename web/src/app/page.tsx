@@ -6,17 +6,27 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { tradeApi } from "@/services/tradeApi";
 import { fetchStockPrice } from "@/services/stockApi";
 import { motion } from "framer-motion";
-import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText, RefreshCw } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText, RefreshCw, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
+import { formatDateTime } from "@/lib/utils";
 import type { StockItem } from "@/types/stock";
-import type { TradeHistory } from "@/types/trade";
+import type { TradeHistory, ReservedOrder } from "@/types/trade";
+
+const HOLDINGS_PAGE_SIZE = 5;
+const POSTS_PAGE_SIZE = 5;
+const RESERVATIONS_PAGE_SIZE = 10;
 
 export default function DashboardPage() {
   const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading, boards } = useAppStore();
-  const { nickname, balance, isLoggedIn } = useAuthStore();
+  const { nickname, balance, isLoggedIn, updateBalance } = useAuthStore();
   const setHoldings = useAppStore((s) => s.setHoldings);
+  const [reservations, setReservations] = useState<ReservedOrder[]>([]);
+  const [cancelingId, setCancelingId] = useState<number | null>(null);
+  const [reservationsPage, setReservationsPage] = useState(0);
+  const [holdingsPage, setHoldingsPage] = useState(0);
+  const [postsPage, setPostsPage] = useState(0);
 
   const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -38,6 +48,46 @@ export default function DashboardPage() {
       })
       .catch(() => {});
   }, [isLoggedIn, tradePage]);
+
+  // 예약 대기중 주문 폴링 — 자동 체결/취소로 목록이 바뀌는 것을 감지
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const load = () => {
+      tradeApi.getReservations()
+        .then((res) => {
+          setReservations(res.reservations.filter((r) => r.status === "PENDING"));
+          updateBalance(res.balance);
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = setInterval(load, 5000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
+  const handleCancelReservation = async (id: number) => {
+    setCancelingId(id);
+    try {
+      await tradeApi.cancelReservation(id);
+      const res = await tradeApi.getReservations();
+      setReservations(res.reservations.filter((r) => r.status === "PENDING"));
+      updateBalance(res.balance);
+      tradeApi.getHoldingsWithLivePrice().then(setHoldings).catch(() => {});
+    } catch {
+      // 취소 실패는 조용히 무시
+    } finally {
+      setCancelingId(null);
+    }
+  };
+
+  const holdingsTotalPages = Math.ceil(holdings.length / HOLDINGS_PAGE_SIZE);
+  const clampedHoldingsPage = Math.min(holdingsPage, Math.max(0, holdingsTotalPages - 1));
+  const pagedHoldings = holdings.slice(clampedHoldingsPage * HOLDINGS_PAGE_SIZE, clampedHoldingsPage * HOLDINGS_PAGE_SIZE + HOLDINGS_PAGE_SIZE);
+
+  const reservationsTotalPages = Math.ceil(reservations.length / RESERVATIONS_PAGE_SIZE);
+  const clampedReservationsPage = Math.min(reservationsPage, Math.max(0, reservationsTotalPages - 1));
+  const pagedReservations = reservations.slice(clampedReservationsPage * RESERVATIONS_PAGE_SIZE, clampedReservationsPage * RESERVATIONS_PAGE_SIZE + RESERVATIONS_PAGE_SIZE);
 
   const stockValue = holdings.reduce((sum, h) => sum + h.currentPrice * h.quantity, 0);
   const cashBalance = balance ?? 0;
@@ -305,7 +355,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-neutral-800">
-              {holdings.map((h) => (
+              {pagedHoldings.map((h) => (
                 <Link
                   key={h.code}
                   href={`/stocks/${h.code}`}
@@ -338,6 +388,14 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+          {holdingsTotalPages > 1 && (
+            <Pagination
+              page={clampedHoldingsPage}
+              totalPages={holdingsTotalPages}
+              onPageChange={setHoldingsPage}
+              className="pt-4"
+            />
+          )}
         </div>
 
         {/* My Posts card */}
@@ -363,83 +421,159 @@ export default function DashboardPage() {
                 </div>
               );
             }
+            const postsTotalPages = Math.ceil(myPosts.length / POSTS_PAGE_SIZE);
+            const clampedPostsPage = Math.min(postsPage, Math.max(0, postsTotalPages - 1));
+            const pagedPosts = myPosts.slice(clampedPostsPage * POSTS_PAGE_SIZE, clampedPostsPage * POSTS_PAGE_SIZE + POSTS_PAGE_SIZE);
             return (
-              <div className="divide-y divide-gray-100 dark:divide-neutral-800">
-                {myPosts.slice(0, 5).map((post) => (
-                  <Link
-                    key={post.id}
-                    href={`/board/${post.id}`}
-                    className="block py-2.5 first:pt-0 last:pb-0 transition-colors hover:opacity-70"
-                  >
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{post.title}</p>
-                    <p className="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">{post.createdAt}</p>
-                  </Link>
-                ))}
-              </div>
+              <>
+                <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+                  {pagedPosts.map((post) => (
+                    <Link
+                      key={post.id}
+                      href={`/board/${post.id}`}
+                      className="block py-2.5 first:pt-0 last:pb-0 transition-colors hover:opacity-70"
+                    >
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{post.title}</p>
+                      <p className="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">{formatDateTime(post.createdAt)}</p>
+                    </Link>
+                  ))}
+                </div>
+                {postsTotalPages > 1 && (
+                  <Pagination
+                    page={clampedPostsPage}
+                    totalPages={postsTotalPages}
+                    onPageChange={setPostsPage}
+                    className="pt-4"
+                  />
+                )}
+              </>
             );
           })()}
         </div>
       </div>
-      {/* Trade History */}
+      {/* Trade History + Pending Reservations */}
       <section className="rounded-xl border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-neutral-800">
-          <History size={14} className="text-gray-400 dark:text-neutral-500" />
-          <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">거래 이력</h2>
-        </div>
-        {tradeHistories.length === 0 ? (
-          <div className="flex items-center justify-center h-20">
-            <p className="text-sm text-gray-400 dark:text-neutral-600">거래 내역이 없습니다</p>
+        <div className="grid grid-cols-1 divide-y divide-gray-100 lg:grid-cols-2 lg:divide-y-0 lg:divide-x dark:divide-neutral-800">
+          {/* 거래 이력 컬럼 */}
+          <div>
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-neutral-800">
+              <History size={14} className="text-gray-400 dark:text-neutral-500" />
+              <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">거래 이력</h2>
+            </div>
+            {tradeHistories.length === 0 ? (
+              <div className="flex items-center justify-center h-20">
+                <p className="text-sm text-gray-400 dark:text-neutral-600">거래 내역이 없습니다</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-500 dark:border-neutral-800 dark:text-neutral-500">
+                      <th className="px-5 py-3 text-left font-medium">종목</th>
+                      <th className="px-5 py-3 text-left font-medium">유형</th>
+                      <th className="px-5 py-3 text-right font-medium">가격</th>
+                      <th className="px-5 py-3 text-right font-medium">수량</th>
+                      <th className="px-5 py-3 text-right font-medium">체결일시</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tradeHistories.map((t) => (
+                      <tr key={t.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40">
+                        <td className="px-5 py-3 text-gray-900 dark:text-white">
+                          <p className="font-medium">{t.stockName}</p>
+                          <p className="text-xs text-gray-500 dark:text-neutral-500">{t.stockCode}</p>
+                        </td>
+                        <td className="px-5 py-3">
+                          <Badge
+                            variant="outline"
+                            className={
+                              t.tradeType === "BUY"
+                                ? "border-emerald-700 text-emerald-500 dark:text-emerald-400"
+                                : "border-rose-700 text-rose-500 dark:text-rose-400"
+                            }
+                          >
+                            {t.tradeType === "BUY" ? "매수" : "매도"}
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-900 dark:text-white">
+                          {t.price.toLocaleString()}원
+                        </td>
+                        <td className="px-5 py-3 text-right text-gray-700 dark:text-neutral-300">{t.quantity}주</td>
+                        <td className="px-5 py-3 text-right text-xs text-gray-500 dark:text-neutral-500">{formatDateTime(t.tradeAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {tradeTotalPages > 1 && (
+              <Pagination
+                page={tradePage}
+                totalPages={tradeTotalPages}
+                onPageChange={setTradePage}
+                className="py-4"
+              />
+            )}
           </div>
-        ) : (
-          <div className="overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-gray-500 dark:border-neutral-800 dark:text-neutral-500">
-                  <th className="px-5 py-3 text-left font-medium">종목</th>
-                  <th className="px-5 py-3 text-left font-medium">유형</th>
-                  <th className="px-5 py-3 text-right font-medium">가격</th>
-                  <th className="px-5 py-3 text-right font-medium">수량</th>
-                  <th className="px-5 py-3 text-right font-medium">체결일시</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tradeHistories.map((t) => (
-                  <tr key={t.id} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50 dark:border-neutral-800/60 dark:hover:bg-neutral-800/40">
-                    <td className="px-5 py-3 text-gray-900 dark:text-white">
-                      <p className="font-medium">{t.stockName}</p>
-                      <p className="text-xs text-gray-500 dark:text-neutral-500">{t.stockCode}</p>
-                    </td>
-                    <td className="px-5 py-3">
-                      <Badge
-                        variant="outline"
-                        className={
-                          t.tradeType === "BUY"
-                            ? "border-emerald-700 text-emerald-500 dark:text-emerald-400"
-                            : "border-rose-700 text-rose-500 dark:text-rose-400"
-                        }
+
+          {/* 예약 현황 컬럼 */}
+          <div>
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-neutral-800">
+              <Clock size={14} className="text-gray-400 dark:text-neutral-500" />
+              <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">예약 체결 대기중</h2>
+              {reservations.length > 0 && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
+                  {reservations.length}
+                </span>
+              )}
+            </div>
+            {!isLoggedIn ? (
+              <div className="flex items-center justify-center h-20">
+                <p className="text-sm text-gray-400 dark:text-neutral-600">로그인 후 확인하세요</p>
+              </div>
+            ) : reservations.length === 0 ? (
+              <div className="flex items-center justify-center h-20">
+                <p className="text-sm text-gray-400 dark:text-neutral-600">예약 대기중인 주문이 없습니다</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+                {pagedReservations.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <Link href={`/stocks/${r.stockCode}`} className="min-w-0 transition-opacity hover:opacity-70">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{r.stockName}</p>
+                      <p className="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">{formatDateTime(r.createdAt)}</p>
+                    </Link>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold ${r.tradeType === "BUY" ? "text-emerald-500" : "text-rose-500"}`}>
+                          {r.tradeType === "BUY" ? "매수" : "매도"}
+                        </span>
+                        <span className="text-sm text-gray-700 dark:text-neutral-300">
+                          {r.targetPrice.toLocaleString()}원 · {r.quantity.toLocaleString()}주
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleCancelReservation(r.id)}
+                        disabled={cancelingId === r.id}
+                        className="text-xs text-gray-400 hover:text-rose-500 disabled:opacity-40 dark:text-neutral-500 dark:hover:text-rose-400 transition-colors"
                       >
-                        {t.tradeType === "BUY" ? "매수" : "매도"}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-3 text-right text-gray-900 dark:text-white">
-                      {t.price.toLocaleString()}원
-                    </td>
-                    <td className="px-5 py-3 text-right text-gray-700 dark:text-neutral-300">{t.quantity}주</td>
-                    <td className="px-5 py-3 text-right text-xs text-gray-500 dark:text-neutral-500">{t.tradeAt}</td>
-                  </tr>
+                        {cancelingId === r.id ? "취소 중..." : "취소"}
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
+            {reservationsTotalPages > 1 && (
+              <Pagination
+                page={clampedReservationsPage}
+                totalPages={reservationsTotalPages}
+                onPageChange={setReservationsPage}
+                className="py-4"
+              />
+            )}
           </div>
-        )}
-        {tradeTotalPages > 1 && (
-          <Pagination
-            page={tradePage}
-            totalPages={tradeTotalPages}
-            onPageChange={setTradePage}
-            className="py-4"
-          />
-        )}
+        </div>
       </section>
     </div>
   );

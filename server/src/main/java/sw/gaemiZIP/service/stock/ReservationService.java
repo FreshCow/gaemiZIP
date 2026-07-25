@@ -7,13 +7,12 @@ import sw.gaemiZIP.dto.stock.ReservationListResponse;
 import sw.gaemiZIP.dto.stock.ReservationRequest;
 import sw.gaemiZIP.dto.stock.ReservationResponse;
 import sw.gaemiZIP.entity.member.MemberAnt;
-import sw.gaemiZIP.entity.stock.Holding;
-import sw.gaemiZIP.entity.stock.ReservedOrder;
-import sw.gaemiZIP.entity.stock.TradeStatus;
-import sw.gaemiZIP.entity.stock.TradeType;
+import sw.gaemiZIP.entity.stock.*;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
+import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
+import sw.gaemiZIP.service.notification.NotificationService;
 
 import java.util.List;
 
@@ -23,6 +22,77 @@ public class ReservationService {
     private final MemberAntRepository memberAntRepository;
     private final HoldingRepository holdingRepository;
     private final ReservedOrderRepository reservedOrderRepository;
+    private final TradeHistoryRepository tradeHistoryRepository;
+    private final NotificationService notificationService;
+
+
+    @Transactional
+    public void matchAndExecute(String stockCode, long currentPrice){
+        List<ReservedOrder> matches = reservedOrderRepository
+                .findByStockCodeAndStatus(stockCode, TradeStatus.PENDING)
+                .stream()
+                .filter(o -> o.getTargetPrice() == currentPrice)
+                .toList();
+
+        for(ReservedOrder order : matches){
+            MemberAnt member = memberAntRepository.findById(order.getMemberId())
+                    .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+
+            long amount = order.getTargetPrice() * order.getQuantity();
+
+            if(order.getTradeType() == TradeType.BUY){
+                member.updateBalance(-amount); //자산에서 체결금액 뺀걸로 업데이트
+                member.unlockBalance(amount); //체결금액 뺀 자산으로 lock 해제
+
+                Holding holding = holdingRepository
+                        .findByMemberIdAndStockCode(member.getId(), order.getStockCode())
+                        .orElse(Holding.builder()
+                                .memberId(member.getId())
+                                .stockCode(order.getStockCode())
+                                .stockName(order.getStockName())
+                                .quantity(0)
+                                .avgPrice(0L)
+                                .build());
+
+                holding.addPurchase(order.getQuantity(), order.getTargetPrice());
+                holdingRepository.save(holding);
+
+                saveHistory(member.getId(), order, "BUY", null);
+            }else{
+                Holding holding = holdingRepository
+                        .findByMemberIdAndStockCode(member.getId(), order.getStockCode())
+                        .orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
+                double profitRate = ((double) order.getTargetPrice() - holding.getAvgPrice()) / holding.getAvgPrice() * 100.0;
+
+                member.updateBalance(amount);
+                holding.sell(order.getQuantity());
+                holding.unlock(order.getQuantity());
+                if(holding.getQuantity() == 0){
+                    holdingRepository.delete(holding);
+                }
+
+                saveHistory(member.getId(), order, "SELL", profitRate);
+            }
+
+            order.excute();
+
+            String tradeLabel = order.getTradeType() == TradeType.BUY ? "매수" : "매도";
+            notificationService.notify(member.getId(), order.getStockCode(),
+                    String.format("%s %s %d주가 %,d원에 체결되었습니다.", order.getStockName(), tradeLabel, order.getQuantity(), order.getTargetPrice()));
+        }
+    }
+
+    private void saveHistory(Long id, ReservedOrder order, String type, Double profitRate) {
+        TradeHistory tradeHistory = new TradeHistory();
+        tradeHistory.setMemberId(id);
+        tradeHistory.setStockCode(order.getStockCode()); //종목코드
+        tradeHistory.setStockName(order.getStockName()); //종목이름
+        tradeHistory.setTradeType(type);
+        tradeHistory.setPrice(order.getTargetPrice().intValue());
+        tradeHistory.setQuantity(order.getQuantity());
+        tradeHistory.setProfitRate(profitRate);
+        tradeHistoryRepository.save(tradeHistory);
+    }
 
     @Transactional
     public ReservationResponse createReservation(String email, ReservationRequest request) {

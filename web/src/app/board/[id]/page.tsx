@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { boardApi } from "@/services/boardApi";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/utils";
 import { ArrowLeft, ThumbsUp, MessageCircle, CornerDownRight } from "lucide-react";
 import type { BoardPost, Comment } from "@/types/board";
 
@@ -96,7 +97,7 @@ export default function BoardDetailPage() {
         <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500 pb-4 border-b border-gray-100 dark:border-neutral-800">
           <span className="font-medium text-gray-600 dark:text-neutral-400">{post.author}</span>
           <span>·</span>
-          <span>{post.createdAt}</span>
+          <span>{formatDateTime(post.createdAt)}</span>
         </div>
         <p className="text-sm text-gray-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed min-h-24">
           {post.content}
@@ -138,7 +139,7 @@ export default function BoardDetailPage() {
                   <span className="text-sm font-semibold text-gray-800 dark:text-neutral-200">
                     {comment.author}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-neutral-600">{comment.createdAt}</span>
+                  <span className="text-xs text-gray-400 dark:text-neutral-600">{formatDateTime(comment.createdAt)}</span>
                 </div>
                 <p className="text-sm text-gray-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed">
                   {comment.content}
@@ -179,7 +180,7 @@ export default function BoardDetailPage() {
                             {reply.author}
                           </span>
                         </div>
-                        <span className="text-xs text-gray-400 dark:text-neutral-600">{reply.createdAt}</span>
+                        <span className="text-xs text-gray-400 dark:text-neutral-600">{formatDateTime(reply.createdAt)}</span>
                       </div>
                       <p className="text-sm text-gray-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed pl-5">
                         {reply.content}
