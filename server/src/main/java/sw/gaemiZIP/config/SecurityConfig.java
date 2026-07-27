@@ -42,7 +42,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/verify-password").authenticated()
                         .requestMatchers("/api/auth/**", "/ws/**", "/api/news/**", "/api/ai/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/boards/**", "/api/comments/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/boards/*/like").permitAll()
                         .requestMatchers("/api/stocks/search",
                                 "/api/stocks/*/price",
                                 "/api/stocks/*/info",
