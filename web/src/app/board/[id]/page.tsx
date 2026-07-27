@@ -21,15 +21,35 @@ export default function BoardDetailPage() {
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [likedKeys, setLikedKeys] = useState<Set<string>>(new Set());
+
+  const likedStorageKey = `gaemi_liked_${nickname ?? "guest"}`;
 
   useEffect(() => {
     boardApi.getById(id).then(setPost);
     boardApi.getComments(id).then(setComments);
+    const raw = localStorage.getItem(likedStorageKey);
+    setLikedKeys(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const toggleLiked = (key: string) => {
+    setLikedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      localStorage.setItem(likedStorageKey, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const handleLikePost = async () => {
     const updated = await boardApi.like(id);
     setPost(updated);
+    toggleLiked(`post-${id}`);
   };
 
   const handleSubmitComment = async () => {
@@ -68,6 +88,7 @@ export default function BoardDetailPage() {
   const handleLikeComment = async (commentId: number) => {
     const updated = await boardApi.likeComment(commentId);
     setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    toggleLiked(`comment-${commentId}`);
   };
 
   const topLevelComments = comments.filter((c) => c.parentCommentId === null);
@@ -105,7 +126,11 @@ export default function BoardDetailPage() {
         <div className="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-neutral-800">
           <button
             onClick={handleLikePost}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 border border-gray-200 hover:border-emerald-400 hover:text-emerald-500 transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-600 dark:hover:text-emerald-400"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium border transition-colors ${
+              likedKeys.has(`post-${id}`)
+                ? "border-emerald-400 text-emerald-500 dark:border-emerald-600 dark:text-emerald-400"
+                : "border-gray-200 text-gray-500 hover:border-emerald-400 hover:text-emerald-500 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-600 dark:hover:text-emerald-400"
+            }`}
           >
             <ThumbsUp size={14} />
             추천 {post.likeCount}
@@ -147,7 +172,11 @@ export default function BoardDetailPage() {
                 <div className="flex items-center gap-4 mt-3">
                   <button
                     onClick={() => handleLikeComment(comment.id)}
-                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-500 transition-colors dark:text-neutral-600 dark:hover:text-emerald-400"
+                    className={`flex items-center gap-1 text-xs transition-colors ${
+                      likedKeys.has(`comment-${comment.id}`)
+                        ? "text-emerald-500 dark:text-emerald-400"
+                        : "text-gray-400 hover:text-emerald-500 dark:text-neutral-600 dark:hover:text-emerald-400"
+                    }`}
                   >
                     <ThumbsUp size={12} />
                     <span>{comment.likeCount}</span>
@@ -188,7 +217,11 @@ export default function BoardDetailPage() {
                       <div className="flex items-center gap-4 mt-3 pl-5">
                         <button
                           onClick={() => handleLikeComment(reply.id)}
-                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-500 transition-colors dark:text-neutral-600 dark:hover:text-emerald-400"
+                          className={`flex items-center gap-1 text-xs transition-colors ${
+                            likedKeys.has(`comment-${reply.id}`)
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "text-gray-400 hover:text-emerald-500 dark:text-neutral-600 dark:hover:text-emerald-400"
+                          }`}
                         >
                           <ThumbsUp size={12} />
                           <span>{reply.likeCount}</span>
@@ -232,9 +265,9 @@ export default function BoardDetailPage() {
         })}
 
         {/* 댓글 입력창 */}
-        <div className="flex gap-2 items-end pt-2">
+        <div className="flex gap-2 items-center pt-2">
           <textarea
-            className="flex-1 rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 min-h-16 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
+            className="flex-1 h-7 rounded-lg bg-gray-100 px-3 py-1 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
             placeholder="댓글을 입력하세요"
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}

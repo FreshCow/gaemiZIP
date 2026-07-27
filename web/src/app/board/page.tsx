@@ -60,7 +60,7 @@ export default function BoardPage() {
         </p>
       )}
 
-      <div className="space-y-3">
+      <div className="divide-y divide-gray-200 border-y border-gray-200 dark:divide-neutral-800 dark:border-neutral-800">
         {boards.map((post) => (
           <motion.div
             key={post.id}
@@ -69,36 +69,32 @@ export default function BoardPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             onClick={() => router.push(`/board/${post.id}`)}
-            className="rounded-2xl border border-gray-200 bg-gray-50 p-5 cursor-pointer transition-colors hover:border-gray-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
+            className="flex cursor-pointer items-center gap-3 px-2 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-900"
           >
-            <div className="flex items-start justify-between">
-              <div className="min-w-0 flex-1">
-                <h3 className="font-medium text-gray-900 dark:text-white">{post.title}</h3>
-              </div>
-              {post.author === nickname && (
-                <button
-                  onClick={(e) => handleDelete(e, post.id)}
-                  className="text-gray-300 transition-colors hover:text-rose-500 ml-4 shrink-0 dark:text-neutral-700 dark:hover:text-rose-400"
-                >
-                  <X size={16} />
-                </button>
-              )}
+            <h3 className="min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-white">
+              {post.title}
+            </h3>
+            <p className="shrink-0 text-gray-400 dark:text-neutral-600">
+              {post.author} · {formatDateTime(post.createdAt)}
+            </p>
+            <div className="flex shrink-0 items-center gap-3 text-gray-400 dark:text-neutral-600">
+              <span className="flex items-center gap-1">
+                <ThumbsUp size={11} />
+                {post.likeCount ?? 0}
+              </span>
+              <span className="flex items-center gap-1">
+                <MessageCircle size={11} />
+                {post.commentCount ?? 0}
+              </span>
             </div>
-            <div className="flex items-center justify-between mt-3">
-              <p className="text-xs text-gray-400 dark:text-neutral-600">
-                {post.author} · {formatDateTime(post.createdAt)}
-              </p>
-              <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-neutral-600">
-                <span className="flex items-center gap-1">
-                  <ThumbsUp size={11} />
-                  {post.likeCount ?? 0}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MessageCircle size={11} />
-                  {post.commentCount ?? 0}
-                </span>
-              </div>
-            </div>
+            {post.author === nickname && (
+              <button
+                onClick={(e) => handleDelete(e, post.id)}
+                className="shrink-0 text-gray-300 transition-colors hover:text-rose-500 dark:text-neutral-700 dark:hover:text-rose-400"
+              >
+                <X size={16} />
+              </button>
+            )}
           </motion.div>
         ))}
         {boards.length === 0 && (

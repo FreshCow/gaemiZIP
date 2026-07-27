@@ -2,10 +2,16 @@ package sw.gaemiZIP.controller.board;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import sw.gaemiZIP.dto.board.CommentRequest;
 import sw.gaemiZIP.entity.board.Comment;
+import sw.gaemiZIP.entity.board.CommentLike;
+import sw.gaemiZIP.entity.member.MemberAnt;
+import sw.gaemiZIP.repository.board.CommentLikeRepository;
 import sw.gaemiZIP.repository.board.CommentRepository;
+import sw.gaemiZIP.repository.member.MemberAntRepository;
 
 import java.util.List;
 
@@ -14,6 +20,8 @@ import java.util.List;
 public class CommentController {
 
     private final CommentRepository commentRepository;
+    private final CommentLikeRepository commentLikeRepository;
+    private final MemberAntRepository memberAntRepository;
 
     // 댓글 목록 조회 (작성 시간 오름차순)
     @GetMapping("/api/boards/{boardId}/comments")
@@ -39,12 +47,27 @@ public class CommentController {
     }
 
     // 댓글 좋아요
+    @Transactional
     @PostMapping("/api/comments/{id}/like")
-    public ResponseEntity<Comment> likeComment(@PathVariable Long id) {
+    public ResponseEntity<Comment> likeComment(@PathVariable Long id, Authentication auth) {
         Comment comment = commentRepository.findById(id).orElse(null);
         if (comment == null) return ResponseEntity.status(404).body(null);
 
-        comment.setLikeCount(comment.getLikeCount() + 1);
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+
+        if(commentLikeRepository.existsByMemberIdAndCommentId(member.getId(), id)) {
+            //좋아요 해제
+            commentLikeRepository.deleteByMemberIdAndCommentId(member.getId(), id);
+            comment.setLikeCount(comment.getLikeCount() - 1);
+        }else{
+            CommentLike commentLike = new CommentLike();
+            commentLike.setCommentId(id);
+            commentLike.setMemberId(member.getId());
+            commentLikeRepository.save(commentLike);
+            comment.setLikeCount(comment.getLikeCount() + 1);
+        }
+
         return ResponseEntity.ok(commentRepository.save(comment));
     }
 
