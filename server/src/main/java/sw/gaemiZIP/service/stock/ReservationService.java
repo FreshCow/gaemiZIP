@@ -31,7 +31,7 @@ public class ReservationService {
         List<ReservedOrder> matches = reservedOrderRepository
                 .findByStockCodeAndStatus(stockCode, TradeStatus.PENDING)
                 .stream()
-                .filter(o -> o.getTargetPrice() == currentPrice)
+                .filter(o -> isPriceMatched(o, currentPrice))
                 .toList();
 
         for(ReservedOrder order : matches){
@@ -80,6 +80,13 @@ public class ReservationService {
             notificationService.notify(member.getId(), order.getStockCode(),
                     String.format("%s %s %d주가 %,d원에 체결되었습니다.", order.getStockName(), tradeLabel, order.getQuantity(), order.getTargetPrice()));
         }
+    }
+
+    // 매수: 지정가 이하면 체결, 매도: 지정가 이상이면 체결 (실제 증권사 지정가 방식)
+    private boolean isPriceMatched(ReservedOrder order, long currentPrice) {
+        return order.getTradeType() == TradeType.BUY
+                ? currentPrice <= order.getTargetPrice()
+                : currentPrice >= order.getTargetPrice();
     }
 
     private void saveHistory(Long id, ReservedOrder order, String type, Double profitRate) {
