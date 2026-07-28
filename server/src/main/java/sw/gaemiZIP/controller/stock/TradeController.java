@@ -7,9 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import sw.gaemiZIP.dto.stock.HoldingResponse;
-import sw.gaemiZIP.dto.stock.TradeRequest;
-import sw.gaemiZIP.dto.stock.TradeResponse;
+import sw.gaemiZIP.dto.stock.*;
+import sw.gaemiZIP.service.stock.ReservationService;
 import sw.gaemiZIP.service.stock.TradeService;
 
 import java.util.List;
@@ -21,6 +20,7 @@ import java.util.Map;
 public class TradeController {
 
     private final TradeService tradeService;
+    private final ReservationService reservationService;
 
     // 매수/매도 실행 — JWT에서 회원 식별, 잔고·보유수량 검증 후 체결
     @PostMapping
@@ -31,6 +31,30 @@ public class TradeController {
                     ? tradeService.executeBuy(email, request)
                     : tradeService.executeSell(email, request);
             return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reserve")
+    public ResponseEntity<?> createReservation(@RequestBody ReservationRequest request, Authentication auth) {
+        try{
+            return ResponseEntity.ok(reservationService.createReservation(auth.getName(), request));
+        }catch (IllegalStateException e){
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/reserve")
+    public ResponseEntity<ReservationListResponse> getMyReservation(Authentication auth) {
+        return ResponseEntity.ok(reservationService.getMyReservations(auth.getName()));
+    }
+
+    @DeleteMapping("/reserve/{id}")
+    public ResponseEntity<?> cancelReservation(@PathVariable Long id, Authentication auth) {
+        try {
+            reservationService.cancelReservation(auth.getName(), id);
+            return ResponseEntity.ok().build();
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -49,10 +73,13 @@ public class TradeController {
     }
 
     @GetMapping("/paged")
-    public ResponseEntity<Page<TradeResponse>> getMyTradeHistoryPaged(Authentication auth,
-                                                                      @RequestParam(defaultValue = "0") int page,
-                                                                      @RequestParam(defaultValue = "10") int size)
+    public ResponseEntity<Page<TradeResponse>> getMyTradeHistoryPaged(
+            Authentication auth,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size)
     {
         return ResponseEntity.ok(tradeService.getMyTradeHistoryPaged(auth.getName(), PageRequest.of(page, size)));
     }
+
+
 }

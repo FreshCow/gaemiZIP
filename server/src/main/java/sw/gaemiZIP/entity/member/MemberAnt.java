@@ -40,6 +40,11 @@ public class MemberAnt extends BaseTimeEntity {
 
     private Long balance;
 
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private Long lockedBalance;
+
+
+
     @PrePersist // - DB에 INSERT 쿼리가 실행되기 직전에 JPA가 자동으로 호출
     public void prePersist() {
         // 1. 닉네임이 비어있으면 랜덤 닉네임 강제 부여
@@ -55,6 +60,10 @@ public class MemberAnt extends BaseTimeEntity {
         if(this.status == null) {
             this.status = MemberStatus.ACTIVE;
         }
+
+        if(this.lockedBalance == null) {
+            this.lockedBalance = 0L;
+        }
     }
 
     @Builder
@@ -67,6 +76,14 @@ public class MemberAnt extends BaseTimeEntity {
         this.provider = provider;
         this.providerId = providerId;
         this.balance = balance;
+    }
+
+    public void lockBalance(long amount) {
+        this.lockedBalance += amount;
+    }
+
+    public void unlockBalance(long amount) {
+        this.lockedBalance = Math.max(0, this.lockedBalance - amount);
     }
 
     public void updateBalance(long delta) {

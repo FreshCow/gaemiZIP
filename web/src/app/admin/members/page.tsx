@@ -6,6 +6,7 @@ import type { MemberResponse } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { formatDateTime } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -115,7 +116,7 @@ export default function AdminMembersPage() {
                   {m.balance.toLocaleString()}원
                 </td>
                 <td className="px-4 py-3 text-xs text-gray-500 dark:text-neutral-500">
-                  {m.createdDate?.slice(0, 10)}
+                  {formatDateTime(m.createdDate)}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1.5">

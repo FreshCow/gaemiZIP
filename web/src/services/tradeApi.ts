@@ -1,6 +1,6 @@
 import api from "./api";
 import { fetchStockPrice } from "./stockApi";
-import type { TradeHistory } from "@/types/trade";
+import type { TradeHistory, ReservedOrder, ReservationListResponse } from "@/types/trade";
 import type { StockItem, HoldingData, HoldingItem } from "@/types/stock";
 import type { PageResponse } from "@/types/common";
 
@@ -35,10 +35,27 @@ export const tradeApi = {
         currentPrice,
         quantity: h.quantity,
         profitRate: h.avgPrice > 0 ? ((currentPrice - h.avgPrice) / h.avgPrice) * 100 : 0,
+        lockedQuantity: h.lockedQuantity,
       };
     });
   },
 
   // 거래량 상위 10개 종목 조회
   getRanking: () => api.get<StockItem[]>("/stocks/ranking").then((r) => r.data),
+
+  // 예약(지정가) 주문 생성 — 잔고/보유수량은 생성 시점에 잠긴다
+  createReservation: (payload: {
+    stockCode: string;
+    stockName: string;
+    tradeType: "BUY" | "SELL";
+    price: number;
+    quantity: number;
+  }) => api.post<ReservedOrder>("/trades/reserve", payload).then((r) => r.data),
+
+  // 내 예약 주문 목록 — balance/lockedBalance를 함께 반환해 폴링만으로 잔고 최신화
+  getReservations: () =>
+    api.get<ReservationListResponse>("/trades/reserve").then((r) => r.data),
+
+  // 예약 주문 취소 — 잠긴 잔고/수량 해제
+  cancelReservation: (id: number) => api.delete<void>(`/trades/reserve/${id}`),
 };

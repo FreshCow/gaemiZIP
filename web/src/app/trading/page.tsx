@@ -5,6 +5,7 @@ import { ChevronLeft, RefreshCw } from "lucide-react";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { StockSearchBar } from "@/components/stock/StockSearchBar";
 import { tradeApi } from "@/services/tradeApi";
+import { subscribeStock } from "@/services/stockApi";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { StockSearchResult } from "@/types/stock";
@@ -43,9 +44,16 @@ export default function TradingPage() {
   useEffect(() => {
     if (!selected) return;
     setTab("BUY");
-    setOrderPrice(currentPrice > 0 ? String(currentPrice) : "");
+    setOrderPrice(currentPrice > 0 ? currentPrice.toLocaleString() : "");
     setQty("");
     setTradeMsg(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.code]);
+
+  // top10 랭킹 밖 종목도 실시간 시세를 받을 수 있도록 키움 구독에 편입 요청
+  useEffect(() => {
+    if (!selected) return;
+    subscribeStock(selected.code).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.code]);
 
@@ -225,7 +233,7 @@ export default function TradingPage() {
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-gray-700 dark:text-neutral-300">주문 가격</label>
               <button
-                onClick={() => setOrderPrice(currentPrice > 0 ? String(currentPrice) : "")}
+                onClick={() => setOrderPrice(currentPrice > 0 ? currentPrice.toLocaleString() : "")}
                 className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-emerald-500 dark:text-neutral-500 dark:hover:text-emerald-400 transition-colors"
               >
                 <RefreshCw size={10} />
@@ -234,10 +242,14 @@ export default function TradingPage() {
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
               <input
-                type="number"
-                min={1}
+                type="text"
+                inputMode="numeric"
                 value={orderPrice}
-                onChange={(e) => { setOrderPrice(e.target.value); setQty(""); }}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^0-9]/g, "");
+                  setOrderPrice(digits ? Number(digits).toLocaleString() : "");
+                  setQty("");
+                }}
                 placeholder="0"
                 className="flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none dark:text-white"
               />

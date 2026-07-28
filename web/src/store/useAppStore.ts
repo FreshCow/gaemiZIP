@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { StockItem, HoldingItem, TickData, StockUpdate, IndexItem } from "@/types/stock";
 import type { BoardListItem } from "@/types/board";
+import type { NotificationItem } from "@/types/notification";
 
 interface AppState {
   stocks: StockItem[];
@@ -12,6 +13,8 @@ interface AppState {
   latestTick: TickData | null;
   indices: IndexItem[];
   livePrices: Record<string, StockUpdate>;
+  notifications: NotificationItem[];
+  unreadCount: number;
 
   setStocks: (stocks: StockItem[]) => void;
   setIndices: (indices: IndexItem[]) => void;
@@ -24,6 +27,10 @@ interface AppState {
   toggleAutoTrading: () => void;
   setWsConnected: (connected: boolean) => void;
   setLatestTick: (tick: TickData) => void;
+  setNotifications: (list: NotificationItem[]) => void;
+  setUnreadCount: (count: number) => void;
+  markNotificationRead: (id: number) => void;
+  markAllNotificationsRead: () => void;
 }
 
 const loadWatchlist = (): string[] => {
@@ -59,6 +66,8 @@ export const useAppStore = create<AppState>((set) => ({
   latestTick: null,
   indices: [],
   livePrices: {},
+  notifications: [],
+  unreadCount: 0,
 
   setStocks: (stocks) => set({ stocks }),
   setIndices: (indices) => set({ indices }),
@@ -113,4 +122,19 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ isAutoTrading: !s.isAutoTrading })),
   setWsConnected: (wsConnected) => set({ wsConnected }),
   setLatestTick: (latestTick) => set({ latestTick }),
+  setNotifications: (notifications) => set({ notifications }),
+  setUnreadCount: (unreadCount) => set({ unreadCount }),
+  markNotificationRead: (id) =>
+    set((s) => {
+      const target = s.notifications.find((n) => n.id === id);
+      return {
+        notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        unreadCount: target && !target.read ? Math.max(0, s.unreadCount - 1) : s.unreadCount,
+      };
+    }),
+  markAllNotificationsRead: () =>
+    set((s) => ({
+      notifications: s.notifications.map((n) => ({ ...n, read: true })),
+      unreadCount: 0,
+    })),
 }));

@@ -41,8 +41,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/verify-password").authenticated()
                         .requestMatchers("/api/auth/**", "/ws/**", "/api/news/**", "/api/ai/**").permitAll()
-                        .requestMatchers("/api/boards/**", "/api/comments/**").permitAll()
-                        .requestMatchers("/api/stocks/search", "/api/stocks/*/price", "/api/stocks/*/info", "/api/stocks/*/chart", "/api/stocks/*/news", "/api/stocks/*/subscribe").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/boards/**", "/api/comments/**").permitAll()
+                        .requestMatchers("/api/stocks/search",
+                                "/api/stocks/*/price",
+                                "/api/stocks/*/info",
+                                "/api/stocks/*/chart",
+                                "/api/stocks/*/news",
+                                "/api/stocks/*/subscribe",
+                                "/api/stocks/*/simulate-tick").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // 그 외의 모든 요청은 토큰이 있어야만(인증되어야만) 접근 가능
                         .anyRequest().authenticated()
