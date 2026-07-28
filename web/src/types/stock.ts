@@ -24,7 +24,7 @@ export interface CandlePoint {
   close: number;
 }
 
-export type ChartInterval = "1" | "D" | "W" | "T5" | "T10";
+export type ChartInterval = "1" | "D" | "W" | "T1" | "T3" | "T5" | "T10";
 
 export interface StockSearchResult {
   code: string;

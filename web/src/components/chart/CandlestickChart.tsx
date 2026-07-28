@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createChart, ColorType, CrosshairMode, CandlestickSeries } from "lightweight-charts";
+import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineStyle } from "lightweight-charts";
 import type { UTCTimestamp } from "lightweight-charts";
+import { ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
 import { fetchChart } from "@/services/chartApi";
 import { useAppStore } from "@/store/useAppStore";
@@ -12,25 +13,37 @@ interface Props {
   stockCode: string;
 }
 
-const INTERVALS: { label: string; value: ChartInterval }[] = [
-  { label: "5틱", value: "T5" },
-  { label: "10틱", value: "T10" },
-  { label: "1분", value: "1" },
+const MAIN_INTERVALS: { label: string; value: ChartInterval }[] = [
   { label: "일봉", value: "D" },
   { label: "주봉", value: "W" },
+  { label: "1분", value: "1" },
 ];
+
+// 개별 버튼 대신 드롭다운으로 묶어서 선택 (키움이 실제 지원하는 틱 단위: 1/3/5/10/30 중 1~10만 사용)
+const TICK_INTERVALS: { label: string; value: ChartInterval }[] = [
+  { label: "1틱",  value: "T1" },
+  { label: "3틱",  value: "T3" },
+  { label: "5틱",  value: "T5" },
+  { label: "10틱", value: "T10" },
+];
+
+function isTickInterval(v: ChartInterval): boolean {
+  return v.startsWith("T");
+}
 
 // interval별 초기 표시 바 개수
 const BARS_TO_SHOW: Record<ChartInterval, number> = {
+  "T1":  60,  // 최근 60봉 (=60틱)
+  "T3":  45,  // 최근 45봉 (=135틱)
   "T5":  40,  // 최근 40봉 (=200틱)
   "T10": 30,  // 최근 30봉 (=300틱)
   "1": 30,    // 30분
-  "D": 5,     // 5 거래일
+  "D": 22,    // 약 22 거래일 (~1개월)
   "W": 4,     // 4주 (~1달)
 };
 
-// interval → 캔들 하나에 묶을 틱 개수 (T5/T10 라이브 조립용)
-const TICK_GROUP_SIZE: Partial<Record<ChartInterval, number>> = { T5: 5, T10: 10 };
+// interval → 캔들 하나에 묶을 틱 개수 (틱봉 라이브 조립용)
+const TICK_GROUP_SIZE: Partial<Record<ChartInterval, number>> = { T1: 1, T3: 3, T5: 5, T10: 10 };
 
 const RIGHT_PAD = 3; // 오른쪽 여백 바 개수 (새 캔들 자동 표시 공간)
 const POLL_INTERVAL_MS = 30_000; // 30초마다 폴링
@@ -59,12 +72,16 @@ export function CandlestickChart({ stockCode }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
   const tickCandleRef = useRef<{ time: number; open: number; high: number; low: number; close: number } | null>(null);
-  const tickCountRef = useRef<number>(0); // 현재 형성 중인 틱봉에 쌓인 틱 개수 (T5/T10 전용)
+  const tickCountRef = useRef<number>(0); // 현재 형성 중인 틱봉에 쌓인 틱 개수 (틱봉 전용)
   const lastLoadedCandleRef = useRef<CandlePoint | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const priceLineRef = useRef<any>(null); // 실시간 현재가 수평선 — 캔들 자체 변동폭이 작아 보이는 인터벌(일봉/주봉)에서도 움직임이 잘 보이도록
+  const tickMenuRef = useRef<HTMLDivElement>(null);
 
   const [interval, setIntervalState] = useState<ChartInterval>("D");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tickMenuOpen, setTickMenuOpen] = useState(false);
   const { resolvedTheme } = useTheme();
   // REALTIME_UPDATE 로 갱신되는 현재가 — 형성 중인 캔들 갱신용
   // top10 랭킹 밖 종목(검색/트레이딩 화면)도 반영되도록 livePrices 맵을 우선 사용, 없으면 랭킹 배열로 폴백
@@ -74,6 +91,17 @@ export function CandlestickChart({ stockCode }: Props) {
     const found = s.stocks.find((x) => x.code === stockCode);
     return found ? Number(found.price) : 0;
   });
+
+  useEffect(() => {
+    if (!tickMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tickMenuRef.current && !tickMenuRef.current.contains(e.target as Node)) {
+        setTickMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [tickMenuOpen]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -93,7 +121,7 @@ export function CandlestickChart({ stockCode }: Props) {
       rightPriceScale: { borderColor: isDark ? "#404040" : "#e5e7eb" },
       timeScale: {
         borderColor: isDark ? "#404040" : "#e5e7eb",
-        timeVisible: interval === "1" || interval === "T5" || interval === "T10",
+        timeVisible: interval === "1" || isTickInterval(interval),
         secondsVisible: false,
         rightOffset: RIGHT_PAD,
       },
@@ -117,6 +145,7 @@ export function CandlestickChart({ stockCode }: Props) {
     tickCandleRef.current = null;
     tickCountRef.current = 0;
     lastLoadedCandleRef.current = null;
+    priceLineRef.current = null;
 
     const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
@@ -163,7 +192,7 @@ export function CandlestickChart({ stockCode }: Props) {
 
     // 30초마다 새 캔들 확인 (1분봉·틱봉 전용)
     const pollUpdate = async () => {
-      if (interval !== "1" && interval !== "T5" && interval !== "T10") return;
+      if (interval !== "1" && !isTickInterval(interval)) return;
       const lastKnownTime = lastLoadedCandleRef.current?.time ?? 0;
       try {
         const candles = collapseSameTime(await fetchChart(stockCode, interval));
@@ -201,7 +230,7 @@ export function CandlestickChart({ stockCode }: Props) {
     loadInitial();
 
     let pollTimer: ReturnType<typeof setInterval> | null = null;
-    if (interval === "1" || interval === "T5" || interval === "T10") {
+    if (interval === "1" || isTickInterval(interval)) {
       pollTimer = setInterval(pollUpdate, POLL_INTERVAL_MS);
     }
 
@@ -213,6 +242,7 @@ export function CandlestickChart({ stockCode }: Props) {
       tickCandleRef.current = null;
       tickCountRef.current = 0;
       lastLoadedCandleRef.current = null;
+      priceLineRef.current = null;
       chart.remove();
     };
   }, [stockCode, interval, resolvedTheme]);
@@ -220,11 +250,57 @@ export function CandlestickChart({ stockCode }: Props) {
   // REALTIME_UPDATE 도착 즉시 형성 중인 캔들 갱신
   // 타임스탬프: KST 시각을 UTC처럼 취급 (ChartService와 동일 규칙)
   useEffect(() => {
-    if (!livePrice || livePrice <= 0) return;
-    if (interval !== "1" && interval !== "T5" && interval !== "T10") return;
+    if (!livePrice || livePrice <= 0 || !seriesRef.current) return;
+
+    // 실시간 현재가 수평선 — 모든 인터벌에 적용. 일봉/주봉처럼 표시 범위가 넓어
+    // 캔들 한 칸의 변동폭 자체는 잘 안 보이는 인터벌에서도 가격 움직임이 뚜렷하게 드러나도록 보조
+    if (!priceLineRef.current) {
+      priceLineRef.current = seriesRef.current.createPriceLine({
+        price: livePrice,
+        color: "#f59e0b",
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: "현재가",
+      });
+    } else {
+      priceLineRef.current.applyOptions({ price: livePrice });
+    }
+
+    if (interval !== "1" && !isTickInterval(interval) && interval !== "D") return;
 
     // KST = UTC+9 → Date.now()에 9h 더해 KST-as-UTC 에포크 생성
     const kstNow = Date.now() + 9 * 3600 * 1000;
+
+    // ── 일봉(D): 오늘자 캔들의 고가/저가/종가만 실시간 갱신 (ChartService.parseDayTime과 동일한 KST 자정 epoch 규칙) ──
+    if (interval === "D") {
+      if (!seriesRef.current) return;
+      const kstDate = new Date(kstNow);
+      const dayBoundary = Math.floor(
+        (Date.UTC(kstDate.getUTCFullYear(), kstDate.getUTCMonth(), kstDate.getUTCDate()) - 9 * 3600 * 1000) / 1000
+      );
+      const last = lastLoadedCandleRef.current;
+      if (!last || last.time !== dayBoundary) return; // 오늘자 캔들이 아직 없으면 갱신 생략
+
+      const prev = tickCandleRef.current;
+      const base = prev && prev.time === dayBoundary ? prev : last;
+      tickCandleRef.current = {
+        time: dayBoundary,
+        open: base.open,
+        high: Math.max(base.high, livePrice),
+        low: Math.min(base.low, livePrice),
+        close: livePrice,
+      };
+
+      seriesRef.current.update({
+        time:  tickCandleRef.current.time as UTCTimestamp,
+        open:  tickCandleRef.current.open,
+        high:  tickCandleRef.current.high,
+        low:   tickCandleRef.current.low,
+        close: tickCandleRef.current.close,
+      });
+      return;
+    }
 
     // ── 틱봉(T5/T10): 틱 N개 = 캔들 1개 — N개 모일 때까지 고가/저가/종가를 누적하다가, 다 채워지면 새 캔들 시작 ──
     const groupSize = TICK_GROUP_SIZE[interval];
@@ -301,8 +377,8 @@ export function CandlestickChart({ stockCode }: Props) {
 
   return (
     <div className="flex flex-col h-full gap-2">
-      <div className="flex gap-1">
-        {INTERVALS.map((item) => (
+      <div className="flex items-center gap-1">
+        {MAIN_INTERVALS.map((item) => (
           <button
             key={item.value}
             onClick={() => setIntervalState(item.value)}
@@ -315,6 +391,38 @@ export function CandlestickChart({ stockCode }: Props) {
             {item.label}
           </button>
         ))}
+
+        <div ref={tickMenuRef} className="relative">
+          <button
+            onClick={() => setTickMenuOpen((v) => !v)}
+            className={`flex items-center gap-0.5 px-3 py-1 text-xs rounded-md transition-colors ${
+              isTickInterval(interval)
+                ? "bg-gray-200 text-gray-900 dark:bg-neutral-700 dark:text-white"
+                : "text-gray-500 hover:text-gray-700 dark:text-neutral-500 dark:hover:text-neutral-300"
+            }`}
+          >
+            {TICK_INTERVALS.find((t) => t.value === interval)?.label ?? "틱봉"}
+            <ChevronDown size={12} />
+          </button>
+
+          {tickMenuOpen && (
+            <div className="absolute top-full left-0 z-20 mt-1 min-w-[4.5rem] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
+              {TICK_INTERVALS.map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => { setIntervalState(item.value); setTickMenuOpen(false); }}
+                  className={`block w-full px-3 py-1.5 text-left text-xs transition-colors ${
+                    interval === item.value
+                      ? "bg-gray-100 font-medium text-gray-900 dark:bg-neutral-700 dark:text-white"
+                      : "text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="relative flex-1">

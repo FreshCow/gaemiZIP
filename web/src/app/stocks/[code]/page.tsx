@@ -53,6 +53,12 @@ function fmt(val: string | undefined, suffix = ""): string {
   return n > 0 ? `${n.toLocaleString()}${suffix}` : "—";
 }
 
+// 키움 API가 "YYYYMMDD" 형식으로 내려주는 날짜 필드(예: 250일 최고/최저가 발생일) 포맷팅
+function fmtDate(val: string | undefined): string {
+  if (!val || val.length !== 8) return "—";
+  return `${val.slice(0, 4)}-${val.slice(4, 6)}-${val.slice(6, 8)}`;
+}
+
 // ── 정보 행 컴포넌트 ───────────────────────────────────────────────────────────
 
 function InfoRow({ label, value, colored }: { label: string; value: string; colored?: boolean }) {
@@ -197,7 +203,9 @@ export default function StockDetailPage() {
       : price?.rate && price.rate !== "0"
       ? price.rate
       : rankStock?.rate ?? "0";
-  const predPre   = absNum(info?.predPre);
+  const basePrice = absNum(info?.basePric);
+  // 등락폭(원화)은 REST 응답에 고정값이라, 라이브 현재가와 기준가 차이로 매 틱 재계산한다.
+  const predPre   = curPrice > 0 && basePrice > 0 ? Math.abs(curPrice - basePrice) : absNum(info?.predPre);
   const fluRt     = apiRate;
   const priceUp   = isUp(fluRt);
 
@@ -422,7 +430,7 @@ export default function StockDetailPage() {
                     {priceUp ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
                     <span>
                       {predPre > 0 ? `${priceUp ? "+" : "-"}${predPre.toLocaleString()}원 ` : ""}
-                      ({priceUp ? "+" : ""}{fluRt}%)
+                      ({fluRt}%)
                     </span>
                   </div>
                 )}
@@ -532,11 +540,6 @@ export default function StockDetailPage() {
                     />
                     <span className="shrink-0 text-sm text-gray-400 dark:text-neutral-500">원</span>
                   </div>
-                  {orderPriceNum > 0 && !isPriceMatch && (
-                    <p className="text-[11px] text-amber-500">
-                      현재가와 다릅니다 — 예약 주문으로 등록되며, 현재가가 이 가격이 되면 자동 체결됩니다.
-                    </p>
-                  )}
                 </div>
 
                 {/* 수량 */}
@@ -685,8 +688,8 @@ export default function StockDetailPage() {
               <InfoRow label="외인소진율"   value={info.forExhRt ? `${info.forExhRt}%` : "—"} />
               <InfoRow label="연중최고"     value={fmt(info.oyrHgst)} colored />
               <InfoRow label="연중최저"     value={fmt(info.oyrLwst)} colored />
-              <InfoRow label="250일최고"    value={`${fmt(info.hgst250)} (${info.hgst250PricDt || "—"}일 전)`} />
-              <InfoRow label="250일최저"    value={`${fmt(info.lwst250)} (${info.lwst250PricDt || "—"}일 전)`} />
+              <InfoRow label="250일최고"    value={`${fmt(info.hgst250)} (${fmtDate(info.hgst250PricDt)})`} />
+              <InfoRow label="250일최저"    value={`${fmt(info.lwst250)} (${fmtDate(info.lwst250PricDt)})`} />
               <InfoRow label="결산월"       value={info.setlMm ? `${info.setlMm}월` : "—"} />
               <InfoRow label="매매단위"     value={info.favUnit ? `${info.favUnit}주` : "—"} />
               <InfoRow label="대용가"       value={fmt(info.replPric)} />
