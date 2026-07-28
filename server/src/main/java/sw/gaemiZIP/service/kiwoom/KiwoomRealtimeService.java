@@ -1,5 +1,6 @@
 package sw.gaemiZIP.service.kiwoom;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +12,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import sw.gaemiZIP.service.stock.ReservationService;
 import sw.gaemiZIP.websocket.StockWebSocketHandler;
 
 import java.io.IOException;
@@ -19,11 +21,14 @@ import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 
 @Service
 @RequiredArgsConstructor
@@ -34,95 +39,141 @@ public class KiwoomRealtimeService {
     private final StockWebSocketHandler frontEndHandler;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private WebSocketSession kiwoomSession;
+    private static final long RECONNECT_DELAY_MS = 5_000; //연결 끊기면 5초 후 재시도
+    private final ReservationService reservationService;
 
     // 구독 중인 종목 코드 (재연결 시 복구용)
     private final Set<String> subscribedCodes = ConcurrentHashMap.newKeySet();
 
+    // LOGIN ack를 받기 전에는 REG(구독) 요청을 보낼 수 없음
+    private volatile boolean loggedIn = false;
+
     @EventListener(ApplicationReadyEvent.class)
     public void init() {
-        Thread thread = new Thread(this::connect, "kiwoom-ws");
+        Thread thread = new Thread(this::connectLoop, "kiwoom-ws");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private void connectLoop() {
+        while (true) {
+            connect();
+            log.warn("실시간 서버 재연결 대기 ({}ms 후 재시도)", RECONNECT_DELAY_MS);
+            try{
+                Thread.sleep(RECONNECT_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     public void connect() {
         StandardWebSocketClient client = new StandardWebSocketClient();
         String url = "wss://mockapi.kiwoom.com:10000/api/dostk/websocket";
+        CountDownLatch closeLatch = new CountDownLatch(1);
 
         try {
             client.execute(new TextWebSocketHandler() {
                 @Override
                 public void afterConnectionEstablished(WebSocketSession session) {
                     kiwoomSession = session;
+                    loggedIn = false;
                     log.info("키움 실시간 서버 연결 성공");
-                    // 기존 구독 코드 복구 (재연결) — 없으면 기본 종목 구독
-                    if (subscribedCodes.isEmpty()) {
-                        sendSubscribeMessage("005930");
-                        subscribedCodes.add("005930");
-                    } else {
-                        subscribedCodes.forEach(KiwoomRealtimeService.this::sendSubscribeMessage);
-                    }
+                    sendLoginMessage();
                 }
 
                 @Override
                 protected void handleTextMessage(WebSocketSession session, TextMessage message) {
                     String payload = message.getPayload();
                     log.debug("키움 원본: {}", payload.length() > 200 ? payload.substring(0, 200) : payload);
-                    parseAndBroadcast(payload);
+
+                    // PING은 받은 그대로 echo해야 연결이 유지됨
+                    if (payload.contains("\"trnm\":\"PING\"")) {
+                        try {
+                            session.sendMessage(new TextMessage(payload));
+                            log.debug("PING 응답 전송");
+                        } catch (IOException e) {
+                            log.warn("PING 응답 실패 : {}", e.getMessage());
+                        }
+                        return;
+                    }
+
+                    // LOGIN ack — 이 시점부터 REG(구독) 요청이 가능
+                    if (payload.contains("\"trnm\":\"LOGIN\"")) {
+                        loggedIn = true;
+                        log.info("키움 실시간 로그인 성공");
+                        if (subscribedCodes.isEmpty()) {
+                            subscribedCodes.add("005930");
+                        }
+                        sendSubscribeMessage(new ArrayList<>(subscribedCodes));
+                        return;
+                    }
+
+                    // 실시간 체결 데이터
+                    if (payload.contains("\"trnm\":\"REAL\"")) {
+                        handleRealMessage(payload);
+                    }
                 }
 
                 @Override
                 public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
                     log.warn("키움 실시간 서버 연결 종료: {}", status);
                     kiwoomSession = null;
+                    loggedIn = false;
+                    closeLatch.countDown();
                 }
             }, url).get();
+
+            closeLatch.await();
+
         } catch (Exception e) {
             log.error("키움 WebSocket 연결 실패: {}", e.getMessage());
         }
     }
 
-    // 랭킹 갱신 시 StockFetchService에서 호출 — 신규 종목만 구독 추가
+    // 랭킹 갱신 시 StockFetchService에서 호출 — 신규 종목만 모아서 REG 한 번에 요청 (rate limit 방지)
     public void subscribeAll(List<String> codes) {
+        List<String> newCodes = new ArrayList<>();
         for (String code : codes) {
             if (subscribedCodes.add(code)) {
-                sendSubscribeMessage(code);
+                newCodes.add(code);
             }
+        }
+        if (!newCodes.isEmpty()) {
+            sendSubscribeMessage(newCodes);
         }
     }
 
-    // H0STCNT0 파이프 구분 실시간 데이터 → REALTIME_UPDATE + TICK_UPDATE 브로드캐스트
-    // 형식: "0|H0STCNT0|001|종목코드^체결시간^현재가^전일대비부호^전일대비^전일대비율^...^누적거래량^..."
-    private void parseAndBroadcast(String payload) {
-        if (payload == null || payload.isBlank() || "PINGPONG".equals(payload.trim())) return;
-        if (payload.startsWith("{")) return;
-
-        String[] parts = payload.split("\\|", 4);
-        if (parts.length < 4 || !"H0STCNT0".equals(parts[1])) return;
-
-        String[] fields = parts[3].split("\\^");
-        if (fields.length < 14) {
-            log.warn("H0STCNT0 필드 수 부족: {}개", fields.length);
-            return;
-        }
-
+    // REAL 메시지: {"trnm":"REAL","data":[{"type":"0B","item":"005930","values":{"10":"-82000", ...}}]}
+    private void handleRealMessage(String payload) {
         try {
-            String code    = fields[0].trim();
-            String cntrTm  = fields[1].trim(); // HHmmss
-            String rawPrice = fields[2].trim();
-            String sign    = fields[3].trim(); // 1:상한 2:상승 3:보합 4:하한 5:하락
-            String rawRate = fields[5].trim();
-            long   volume  = Long.parseLong(fields[13].replace(",", "").trim());
+            JsonNode root = objectMapper.readTree(payload);
+            for (JsonNode entry : root.path("data")) {
+                if (!"0B".equals(entry.path("type").asText())) continue; // 주식체결만 처리
 
-            String price = String.valueOf(Math.abs(Long.parseLong(rawPrice.replace(",", ""))));
+                String code = entry.path("item").asText();
+                JsonNode values = entry.path("values");
 
-            String rate = switch (sign) {
-                case "1", "2" -> "+" + rawRate;
-                case "4", "5" -> "-" + rawRate;
-                default        -> "0";
-            };
+                String cntrTm   = values.path("20").asText("");  // 체결시간 (HHmmss)
+                String rawPrice = values.path("10").asText("0"); // 현재가 (부호 포함)
+                String rawRate  = values.path("12").asText("0"); // 등락율 (부호 포함)
+                String rawVolume = values.path("13").asText("0"); // 누적거래량
 
-            // REALTIME_UPDATE: name 제외 (프론트에서 기존 name 유지)
+                processTick(code, cntrTm, rawPrice, rawRate, rawVolume);
+            }
+        } catch (Exception e) {
+            log.warn("REAL 데이터 파싱 실패: {}", e.getMessage());
+        }
+    }
+
+    // 파싱된 필드로 REALTIME_UPDATE + TICK_UPDATE 브로드캐스트, 예약 주문 체결 매칭
+    private void processTick(String code, String cntrTm, String rawPrice, String rawRate, String rawVolume) {
+        try {
+            String price = String.valueOf(Math.abs(Long.parseLong(rawPrice.replace(",", "").trim())));
+            String rate = normalizeRate(rawRate);
+            long volume = Long.parseLong(rawVolume.replace(",", "").trim());
+
             Map<String, Object> stockData = new LinkedHashMap<>();
             stockData.put("code",   code);
             stockData.put("price",  price);
@@ -130,6 +181,7 @@ public class KiwoomRealtimeService {
             stockData.put("volume", volume);
             log.info("실시간: code={} price={} rate={} volume={}", code, price, rate, volume);
             frontEndHandler.broadcast("REALTIME_UPDATE:" + objectMapper.writeValueAsString(stockData));
+            reservationService.matchAndExecute(code, Long.parseLong(price));
 
             // TICK_UPDATE: 차트 실시간 캔들 업데이트용
             // time     = 분 경계 epoch (캔들 집계용)
@@ -145,8 +197,23 @@ public class KiwoomRealtimeService {
                 frontEndHandler.broadcast("TICK_UPDATE:" + objectMapper.writeValueAsString(tickData));
             }
         } catch (Exception e) {
-            log.warn("H0STCNT0 파싱 실패: {}", e.getMessage());
+            log.warn("실시간 틱 처리 실패 ({}): {}", code, e.getMessage());
         }
+    }
+
+    // 키움 등락율(FID 12)은 이미 부호가 붙어서 옴("+1.60"/"-0.50") — 부호 없으면 보합(0)으로 처리
+    private String normalizeRate(String rawRate) {
+        if (rawRate == null || rawRate.isBlank()) return "0";
+        String trimmed = rawRate.trim();
+        double value;
+        try {
+            value = Double.parseDouble(trimmed);
+        } catch (NumberFormatException e) {
+            return "0";
+        }
+        if (value == 0) return "0";
+        if (trimmed.startsWith("+") || trimmed.startsWith("-")) return trimmed;
+        return value > 0 ? "+" + trimmed : trimmed;
     }
 
     // "093547" (HHmmss) → 오늘 KST 해당 분의 epoch seconds (캔들 집계용, 초 버림)
@@ -178,41 +245,53 @@ public class KiwoomRealtimeService {
         }
     }
 
-    private void sendSubscribeMessage(String code) {
-        if (kiwoomSession == null || !kiwoomSession.isOpen()) {
-            log.debug("WS 미연결 상태 — {} 구독 대기", code);
-            return;
-        }
+    private void sendLoginMessage() {
+        if (kiwoomSession == null || !kiwoomSession.isOpen()) return;
         try {
             String accessToken = tokenService.getAccessToken();
             if (accessToken == null || accessToken.isBlank()) {
-                log.error("액세스 토큰이 없습니다 — {} 구독 중단", code);
+                log.error("액세스 토큰이 없습니다 — 로그인 중단");
                 return;
             }
-
-            String subscribeJson = String.format("""
-                {
-                    "header": {
-                        "authorization": "Bearer %s",
-                        "custtype": "P",
-                        "tr_type": "1",
-                        "content-type": "utf-8"
-                    },
-                    "body": {
-                        "input": {
-                            "tr_id": "01",
-                            "tr_key": "%s"
-                        }
-                    }
-                }
-                """, accessToken, code);
-
-            kiwoomSession.sendMessage(new TextMessage(subscribeJson));
-            log.info("실시간 구독 요청: {}", code);
+            String loginJson = String.format("""
+                {"trnm":"LOGIN","token":"%s"}""", accessToken);
+            kiwoomSession.sendMessage(new TextMessage(loginJson));
+            log.info("키움 실시간 로그인 요청 전송");
         } catch (IOException e) {
-            log.error("구독 메시지 전송 실패 ({}): {}", code, e.getMessage());
-        } catch (Exception e) {
-            log.error("실시간 구독 요청 중 오류 ({}): {}", code, e.getMessage());
+            log.error("로그인 메시지 전송 실패: {}", e.getMessage());
         }
+    }
+
+    // 종목코드 여러 개를 REG 요청 한 번에 담아서 전송 (개별 전송 시 키움 rate limit(TRNM=REG)에 걸림)
+    private void sendSubscribeMessage(List<String> codes) {
+        if (codes.isEmpty()) return;
+        if (kiwoomSession == null || !kiwoomSession.isOpen() || !loggedIn) {
+            log.debug("로그인 대기 중 — {}개 종목 구독 대기 {}", codes.size(), codes);
+            return;
+        }
+        try {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("item", codes);
+            entry.put("type", List.of("0B"));
+
+            Map<String, Object> reg = new LinkedHashMap<>();
+            reg.put("trnm", "REG");
+            reg.put("grp_no", "1");
+            reg.put("refresh", "1");
+            reg.put("data", List.of(entry));
+
+            kiwoomSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(reg)));
+            log.info("실시간 구독 요청: {}개 종목 {}", codes.size(), codes);
+        } catch (IOException e) {
+            log.error("구독 메시지 전송 실패: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("실시간 구독 요청 중 오류: {}", e.getMessage());
+        }
+    }
+
+    // 테스트용 — 실제 REAL 틱과 동일한 처리 경로(processTick)를 그대로 태움
+    public void simulateTick(String code, long price) {
+        String cntrTm = LocalTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("HHmmss"));
+        processTick(code, cntrTm, String.valueOf(price), "+0.50", "1");
     }
 }

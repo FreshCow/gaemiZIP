@@ -7,6 +7,7 @@ import type { BoardPost, Comment } from "@/types/board";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { formatDateTime } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -117,7 +118,7 @@ export default function AdminContentPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-900 dark:text-white">{board.title}</td>
                   <td className="px-4 py-3 text-gray-700 dark:text-neutral-300">{board.author}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-neutral-500">{board.createdAt?.slice(0, 10)}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-neutral-500">{formatDateTime(board.createdAt)}</td>
                   <td className="px-4 py-3">
                     <BlindBadge blinded={board.blinded} />
                   </td>

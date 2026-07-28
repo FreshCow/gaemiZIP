@@ -5,13 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, TrendingUp, MessageSquare, Activity, Wifi, WifiOff, Sun, Moon, LogIn, LogOut, User, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, TrendingUp, MessageSquare, Activity, Sun, Moon, LogIn, LogOut, User, ShieldCheck } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/utils";
 import { StockSearchBar } from "@/components/stock/StockSearchBar";
 import { WithdrawModal } from "@/components/auth/WithdrawModal";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 const navItems = [
   { href: "/stocks",   icon: TrendingUp,     label: "AI 탐색"  },
@@ -98,7 +99,6 @@ function RankingTicker() {
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const wsConnected = useAppStore((s) => s.wsConnected);
   const { isLoggedIn, nickname, provider, isAdmin, clearAuth } = useAuthStore();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -172,15 +172,6 @@ export function Sidebar() {
 
         {/* 우측 컨트롤 */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-neutral-600">
-            {wsConnected ? (
-              <Wifi size={14} className="text-emerald-500" />
-            ) : (
-              <WifiOff size={14} className="text-rose-500" />
-            )}
-            <span className="hidden lg:block">{wsConnected ? "연결됨" : "연결 끊김"}</span>
-          </div>
-
           <button
             onClick={toggleTheme}
             className="flex items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
@@ -192,6 +183,8 @@ export function Sidebar() {
               <div className="h-[15px] w-[15px]" />
             )}
           </button>
+
+          {mounted && isLoggedIn && <NotificationBell />}
 
           {mounted && (
             isLoggedIn ? (

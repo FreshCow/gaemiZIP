@@ -40,6 +40,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 게시글 작성은 서버가 로그인 사용자만 허용하므로, 목록/상세는 열어두되 글쓰기만 로그인 요구
+  if (pathname.startsWith("/board/write")) {
+    if (!token) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.next();
+  }
+
   if (OPEN_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }

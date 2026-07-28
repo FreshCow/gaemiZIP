@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { tradeApi } from "@/services/tradeApi";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/utils";
 import type { TradeHistory } from "@/types/trade";
 
 export default function TradesPage() {
@@ -49,7 +50,7 @@ export default function TradesPage() {
                   {t.price.toLocaleString()}원
                 </td>
                 <td className="px-4 py-3 text-right text-gray-700 dark:text-neutral-300">{t.quantity}주</td>
-                <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-neutral-500">{t.tradeAt}</td>
+                <td className="px-4 py-3 text-right text-xs text-gray-500 dark:text-neutral-500">{formatDateTime(t.tradeAt)}</td>
               </tr>
             ))}
             {tradeHistories.length === 0 && (

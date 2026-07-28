@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   Star,
@@ -12,17 +12,28 @@ import {
   ChevronLeft,
   Clock,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { fetchStockInfo, fetchStockPrice, fetchStockNews, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
+import { tradeApi } from "@/services/tradeApi";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Pagination } from "@/components/ui/pagination";
 import type { StockInfoData, StockPriceItem } from "@/types/stock";
 import type { NewsItem, AiStockAnalysisResponse } from "@/types/news";
+import type { ReservedOrder } from "@/types/trade";
 
-const NEWS_PAGE_SIZE = 5;
+const NEWS_MIN_PAGE_SIZE = 5;
+const NEWS_ITEM_HEIGHT = 76; // 뉴스 li 1개의 대략적 렌더 높이(px) — 제목 2줄 + 메타 정보 + 패딩
+
+const RATIOS = [
+  { label: "25%", value: 0.25 },
+  { label: "50%", value: 0.5 },
+  { label: "100%", value: 1 },
+] as const;
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────────
 
@@ -40,6 +51,12 @@ function fmt(val: string | undefined, suffix = ""): string {
   if (!val || val === "0" || val.trim() === "") return "—";
   const n = absNum(val);
   return n > 0 ? `${n.toLocaleString()}${suffix}` : "—";
+}
+
+// 키움 API가 "YYYYMMDD" 형식으로 내려주는 날짜 필드(예: 250일 최고/최저가 발생일) 포맷팅
+function fmtDate(val: string | undefined): string {
+  if (!val || val.length !== 8) return "—";
+  return `${val.slice(0, 4)}-${val.slice(4, 6)}-${val.slice(6, 8)}`;
 }
 
 // ── 정보 행 컴포넌트 ───────────────────────────────────────────────────────────
@@ -72,13 +89,30 @@ export default function StockDetailPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsPage, setNewsPage] = useState(0);
+  const [newsPageSize, setNewsPageSize] = useState(NEWS_MIN_PAGE_SIZE);
+  const newsListRef = useRef<HTMLUListElement>(null);
   const [aiAnalysis, setAiAnalysis] = useState<AiStockAnalysisResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
+
+  // 매수/매도 주문
+  const [tradeTab, setTradeTab] = useState<"BUY" | "SELL">("BUY");
+  const [orderPrice, setOrderPrice] = useState("");
+  const [qty, setQty] = useState("");
+  const [isTrading, setIsTrading] = useState(false);
+  const [tradeMsg, setTradeMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // 예약(지정가) 주문 — 주문가가 현재가와 다르면 즉시 체결 대신 예약으로 등록
+  const [reservations, setReservations] = useState<ReservedOrder[]>([]);
+  const [lockedBalance, setLockedBalance] = useState(0);
+  const [isReserving, setIsReserving] = useState(false);
 
   // 실시간 랭킹에서 현재가 fallback
   const rankStock = useAppStore((s) => s.stocks.find((s) => s.code === code));
   // 키움 실시간 구독으로 들어오는 최신 시세 (top10 랭킹 밖 종목도 포함)
   const liveUpdate = useAppStore((s) => s.livePrices[code]);
+  const holding = useAppStore((s) => s.holdings.find((h) => h.code === code));
+  const setHoldings = useAppStore((s) => s.setHoldings);
+  const { isLoggedIn, balance, updateBalance } = useAuthStore();
 
   useEffect(() => {
     if (!code) return;
@@ -114,6 +148,51 @@ export default function StockDetailPage() {
       .finally(() => setAiLoading(false));
   }, [code]);
 
+  // 관련 뉴스 카드는 좌측 컬럼 높이에 맞춰 늘어나므로, 실제 보이는 영역 높이에 맞게 페이지당 개수를 계산
+  useEffect(() => {
+    const el = newsListRef.current;
+    if (!el) return;
+
+    const updatePageSize = () => {
+      setNewsPageSize(Math.max(NEWS_MIN_PAGE_SIZE, Math.floor(el.clientHeight / NEWS_ITEM_HEIGHT)));
+    };
+
+    updatePageSize();
+    const observer = new ResizeObserver(updatePageSize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [news.length]);
+
+  // 예약 주문 목록 폴링 — balance/lockedBalance도 함께 갱신되어
+  // 서버에서 자동 체결된 예약을 별도 알림 없이도 감지할 수 있다.
+  const refreshReservations = async () => {
+    try {
+      const res = await tradeApi.getReservations();
+      setLockedBalance(res.lockedBalance);
+      updateBalance(res.balance);
+      setReservations((prev) => {
+        const prevPendingIds = prev.filter((r) => r.status === "PENDING").map((r) => r.id);
+        const nextIds = res.reservations.map((r) => r.id);
+        const autoExecuted = prevPendingIds.some((id) => !nextIds.includes(id));
+        if (autoExecuted) {
+          tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+          setTradeMsg({ type: "ok", text: "예약 주문이 체결되었습니다." });
+        }
+        return res.reservations;
+      });
+    } catch {
+      // 폴링 실패는 조용히 무시
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    refreshReservations();
+    const timer = setInterval(refreshReservations, 5000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
   // 우선순위: 실시간 구독 시세 > /price(Redis→ka10001→마스터 폴백) > 랭킹 데이터
   const livePrice = absNum(liveUpdate?.price);
   const apiPrice  = absNum(price?.price);
@@ -124,12 +203,121 @@ export default function StockDetailPage() {
       : price?.rate && price.rate !== "0"
       ? price.rate
       : rankStock?.rate ?? "0";
-  const predPre   = absNum(info?.predPre);
+  const basePrice = absNum(info?.basePric);
+  // 등락폭(원화)은 REST 응답에 고정값이라, 라이브 현재가와 기준가 차이로 매 틱 재계산한다.
+  const predPre   = curPrice > 0 && basePrice > 0 ? Math.abs(curPrice - basePrice) : absNum(info?.predPre);
   const fluRt     = apiRate;
   const priceUp   = isUp(fluRt);
 
-  const newsTotalPages = Math.ceil(news.length / NEWS_PAGE_SIZE);
-  const pagedNews = news.slice(newsPage * NEWS_PAGE_SIZE, newsPage * NEWS_PAGE_SIZE + NEWS_PAGE_SIZE);
+  // 종목 변경 시 주문가격을 현재가로 초기화
+  useEffect(() => {
+    if (!code) return;
+    setTradeTab("BUY");
+    setOrderPrice(curPrice > 0 ? curPrice.toLocaleString() : "");
+    setQty("");
+    setTradeMsg(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
+  const orderPriceNum = Math.max(0, Number(orderPrice.replace(/,/g, "")) || 0);
+  const qtyNum        = Math.max(0, Number(qty) || 0);
+  const totalAmount   = orderPriceNum * qtyNum;
+
+  // 주문가 = 실시간 현재가일 때만 즉시 체결, 다르면 예약 주문으로 등록
+  const isPriceMatch    = curPrice > 0 && orderPriceNum === curPrice;
+  const availableBalance = Math.max(0, (balance ?? 0) - lockedBalance);
+  const availableQty     = Math.max(0, (holding?.quantity ?? 0) - (holding?.lockedQuantity ?? 0));
+  const codeReservations = reservations.filter((r) => r.stockCode === code && r.status === "PENDING");
+
+  // 비율 버튼: 매수 → 주문가능 잔고 기준, 매도 → 매도가능 수량 기준
+  const handleRatio = (ratio: number) => {
+    if (orderPriceNum <= 0 && tradeTab === "BUY") return;
+    if (tradeTab === "BUY") {
+      const maxQty = Math.floor((availableBalance * ratio) / orderPriceNum);
+      setQty(String(maxQty));
+    } else {
+      setQty(String(Math.floor(availableQty * ratio)));
+    }
+  };
+
+  const canSubmit =
+    !isTrading &&
+    !isReserving &&
+    orderPriceNum > 0 &&
+    qtyNum > 0 &&
+    (tradeTab === "BUY" ? totalAmount <= availableBalance : qtyNum <= availableQty);
+
+  const handleTrade = async () => {
+    if (!canSubmit) return;
+    setIsTrading(true);
+    setTradeMsg(null);
+    try {
+      const result = await tradeApi.executeTrade({
+        stockCode: code,
+        stockName: info?.name ?? "",
+        tradeType: tradeTab,
+        price: orderPriceNum,
+        quantity: qtyNum,
+      });
+      if (result.newBalance != null) updateBalance(result.newBalance);
+      await tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+      setTradeMsg({ type: "ok", text: tradeTab === "BUY" ? "매수 완료" : "매도 완료" });
+      setQty("");
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        "거래 처리 중 오류가 발생했습니다.";
+      setTradeMsg({ type: "err", text: msg });
+    } finally {
+      setIsTrading(false);
+    }
+  };
+
+  const handleReserve = async () => {
+    if (!canSubmit) return;
+    setIsReserving(true);
+    setTradeMsg(null);
+    try {
+      await tradeApi.createReservation({
+        stockCode: code,
+        stockName: info?.name ?? "",
+        tradeType: tradeTab,
+        price: orderPriceNum,
+        quantity: qtyNum,
+      });
+      await refreshReservations();
+      await tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+      setTradeMsg({ type: "ok", text: "예약 주문이 등록되었습니다." });
+      setQty("");
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        "예약 등록 중 오류가 발생했습니다.";
+      setTradeMsg({ type: "err", text: msg });
+    } finally {
+      setIsReserving(false);
+    }
+  };
+
+  const handleSubmit = () => (isPriceMatch ? handleTrade() : handleReserve());
+
+  const handleCancelReservation = async (id: number) => {
+    try {
+      await tradeApi.cancelReservation(id);
+      await refreshReservations();
+      await tradeApi.getHoldingsWithLivePrice().then(setHoldings);
+      setTradeMsg({ type: "ok", text: "예약이 취소되었습니다." });
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        "예약 취소 중 오류가 발생했습니다.";
+      setTradeMsg({ type: "err", text: msg });
+    }
+  };
+
+  const newsTotalPages = Math.ceil(news.length / newsPageSize);
+  const clampedNewsPage = Math.min(newsPage, Math.max(0, newsTotalPages - 1));
+  const pagedNews = news.slice(clampedNewsPage * newsPageSize, clampedNewsPage * newsPageSize + newsPageSize);
 
   return (
     <div className="p-6 space-y-5">
@@ -242,7 +430,7 @@ export default function StockDetailPage() {
                     {priceUp ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
                     <span>
                       {predPre > 0 ? `${priceUp ? "+" : "-"}${predPre.toLocaleString()}원 ` : ""}
-                      ({priceUp ? "+" : ""}{fluRt}%)
+                      ({fluRt}%)
                     </span>
                   </div>
                 )}
@@ -270,6 +458,189 @@ export default function StockDetailPage() {
                     </p>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* 매수/매도 주문 (UI 우선 배치 — 실제 매매 API 연동은 다음 단계에서 진행) */}
+            <div className="relative rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+              {!isLoggedIn && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 dark:bg-neutral-900/70">
+                  <p className="text-base font-medium text-gray-500 dark:text-neutral-400">
+                    로그인 후 사용할 수 있습니다
+                  </p>
+                </div>
+              )}
+              <div className={!isLoggedIn ? "pointer-events-none opacity-40" : ""}>
+              {/* 잔고 / 보유 정보 */}
+              <div className="mb-4 text-sm text-gray-500 dark:text-neutral-500">
+                {tradeTab === "BUY" ? (
+                  <span>
+                    주문 가능 잔고{" "}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      ₩{availableBalance.toLocaleString()}
+                    </span>
+                    {lockedBalance > 0 && ` (예약 잠금 ₩${lockedBalance.toLocaleString()})`}
+                  </span>
+                ) : (
+                  <span>
+                    매도 가능 수량{" "}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {availableQty.toLocaleString()}주
+                    </span>
+                    {holding ? ` · 평균 ₩${holding.buyPrice.toLocaleString()}` : ""}
+                    {(holding?.lockedQuantity ?? 0) > 0 && ` (예약 잠금 ${holding?.lockedQuantity}주)`}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-end gap-4">
+                {/* 매수/매도 탭 */}
+                <div className="flex shrink-0 overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700">
+                  {(["BUY", "SELL"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => { setTradeTab(t); setQty(""); }}
+                      className={`px-6 py-3 text-base font-bold transition-colors ${
+                        tradeTab === t
+                          ? t === "BUY"
+                            ? "bg-emerald-500 text-white"
+                            : "bg-rose-500 text-white"
+                          : "text-gray-500 hover:bg-gray-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      {t === "BUY" ? "매수" : "매도"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 주문 가격 */}
+                <div className="min-w-[160px] flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">주문 가격</label>
+                    <button
+                      onClick={() => setOrderPrice(curPrice > 0 ? curPrice.toLocaleString() : "")}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-500 dark:text-neutral-500 dark:hover:text-emerald-400 transition-colors"
+                    >
+                      <RefreshCw size={12} />
+                      현재가
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={orderPrice}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/[^0-9]/g, "");
+                        setOrderPrice(digits ? Number(digits).toLocaleString() : "");
+                        setQty("");
+                      }}
+                      placeholder="0"
+                      className="w-full bg-transparent text-base font-semibold text-gray-900 outline-none dark:text-white"
+                    />
+                    <span className="shrink-0 text-sm text-gray-400 dark:text-neutral-500">원</span>
+                  </div>
+                </div>
+
+                {/* 수량 */}
+                <div className="min-w-[140px] flex-1 space-y-1">
+                  <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">수량</label>
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="0"
+                      className="w-full bg-transparent text-base font-semibold text-gray-900 outline-none dark:text-white"
+                    />
+                    <span className="shrink-0 text-sm text-gray-400 dark:text-neutral-500">주</span>
+                  </div>
+                </div>
+
+                {/* 비율 버튼 */}
+                <div className="flex shrink-0 gap-1.5">
+                  {RATIOS.map(({ label, value }) => (
+                    <button
+                      key={label}
+                      onClick={() => handleRatio(value)}
+                      disabled={tradeTab === "BUY" && orderPriceNum <= 0}
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 transition-colors"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 예상 금액 + 실행 버튼 — 우측 정렬 */}
+                <div className="ml-auto flex shrink-0 items-end gap-4">
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500 dark:text-neutral-500">
+                      예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
+                    </p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                      {totalAmount > 0 ? `₩${totalAmount.toLocaleString()}` : "—"}
+                    </p>
+                  </div>
+
+                  {/* 실행 버튼 */}
+                  <button
+                    disabled={!isLoggedIn || !canSubmit}
+                    onClick={handleSubmit}
+                    className={`shrink-0 rounded-xl px-8 py-3.5 text-base font-bold text-white transition-colors disabled:opacity-40 ${
+                      tradeTab === "BUY"
+                        ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700"
+                        : "bg-rose-500 hover:bg-rose-600 active:bg-rose-700"
+                    }`}
+                  >
+                    {isTrading || isReserving
+                      ? "처리 중..."
+                      : !isPriceMatch
+                      ? "예약 주문 걸기"
+                      : tradeTab === "BUY"
+                      ? `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매수하기`
+                      : `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매도하기`}
+                  </button>
+                </div>
+              </div>
+
+              {tradeMsg && (
+                <p
+                  className={`mt-3 text-right text-sm font-medium ${
+                    tradeMsg.type === "ok" ? "text-emerald-500" : "text-rose-500"
+                  }`}
+                >
+                  {tradeMsg.text}
+                </p>
+              )}
+
+              {codeReservations.length > 0 && (
+                <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
+                  <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">예약 중인 주문</p>
+                  {codeReservations.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800"
+                    >
+                      <span
+                        className={`font-semibold ${r.tradeType === "BUY" ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {r.tradeType === "BUY" ? "매수" : "매도"}
+                      </span>
+                      <span className="text-gray-700 dark:text-neutral-300">
+                        {r.targetPrice.toLocaleString()}원 · {r.quantity.toLocaleString()}주
+                      </span>
+                      <button
+                        onClick={() => handleCancelReservation(r.id)}
+                        className="text-xs text-gray-400 hover:text-rose-500 dark:text-neutral-500 dark:hover:text-rose-400 transition-colors"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               </div>
             </div>
 
@@ -317,8 +688,8 @@ export default function StockDetailPage() {
               <InfoRow label="외인소진율"   value={info.forExhRt ? `${info.forExhRt}%` : "—"} />
               <InfoRow label="연중최고"     value={fmt(info.oyrHgst)} colored />
               <InfoRow label="연중최저"     value={fmt(info.oyrLwst)} colored />
-              <InfoRow label="250일최고"    value={`${fmt(info.hgst250)} (${info.hgst250PricDt || "—"}일 전)`} />
-              <InfoRow label="250일최저"    value={`${fmt(info.lwst250)} (${info.lwst250PricDt || "—"}일 전)`} />
+              <InfoRow label="250일최고"    value={`${fmt(info.hgst250)} (${fmtDate(info.hgst250PricDt)})`} />
+              <InfoRow label="250일최저"    value={`${fmt(info.lwst250)} (${fmtDate(info.lwst250PricDt)})`} />
               <InfoRow label="결산월"       value={info.setlMm ? `${info.setlMm}월` : "—"} />
               <InfoRow label="매매단위"     value={info.favUnit ? `${info.favUnit}주` : "—"} />
               <InfoRow label="대용가"       value={fmt(info.replPric)} />
@@ -339,7 +710,7 @@ export default function StockDetailPage() {
                 <p className="py-3 text-sm text-gray-400 dark:text-neutral-500">관련 뉴스가 없습니다.</p>
               ) : (
                 <>
-                  <ul className="flex-1 min-h-0 divide-y divide-gray-100 overflow-y-auto dark:divide-neutral-800">
+                  <ul ref={newsListRef} className="flex-1 min-h-0 divide-y divide-gray-100 overflow-y-auto dark:divide-neutral-800">
                     {pagedNews.map((item) => (
                       <li key={item.id ?? item.link} className="py-3 first:pt-0 last:pb-0">
                         <a
@@ -360,7 +731,7 @@ export default function StockDetailPage() {
                     ))}
                   </ul>
                   <Pagination
-                    page={newsPage}
+                    page={clampedNewsPage}
                     totalPages={newsTotalPages}
                     onPageChange={setNewsPage}
                     className="mt-3 border-t border-gray-100 pt-3 dark:border-neutral-800"

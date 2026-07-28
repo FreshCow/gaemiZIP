@@ -13,6 +13,7 @@ export interface HoldingItem {
   currentPrice: number;
   quantity: number;
   profitRate: number;
+  lockedQuantity?: number; // 예약 매도 주문으로 잠긴 수량
 }
 
 export interface CandlePoint {
@@ -23,7 +24,7 @@ export interface CandlePoint {
   close: number;
 }
 
-export type ChartInterval = "1" | "D" | "W";
+export type ChartInterval = "1" | "D" | "W" | "T1" | "T3" | "T5" | "T10";
 
 export interface StockSearchResult {
   code: string;
@@ -121,4 +122,5 @@ export interface HoldingData {
   stockName: string;
   quantity: number;
   avgPrice: number;
+  lockedQuantity?: number; // 예약 매도 주문으로 잠긴 수량
 }
