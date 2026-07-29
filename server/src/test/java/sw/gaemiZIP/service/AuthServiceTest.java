@@ -9,9 +9,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
-import sw.gaemiZIP.entity.MemberAnt;
-import sw.gaemiZIP.entity.Role;
+import sw.gaemiZIP.entity.member.MemberAnt;
+import sw.gaemiZIP.entity.member.Role;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
+import sw.gaemiZIP.service.auth.AuthService;
 
 import java.util.Optional;
 
@@ -37,16 +38,16 @@ class AuthServiceTest {
     @DisplayName("회원가입 성공 테스트")
     void auth() {
         //가짜 환경설정
-        SignUpRequestDto requestDto = new SignUpRequestDto("test@ant.com", "1234");
+        SignUpRequestDto requestDto = new SignUpRequestDto("test_ant", "1234");
 
-        //이메일 중복 조회하면 빈 값이 나온다고 가정
-        given(memberAntRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.empty());
+        //아이디 중복 조회하면 빈 값이 나온다고 가정
+        given(memberAntRepository.findByUsername(requestDto.getUsername())).willReturn(Optional.empty());
 
         //비밀번호 인코더를 호출하면 암호화된 문자열이 나온다고 가정
         given(passwordEncoder.encode(requestDto.getPassword())).willReturn("encoded_password123");
 
         MemberAnt saveMemberAnt = MemberAnt.builder()
-                .email(requestDto.getEmail())
+                .username(requestDto.getUsername())
                 .password("encoded_password123")
                 .role(Role.USER)
                 .provider("LOCAL")
@@ -66,19 +67,19 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("회원가입 실패 테스트 - 이메일 중복")
+    @DisplayName("회원가입 실패 테스트 - 아이디 중복")
     void signUpFailTest() {
         // 1. Given
-        SignUpRequestDto requestDto = new SignUpRequestDto("duplicate@ant.com", "1234");
-        MemberAnt existingMember = MemberAnt.builder().email("duplicate@ant.com").build();
+        SignUpRequestDto requestDto = new SignUpRequestDto("duplicate_ant", "1234");
+        MemberAnt existingMember = MemberAnt.builder().username("duplicate_ant").build();
 
-        // 해당 이메일로 조회하면 이미 존재하는 회원이 나온다고 가정 (중복 발생)
-        given(memberAntRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.of(existingMember));
+        // 해당 아이디로 조회하면 이미 존재하는 회원이 나온다고 가정 (중복 발생)
+        given(memberAntRepository.findByUsername(requestDto.getUsername())).willReturn(Optional.of(existingMember));
 
         // 2. When & 3. Then (예외가 정상적으로 터지는지 검증)
         assertThatThrownBy(() -> authService.signUp(requestDto)) // - 이 메서드를 실행했을 때
-                .isInstanceOf(IllegalArgumentException.class)    // - 이 예외 클래스가 터져야 하고
-                .hasMessage("이미 존재하는 이메일입니다.");           // - 에러 메시지는 이것이어야 함
+                .isInstanceOf(IllegalStateException.class)       // - 이 예외 클래스가 터져야 하고
+                .hasMessage("이미 존재하는 아이디입니다.");             // - 에러 메시지는 이것이어야 함
     }
 
 }
