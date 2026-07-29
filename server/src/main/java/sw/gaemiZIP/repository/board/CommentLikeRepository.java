@@ -9,5 +9,5 @@ public interface CommentLikeRepository extends JpaRepository<CommentLike, Long> 
     boolean existsByMemberIdAndCommentId(Long memberId, Long commentId);
 
     //좋아요 취소
-    void deleteByMemberIdAndCommentId(Long memberId, Long commentId);
+    long deleteByMemberIdAndCommentId(Long memberId, Long commentId);
 }
