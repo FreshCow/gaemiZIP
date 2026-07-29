@@ -21,7 +21,6 @@ import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -287,11 +286,5 @@ public class KiwoomRealtimeService {
         } catch (Exception e) {
             log.error("실시간 구독 요청 중 오류: {}", e.getMessage());
         }
-    }
-
-    // 테스트용 — 실제 REAL 틱과 동일한 처리 경로(processTick)를 그대로 태움
-    public void simulateTick(String code, long price) {
-        String cntrTm = LocalTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("HHmmss"));
-        processTick(code, cntrTm, String.valueOf(price), "+0.50", "1");
     }
 }
