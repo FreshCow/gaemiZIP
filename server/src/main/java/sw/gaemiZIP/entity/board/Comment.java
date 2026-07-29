@@ -35,9 +35,6 @@ public class Comment {
     private int likeCount = 0;
 
     @Column(nullable = false)
-    private int dislikeCount = 0;
-
-    @Column(nullable = false)
     private boolean isBlinded = false;
 
     public void blind() {this.isBlinded = true;}

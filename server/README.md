@@ -234,7 +234,6 @@
 | GET | `/api/boards/{boardId}/comments` | ✓ | 댓글 목록 조회 |
 | POST | `/api/boards/{boardId}/comments` | ✓ | 댓글·대댓글 작성 |
 | POST | `/api/comments/{id}/like` | ✓ | 댓글 좋아요 |
-| POST | `/api/comments/{id}/dislike` | ✓ | 댓글 싫어요 |
 
 ### 뉴스·AI `/api/news` `/api/ai`
 

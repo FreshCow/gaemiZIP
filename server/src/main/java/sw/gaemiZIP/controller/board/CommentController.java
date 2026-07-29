@@ -34,11 +34,15 @@ public class CommentController {
     @PostMapping("/api/boards/{boardId}/comments")
     public ResponseEntity<Comment> createComment(
             @PathVariable Long boardId,
-            @RequestBody CommentRequest request) {
+            @RequestBody CommentRequest request,
+            Authentication auth) {
+
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
         Comment comment = new Comment();
         comment.setBoardId(boardId);
-        comment.setAuthor(request.getAuthor());
+        comment.setAuthor(member.getNickname());
         comment.setContent(request.getContent());
         comment.setParentCommentId(request.getParentCommentId()); // null이면 일반 댓글
 
@@ -68,16 +72,6 @@ public class CommentController {
             comment.setLikeCount(comment.getLikeCount() + 1);
         }
 
-        return ResponseEntity.ok(commentRepository.save(comment));
-    }
-
-    // 댓글 싫어요
-    @PostMapping("/api/comments/{id}/dislike")
-    public ResponseEntity<Comment> dislikeComment(@PathVariable Long id) {
-        Comment comment = commentRepository.findById(id).orElse(null);
-        if (comment == null) return ResponseEntity.status(404).body(null);
-
-        comment.setDislikeCount(comment.getDislikeCount() + 1);
         return ResponseEntity.ok(commentRepository.save(comment));
     }
 }
