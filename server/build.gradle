@@ -50,5 +50,40 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        // 벤치마크/동시성 재현 테스트는 실제 RDS에 데이터를 만들고 시간이 걸려 기본 test에서 제외
+        excludeTags 'benchmark', 'concurrency'
+    }
+}
+
+// 예약 체결 처리량 벤치마크(순차 vs 병렬) 전용 태스크 — ./gradlew benchmarkTest
+tasks.register('benchmarkTest', Test) {
+    group = 'verification'
+    description = '예약 체결 순차/병렬 처리 벤치마크 실행 (실제 DB 사용, 시간이 걸림)'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'benchmark'
+    }
+    outputs.upToDateWhen { false } // 항상 재실행
+    testLogging {
+        showStandardStreams = true // 벤치마크 결과 로그를 콘솔에 바로 출력
+        events "passed", "failed"
+    }
+}
+
+// 예약 체결 레이스 컨디션 재현 테스트 전용 태스크 — ./gradlew concurrencyTest
+tasks.register('concurrencyTest', Test) {
+    group = 'verification'
+    description = '예약 체결 동시성 결함(레이스 컨디션) 재현 테스트 실행 (실제 DB 사용, 시간이 걸림)'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'concurrency'
+    }
+    outputs.upToDateWhen { false } // 항상 재실행
+    testLogging {
+        showStandardStreams = true
+        events "passed", "failed"
+    }
 }

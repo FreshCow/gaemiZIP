@@ -14,4 +14,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findByMemberIdAndReadFalse(Long memberId);
 
     long countByMemberIdAndReadFalse(Long memberId);
+
+    void deleteAllByMemberId(Long memberId);
 }
