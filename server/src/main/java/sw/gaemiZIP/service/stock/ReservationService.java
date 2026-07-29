@@ -29,7 +29,7 @@ public class ReservationService {
     @Transactional
     public void matchAndExecute(String stockCode, long currentPrice){
         List<ReservedOrder> matches = reservedOrderRepository
-                .findByStockCodeAndStatus(stockCode, TradeStatus.PENDING)
+                .findByStockCodeAndStatusForUpdate(stockCode, TradeStatus.PENDING)
                 .stream()
                 .filter(o -> isPriceMatched(o, currentPrice))
                 .toList();

@@ -6,6 +6,7 @@ import lombok.*;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "stock_code"}))
 @AllArgsConstructor
 @Builder
 public class Holding {
