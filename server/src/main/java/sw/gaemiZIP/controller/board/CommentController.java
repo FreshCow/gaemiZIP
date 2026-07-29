@@ -1,6 +1,7 @@
 package sw.gaemiZIP.controller.board;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,14 +63,19 @@ public class CommentController {
 
         if(commentLikeRepository.existsByMemberIdAndCommentId(member.getId(), id)) {
             //좋아요 해제
-            commentLikeRepository.deleteByMemberIdAndCommentId(member.getId(), id);
-            comment.setLikeCount(comment.getLikeCount() - 1);
+            if(commentLikeRepository.deleteByMemberIdAndCommentId(member.getId(), id) != 0) comment.setLikeCount(comment.getLikeCount() - 1);
+
         }else{
             CommentLike commentLike = new CommentLike();
             commentLike.setCommentId(id);
             commentLike.setMemberId(member.getId());
-            commentLikeRepository.save(commentLike);
-            comment.setLikeCount(comment.getLikeCount() + 1);
+
+            try{
+                commentLikeRepository.save(commentLike);
+                comment.setLikeCount(comment.getLikeCount() + 1);
+            }catch (DataIntegrityViolationException e){
+                return ResponseEntity.status(409).body(null);
+            }
         }
 
         return ResponseEntity.ok(commentRepository.save(comment));

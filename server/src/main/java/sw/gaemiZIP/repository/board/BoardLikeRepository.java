@@ -9,5 +9,5 @@ public interface BoardLikeRepository extends JpaRepository<BoardLike, Long> {
     boolean existsByMemberIdAndBoardId(Long memberId, Long boardId);
 
     //좋아요 취소
-    void deleteByMemberIdAndBoardId(Long memberId, Long boardId);
+    long deleteByMemberIdAndBoardId(Long memberId, Long boardId);
 }
