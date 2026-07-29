@@ -1,6 +1,7 @@
 package sw.gaemiZIP.controller.board;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,8 +74,7 @@ public class BoardController {
 
         if (boardLikeRepository.existsByMemberIdAndBoardId(member.getId(), id)){
             //좋아요 해제
-            boardLikeRepository.deleteByMemberIdAndBoardId(member.getId(), id);
-            board.setLikeCount(board.getLikeCount() - 1);
+            if(boardLikeRepository.deleteByMemberIdAndBoardId(member.getId(), id) != 0) board.setLikeCount(board.getLikeCount() - 1);
 
         }else{
 
@@ -82,8 +82,12 @@ public class BoardController {
             BoardLike like =  new BoardLike();
             like.setBoardId(id);
             like.setMemberId(member.getId());
-            boardLikeRepository.save(like);
-            board.setLikeCount(board.getLikeCount() + 1);
+            try{
+                boardLikeRepository.save(like);
+                board.setLikeCount(board.getLikeCount() + 1);
+            }catch (DataIntegrityViolationException e){
+                return ResponseEntity.status(409).body(null);
+            }
         }
 
         return ResponseEntity.ok(boardRepository.save(board));
@@ -95,6 +99,7 @@ public class BoardController {
         MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
         board.setAuthor(member.getNickname()); // 클라이언트가 보낸 author는 무시하고 서버가 덮어씀
+        board.setMemberId(member.getId());
         return ResponseEntity.ok(boardRepository.save(board));
     }
 
@@ -107,11 +112,11 @@ public class BoardController {
         MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
-        if (!board.getAuthor().equals(member.getNickname())) {
+        if (board.getMemberId() != null && board.getMemberId().equals(member.getId())) {
+            boardRepository.deleteById(id);
+            return ResponseEntity.ok("삭제 완료");
+        }else{
             return ResponseEntity.status(403).body("본인이 작성한 글만 삭제할 수 있습니다.");
         }
-
-        boardRepository.deleteById(id);
-        return ResponseEntity.ok("삭제 완료");
     }
 }

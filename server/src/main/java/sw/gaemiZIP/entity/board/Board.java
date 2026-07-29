@@ -16,6 +16,9 @@ public class Board {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column
+    private Long memberId; //작성자 계정
+
     @Column(nullable = false)
     private String author; // 작성자 (키움증권 계정)
 
