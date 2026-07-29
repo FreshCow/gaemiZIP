@@ -49,7 +49,6 @@ public class BoardController {
                 ))
                 .toList();
 
-
         return ResponseEntity.ok(response);
     }
 
@@ -73,10 +72,13 @@ public class BoardController {
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
         if (boardLikeRepository.existsByMemberIdAndBoardId(member.getId(), id)){
-            //좋아요  해제
+            //좋아요 해제
             boardLikeRepository.deleteByMemberIdAndBoardId(member.getId(), id);
             board.setLikeCount(board.getLikeCount() - 1);
+
         }else{
+
+            //좋아요~
             BoardLike like =  new BoardLike();
             like.setBoardId(id);
             like.setMemberId(member.getId());

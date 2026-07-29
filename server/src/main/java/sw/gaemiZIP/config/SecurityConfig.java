@@ -47,8 +47,7 @@ public class SecurityConfig {
                                 "/api/stocks/*/info",
                                 "/api/stocks/*/chart",
                                 "/api/stocks/*/news",
-                                "/api/stocks/*/subscribe",
-                                "/api/stocks/*/simulate-tick").permitAll()
+                                "/api/stocks/*/subscribe").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // 그 외의 모든 요청은 토큰이 있어야만(인증되어야만) 접근 가능
                         .anyRequest().authenticated()

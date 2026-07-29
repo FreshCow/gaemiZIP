@@ -115,11 +115,4 @@ public class StockController {
         }
         return rate.startsWith("+") || rate.startsWith("-") ? rate : "+" + rate;
     }
-
-    // 테스트용 — 장 마감 후 실시간 틱 파이프라인 검증용, 확인 끝나면 삭제
-    @PostMapping("/{code}/simulate-tick")
-    public ResponseEntity<Void> simulateTick(@PathVariable String code, @RequestParam long price) {
-        kiwoomRealtimeService.simulateTick(code, price);
-        return ResponseEntity.ok().build();
-    }
 }
