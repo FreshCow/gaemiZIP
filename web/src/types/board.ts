@@ -38,7 +38,6 @@ export interface Comment {
   content: string;
   createdAt: string;
   likeCount: number;
-  dislikeCount: number;
   blinded: boolean;
 }
 
