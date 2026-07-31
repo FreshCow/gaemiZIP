@@ -43,6 +43,8 @@ public class MemberAnt extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "bigint default 0")
     private Long lockedBalance;
 
+    private String securityCodeHash; // 비밀번호 재설정용 보안코드 해시 (GOOGLE 계정·마이그레이션 이전 로컬 계정은 null)
+
 
 
     @PrePersist // - DB에 INSERT 쿼리가 실행되기 직전에 JPA가 자동으로 호출
@@ -67,7 +69,7 @@ public class MemberAnt extends BaseTimeEntity {
     }
 
     @Builder
-    public MemberAnt(String email, String username, String password, String nickname, Role role, String provider, String providerId, Long balance) {
+    public MemberAnt(String email, String username, String password, String nickname, Role role, String provider, String providerId, Long balance, String securityCodeHash) {
         this.email = email;
         this.username = username;
         this.password = password;
@@ -76,6 +78,7 @@ public class MemberAnt extends BaseTimeEntity {
         this.provider = provider;
         this.providerId = providerId;
         this.balance = balance;
+        this.securityCodeHash = securityCodeHash;
     }
 
     public void lockBalance(long amount) {
@@ -88,6 +91,9 @@ public class MemberAnt extends BaseTimeEntity {
 
     public void updateBalance(long delta) {
         this.balance += delta;
+    }
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
     }
     public void suspend() {this.status = MemberStatus.SUSPENDED;}
     public void activate() {this.status = MemberStatus.ACTIVE;}
