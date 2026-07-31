@@ -5,10 +5,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import sw.gaemiZIP.dto.auth.FindPasswordRequestDto;
 import sw.gaemiZIP.dto.auth.GoogleLoginRequest;
 import sw.gaemiZIP.dto.auth.LoginReqeustDto;
 import sw.gaemiZIP.dto.auth.LoginResponseDto;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
+import sw.gaemiZIP.dto.auth.SignUpResponseDto;
+import sw.gaemiZIP.dto.auth.VerifySecurityCodeRequestDto;
 import sw.gaemiZIP.service.auth.AuthService;
 
 import java.util.Map;
@@ -21,16 +24,36 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/signup") //http post 메서드로 "/api/auth/signup" 주소로 요청이 오면 이 메서드를 실행
-    public ResponseEntity<String> sighUp(@RequestBody SignUpRequestDto signUpRequestDto) {
+    public ResponseEntity<?> sighUp(@RequestBody SignUpRequestDto signUpRequestDto) {
         // @RequestBody: - 클라이언트(Next.js)가 보낸 JSON 데이터를 자바 객체(SignUpRequestDto)로 변환
 
         try{
-            Long memberId = authService.signUp(signUpRequestDto);
-            return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
+            SignUpResponseDto responseDto = authService.signUp(signUpRequestDto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);
         }catch (IllegalStateException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
 
+    }
+
+    @PostMapping("/find-password")
+    public ResponseEntity<?> findPassword(@RequestBody FindPasswordRequestDto requestDto) {
+        try {
+            authService.resetPassword(requestDto);
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/verify-security-code")
+    public ResponseEntity<?> verifySecurityCode(@RequestBody VerifySecurityCodeRequestDto requestDto) {
+        try {
+            authService.verifySecurityCode(requestDto.getUsername(), requestDto.getSecurityCode());
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @PostMapping("/login") // POST /api/auth/login 으로 요청이 오면 실행
