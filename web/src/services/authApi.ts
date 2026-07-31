@@ -1,12 +1,18 @@
 import api from "./api";
-import type { LoginRequest, SignUpRequest, AuthResponse } from "@/types/auth";
+import type { LoginRequest, SignUpRequest, SignUpResponse, FindPasswordRequest, VerifySecurityCodeRequest, AuthResponse } from "@/types/auth";
 
 export const authApi = {
   login: (dto: LoginRequest) =>
     api.post<AuthResponse>("/auth/login", dto).then((r) => r.data),
 
   signUp: (dto: SignUpRequest) =>
-    api.post<string>("/auth/signup", dto).then((r) => r.data),
+    api.post<SignUpResponse>("/auth/signup", dto).then((r) => r.data),
+
+  findPassword: (dto: FindPasswordRequest) =>
+    api.post<void>("/auth/find-password", dto).then((r) => r.data),
+
+  verifySecurityCode: (dto: VerifySecurityCodeRequest) =>
+    api.post<void>("/auth/verify-security-code", dto).then((r) => r.data),
 
   googleLogin: (idToken: string) =>
     api.post<AuthResponse>("/auth/google", { idToken }).then((r) => r.data),

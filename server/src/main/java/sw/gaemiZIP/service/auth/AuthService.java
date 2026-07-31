@@ -9,9 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import sw.gaemiZIP.dto.auth.FindPasswordRequestDto;
 import sw.gaemiZIP.dto.auth.LoginReqeustDto;
 import sw.gaemiZIP.dto.auth.LoginResponseDto;
 import sw.gaemiZIP.dto.auth.SignUpRequestDto;
+import sw.gaemiZIP.dto.auth.SignUpResponseDto;
 import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.member.MemberStatus;
 import sw.gaemiZIP.entity.member.Role;
@@ -19,8 +21,10 @@ import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.util.JwtUtil;
+import sw.gaemiZIP.util.SecurityCodeGenerator;
 
 import java.util.Collections;
+import java.util.regex.Pattern;
 
 @Service // 서비스 계층 명시
 @RequiredArgsConstructor // final이 붙은 필드의 생성자를 자동으로 만들어서 의존성 주입 편리
@@ -32,23 +36,61 @@ public class AuthService {
     private final TradeHistoryRepository tradeHistoryRepository;
     private final HoldingRepository holdingRepository;
 
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9]{4,20}$");
+
     @Transactional
-    public Long signUp(SignUpRequestDto signUpRequestDto) {
+    public SignUpResponseDto signUp(SignUpRequestDto signUpRequestDto) {
+
+        if (!USERNAME_PATTERN.matcher(signUpRequestDto.getUsername()).matches()) {
+            throw new IllegalStateException("아이디는 영문+숫자 4~20자로 입력해주세요.");
+        }
+
+        if (!signUpRequestDto.getPassword().equals(signUpRequestDto.getPasswordConfirm())) {
+            throw new IllegalStateException("비밀번호가 일치하지 않습니다.");
+        }
 
         if(memberAntRepository.findByUsername(signUpRequestDto.getUsername()).isPresent()){
             throw new IllegalStateException("이미 존재하는 아이디입니다.");
         }
 
         String encodedPassword = passwordEncoder.encode(signUpRequestDto.getPassword());
+        String securityCode = SecurityCodeGenerator.generate();
+        String encodedSecurityCode = passwordEncoder.encode(securityCode);
 
         MemberAnt memberAnt = MemberAnt.builder()
                 .username(signUpRequestDto.getUsername())
                 .password(encodedPassword)
                 .role(Role.USER)
                 .provider("LOCAL")
+                .securityCodeHash(encodedSecurityCode)
                 .build();
 
-        return memberAntRepository.save(memberAnt).getId();
+        memberAntRepository.save(memberAnt);
+
+        return new SignUpResponseDto(securityCode);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public void verifySecurityCode(String username, String securityCode) {
+        findMemberBySecurityCode(username, securityCode);
+    }
+
+    @Transactional
+    public void resetPassword(FindPasswordRequestDto requestDto) {
+        MemberAnt member = findMemberBySecurityCode(requestDto.getUsername(), requestDto.getSecurityCode());
+        member.changePassword(passwordEncoder.encode(requestDto.getNewPassword()));
+    }
+
+    private MemberAnt findMemberBySecurityCode(String username, String securityCode) {
+        MemberAnt member = memberAntRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("가입되지 않은 아이디입니다."));
+
+        if (member.getSecurityCodeHash() == null
+                || !passwordEncoder.matches(securityCode, member.getSecurityCodeHash())) {
+            throw new IllegalStateException("아이디 또는 보안코드가 일치하지 않습니다.");
+        }
+
+        return member;
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)

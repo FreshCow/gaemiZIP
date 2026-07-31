@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 const AUTH_ONLY_PATHS = ["/login", "/signup"];
 
 // 비로그인 포함 누구나 접근 가능한 페이지
-const OPEN_PATHS = ["/stocks", "/board"];
+const OPEN_PATHS = ["/stocks", "/board", "/find-password"];
 
 // ADMIN 권한이 있어야만 접근 가능한 페이지
 const ADMIN_PATHS = ["/admin"];
