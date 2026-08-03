@@ -46,6 +46,10 @@ public class Board {
     @Column(nullable = false)
     private boolean isBlinded = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private BoardTag tag = BoardTag.DAILY;
+
     public void blind() {this.isBlinded = true;}
     public void unblind() {this.isBlinded = false;}
 }
