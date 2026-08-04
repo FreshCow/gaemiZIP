@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
 import { ArrowLeft, ThumbsUp, MessageCircle, CornerDownRight } from "lucide-react";
 import type { BoardPost, Comment } from "@/types/board";
+import { BOARD_TAG_BADGE_CLASSES, BOARD_TAG_LABELS } from "@/types/board";
 
 export default function BoardDetailPage() {
   const params = useParams();
@@ -28,8 +29,9 @@ export default function BoardDetailPage() {
   }, [id]);
 
   const handleLikePost = async () => {
+    // 서버가 raw Board 엔티티를 반환해 tag/sharedStocks가 안 담겨있음 — likeCount만 반영
     const updated = await boardApi.like(id);
-    setPost(updated);
+    setPost((prev) => (prev ? { ...prev, likeCount: updated.likeCount } : prev));
   };
 
   const handleSubmitComment = async () => {
@@ -93,7 +95,12 @@ export default function BoardDetailPage() {
 
       {/* 게시글 본문 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">{post.title}</h1>
+        <div className="flex items-center gap-2">
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${BOARD_TAG_BADGE_CLASSES[post.tag]}`}>
+            {BOARD_TAG_LABELS[post.tag]}
+          </span>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">{post.title}</h1>
+        </div>
         <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500 pb-4 border-b border-gray-100 dark:border-neutral-800">
           <span className="font-medium text-gray-600 dark:text-neutral-400">{post.author}</span>
           <span>·</span>
@@ -102,6 +109,37 @@ export default function BoardDetailPage() {
         <p className="text-sm text-gray-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed min-h-24">
           {post.content}
         </p>
+
+        {/* 공유된 보유종목 */}
+        {post.sharedStocks.length > 0 && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 pt-2 border-t border-gray-100 dark:border-neutral-800">
+            {post.sharedStocks.map((s) => {
+              const isPos = s.profitLossRate >= 0;
+              return (
+                <div
+                  key={s.stockCode}
+                  className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-neutral-800 dark:bg-neutral-800/50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-800 dark:text-neutral-200">{s.stockName}</span>
+                    <span className={`text-sm font-medium ${isPos ? "text-emerald-500" : "text-rose-500"}`}>
+                      {isPos ? "+" : ""}
+                      {s.profitLossRate.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-xs text-gray-400 dark:text-neutral-500">
+                    <span>{s.quantity}주 · 평단 {s.avgPrice.toLocaleString()}원</span>
+                    <span className={isPos ? "text-emerald-500" : "text-rose-500"}>
+                      {isPos ? "+" : ""}
+                      {s.profitLossAmount.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-neutral-800">
           <button
             onClick={handleLikePost}
@@ -110,14 +148,17 @@ export default function BoardDetailPage() {
             <ThumbsUp size={14} />
             추천 {post.likeCount}
           </button>
-          <span className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-neutral-500">
-            <MessageCircle size={14} />
-            댓글 {comments.length}
-          </span>
+          {post.tag !== "NOTICE" && (
+            <span className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-neutral-500">
+              <MessageCircle size={14} />
+              댓글 {comments.length}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* 댓글 섹션 */}
+      {/* 댓글 섹션 — 공지사항은 댓글 기능 자체를 노출하지 않음 */}
+      {post.tag !== "NOTICE" && (
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-neutral-300">
           댓글 {comments.length}개
@@ -234,13 +275,13 @@ export default function BoardDetailPage() {
         {/* 댓글 입력창 */}
         <div className="flex gap-2 items-center pt-2">
           <textarea
-            className="flex-1 h-7 rounded-lg bg-gray-100 px-3 py-1 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
+            className="flex-1 h-9 rounded-lg bg-gray-100 px-4 py-2 text-base text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
             placeholder="댓글을 입력하세요"
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
           />
           <Button
-            size="sm"
+            size="lg"
             onClick={handleSubmitComment}
             disabled={!commentText.trim() || submitting}
           >
@@ -248,6 +289,7 @@ export default function BoardDetailPage() {
           </Button>
         </div>
       </div>
+      )}
     </div>
   );
 }

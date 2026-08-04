@@ -47,10 +47,14 @@ public class StockWebSocketHandler extends TextWebSocketHandler {
 
         for (WebSocketSession session : sessions) {
             if (!session.isOpen()) continue;
-            try {
-                session.sendMessage(new TextMessage(message));
-            } catch (IOException e) {
-                log.error("WebSocket 전송 실패 (session={}): {}", session.getId(), e.getMessage());
+            // 키움 WS의 여러 I/O 스레드가 동시에 같은 세션에 sendMessage를 호출하면
+            // "TEXT_PARTIAL_WRITING" 상태 예외가 발생 — 세션 단위로 전송을 직렬화
+            synchronized (session) {
+                try {
+                    session.sendMessage(new TextMessage(message));
+                } catch (IOException e) {
+                    log.error("WebSocket 전송 실패 (session={}): {}", session.getId(), e.getMessage());
+                }
             }
         }
     }

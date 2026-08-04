@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -16,11 +17,7 @@ import sw.gaemiZIP.service.stock.ReservationService;
 import sw.gaemiZIP.websocket.StockWebSocketHandler;
 
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,8 +38,9 @@ public class KiwoomRealtimeService {
     private static final long RECONNECT_DELAY_MS = 5_000; //연결 끊기면 5초 후 재시도
     private final ReservationService reservationService;
 
-    // 구독 중인 종목 코드 (재연결 시 복구용)
-    private final Set<String> subscribedCodes = ConcurrentHashMap.newKeySet();
+    // 구독 중인 종목 코드 (재연결 시 복구용) -> 마지막 접근 시각
+    private final Map<String, Instant> lastAccessedAt = new ConcurrentHashMap<>();
+    private static final Duration SUBSCRIPTION_TTL = Duration.ofMinutes(5);
 
     // LOGIN ack를 받기 전에는 REG(구독) 요청을 보낼 수 없음
     private volatile boolean loggedIn = false;
@@ -76,6 +74,7 @@ public class KiwoomRealtimeService {
             client.execute(new TextWebSocketHandler() {
                 @Override
                 public void afterConnectionEstablished(WebSocketSession session) {
+                    session.setTextMessageSizeLimit(1024*1024); // 기본 버퍼(8kb)로는 다종목 배치 메시지가 못들어옴
                     kiwoomSession = session;
                     loggedIn = false;
                     log.info("키움 실시간 서버 연결 성공");
@@ -102,10 +101,10 @@ public class KiwoomRealtimeService {
                     if (payload.contains("\"trnm\":\"LOGIN\"")) {
                         loggedIn = true;
                         log.info("키움 실시간 로그인 성공");
-                        if (subscribedCodes.isEmpty()) {
-                            subscribedCodes.add("005930");
+                        if (lastAccessedAt.isEmpty()) {
+                            lastAccessedAt.put("005930", Instant.now());
                         }
-                        sendSubscribeMessage(new ArrayList<>(subscribedCodes));
+                        sendSubscribeMessage(new ArrayList<>(lastAccessedAt.keySet()));
                         return;
                     }
 
@@ -134,11 +133,13 @@ public class KiwoomRealtimeService {
     // 랭킹 갱신 시 StockFetchService에서 호출 — 신규 종목만 모아서 REG 한 번에 요청 (rate limit 방지)
     public void subscribeAll(List<String> codes) {
         List<String> newCodes = new ArrayList<>();
+        Instant now = Instant.now();
         for (String code : codes) {
-            if (subscribedCodes.add(code)) {
+            if (lastAccessedAt.put(code, now) == null) { //신규 등록 여부와 무관하게 항상
                 newCodes.add(code);
             }
         }
+
         if (!newCodes.isEmpty()) {
             sendSubscribeMessage(newCodes);
         }
@@ -286,5 +287,46 @@ public class KiwoomRealtimeService {
         } catch (Exception e) {
             log.error("실시간 구독 요청 중 오류: {}", e.getMessage());
         }
+    }
+
+    private void sendUnsubscribeMessage(List<String> codes) {
+        if (codes.isEmpty()) return;
+        if (kiwoomSession == null || !kiwoomSession.isOpen() || !loggedIn) {
+            log.debug("로그인 안 됨 — 구독 해제 스킵 {}", codes);
+            return;
+        }
+        try {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("item", codes);
+            entry.put("type", List.of("0B"));
+
+            Map<String, Object> remove = new LinkedHashMap<>();
+            remove.put("trnm", "REMOVE");
+            remove.put("grp_no", "1");
+            remove.put("data", List.of(entry));
+
+            kiwoomSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(remove)));
+            log.info("실시간 구독 해제 요청: {}개 종목 {}", codes.size(), codes);
+        } catch (IOException e) {
+            log.error("구독 해제 메시지 전송 실패: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("실시간 구독 해제 요청 중 오류: {}", e.getMessage());
+        }
+    }
+
+    //1분마다 5분 이상 미접근 종목 구독 해제
+    @Scheduled(fixedRate = 60000, initialDelay = 60_000)
+    public void cleanupStaleSubscriptions() {
+        Instant threshold = Instant.now().minus(SUBSCRIPTION_TTL);
+        List<String> stale = lastAccessedAt.entrySet().stream()
+                .filter(e -> e.getValue().isBefore(threshold))
+                .map(Map.Entry::getKey)
+                .toList();
+
+        if (stale.isEmpty()) return;
+
+        stale.forEach(lastAccessedAt :: remove);
+        sendUnsubscribeMessage(stale);
+        log.info("미접근 종목 구독 해제 : {}개 {}", stale.size(), stale);
     }
 }
