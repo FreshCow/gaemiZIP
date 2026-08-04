@@ -16,6 +16,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import jakarta.annotation.PostConstruct;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.Optional;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,9 @@ public class IndexFetchService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     @Value("${kiwoom.api.url}")
     private String baseUrl;
+
+    private final StringRedisTemplate redisTemplate;
+    private static final String INDEX_CACHE_KEY = "stock:index:current";
 
     private final KiwoomTokenService tokenService; //토큰
     private final StockWebSocketHandler  webSocketHandler; //브로드캐스트
@@ -108,10 +116,37 @@ public class IndexFetchService {
 
         try{
             String indiceload = objectMapper.writeValueAsString(indices);
+            redisTemplate.opsForValue().set(INDEX_CACHE_KEY, indiceload);
             webSocketHandler.broadcast("INDEX_UPDATE:" + indiceload);
             log.warn("코스피/코스닥/코스피200 요청결과 : "+indiceload);
         }catch (Exception e){
             log.error("지수 브로드캐스트 실패 : {}", e.getMessage());
+        }
+    }
+
+    @PostConstruct
+    public void initCache(){
+        Optional<List<IndexResponse>> recent = loadIndicesFromRedis();
+        if(recent.isPresent()) {
+            currentIndices = recent.get();
+            log.info("Redis에서 초기 지수 {}개 로드 완료", currentIndices.size());
+            try{
+                String payload = "INDEX_UPDATE:" + objectMapper.writeValueAsString(currentIndices);
+                webSocketHandler.broadcast(payload);
+            }catch (Exception e){
+                log.warn("초기 지수 캐시 브로드캐스트 실패 ; {}", e.getMessage());
+            }
+        }
+    }
+
+    private Optional<List<IndexResponse>> loadIndicesFromRedis() {
+        try {
+            String cached = redisTemplate.opsForValue().get(INDEX_CACHE_KEY);
+            if (cached == null) return Optional.empty();
+            return Optional.of(objectMapper.readValue(cached, new TypeReference<List<IndexResponse>>() {}));
+        } catch (Exception e) {
+            log.warn("Redis 지수 역직렬화 실패 : {}", e.getMessage());
+            return Optional.empty();
         }
     }
 }
