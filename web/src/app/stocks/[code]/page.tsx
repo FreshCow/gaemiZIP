@@ -128,6 +128,12 @@ export default function StockDetailPage() {
 
     // 실시간 시세를 받을 수 있도록 키움 구독에 편입 요청
     subscribeStock(code).catch(() => {});
+    // 서버 구독 TTL(5분)보다 여유 있게 재요청해 장시간 체류 시에도 구독 해제되지 않도록 유지
+    const heartbeat = setInterval(() => {
+      subscribeStock(code).catch(() => {});
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(heartbeat);
   }, [code]);
 
   useEffect(() => {
