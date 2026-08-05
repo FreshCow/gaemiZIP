@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, TrendingUp, MessageSquare, Activity, Sun, Moon, LogIn, LogOut, User, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, TrendingUp, MessageSquare, Sun, Moon, LogIn, LogOut, User, ShieldCheck } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -14,9 +14,8 @@ import { StockSearchBar } from "@/components/stock/StockSearchBar";
 import { WithdrawModal } from "@/components/auth/WithdrawModal";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 
-const navItems = [
+export const navItems = [
   { href: "/stocks",   icon: TrendingUp,     label: "AI 탐색"  },
-  { href: "/trading",  icon: Activity,        label: "트레이딩" },
   { href: "/board",    icon: MessageSquare,   label: "게시판"   },
   { href: "/",         icon: LayoutDashboard, label: "대시보드" },
 ];
@@ -139,8 +138,8 @@ export function Sidebar() {
           </span>
         </div>
 
-        {/* 탭 */}
-        <nav className="flex items-center gap-1">
+        {/* 탭 — 모바일에서는 하단 네비게이션(MobileBottomNav)으로 이동 */}
+        <nav className="hidden items-center gap-1 lg:flex">
           {[...navItems, ...(isAdmin ? [{ href: "/admin/members", icon: ShieldCheck, label: "관리자" }] : [])].map(({ href, icon: Icon, label }) => {
             const active = href === "/admin/members" ? pathname.startsWith("/admin") : pathname === href;
             return (
@@ -161,7 +160,7 @@ export function Sidebar() {
                   )}
                 >
                   <Icon size={17} />
-                  <span className="hidden sm:block">{label}</span>
+                  <span>{label}</span>
                 </span>
               </Link>
             );

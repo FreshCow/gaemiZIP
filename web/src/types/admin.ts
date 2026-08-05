@@ -35,3 +35,16 @@ export interface TradeVolumeItem {
   count: number;
   totalAmount: number;
 }
+
+export type AuditLogAction = "DELETE_TRADE" | "ADJUST_BALANCE";
+
+// 관리자 감사 로그 — 잔고 조정/거래 삭제 등 되돌리기 어려운 조작 이력
+export interface AuditLogItem {
+  id: number;
+  adminId: number;
+  adminNickname: string;
+  action: AuditLogAction;
+  targetId: number;
+  detail: string;
+  createdAt: string;
+}
