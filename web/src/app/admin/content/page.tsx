@@ -94,14 +94,15 @@ export default function AdminContentPage() {
         </p>
       )}
 
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden dark:border-neutral-800 dark:bg-neutral-900">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-gray-50 dark:border-neutral-800 dark:bg-neutral-900">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-gray-500 dark:border-neutral-800 dark:text-neutral-500">
               <th className="w-8 px-2 py-3" />
               <th className="px-4 py-3 text-left font-medium">제목</th>
               <th className="px-4 py-3 text-left font-medium">작성자</th>
               <th className="px-4 py-3 text-left font-medium">작성일</th>
+              <th className="px-4 py-3 text-left font-medium">댓글</th>
               <th className="px-4 py-3 text-left font-medium">상태</th>
               <th className="px-4 py-3 text-right font-medium">관리</th>
             </tr>
@@ -119,6 +120,7 @@ export default function AdminContentPage() {
                   <td className="px-4 py-3 text-gray-900 dark:text-white">{board.title}</td>
                   <td className="px-4 py-3 text-gray-700 dark:text-neutral-300">{board.author}</td>
                   <td className="px-4 py-3 text-xs text-gray-500 dark:text-neutral-500">{formatDateTime(board.createdAt)}</td>
+                  <td className="px-4 py-3 text-gray-700 dark:text-neutral-300">{board.commentCount ?? 0}</td>
                   <td className="px-4 py-3">
                     <BlindBadge blinded={board.blinded} />
                   </td>
@@ -137,7 +139,7 @@ export default function AdminContentPage() {
                 </tr>
                 {expandedId === board.id && (
                   <tr className="border-b border-gray-100 bg-gray-100/40 dark:border-neutral-800/60 dark:bg-neutral-900/60">
-                    <td colSpan={6} className="px-4 py-3">
+                    <td colSpan={7} className="px-4 py-3">
                       {commentsLoading && !commentsByBoard[board.id] ? (
                         <p className="py-2 text-center text-xs text-gray-400 dark:text-neutral-600">불러오는 중...</p>
                       ) : (commentsByBoard[board.id]?.length ?? 0) === 0 ? (
@@ -167,7 +169,7 @@ export default function AdminContentPage() {
             ))}
             {boards.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-gray-400 dark:text-neutral-600">
+                <td colSpan={7} className="px-4 py-12 text-center text-gray-400 dark:text-neutral-600">
                   게시글이 없습니다.
                 </td>
               </tr>

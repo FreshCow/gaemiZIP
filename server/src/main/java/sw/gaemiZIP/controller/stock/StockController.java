@@ -76,7 +76,7 @@ public class StockController {
         }
 
         return stockRepository.findById(code)
-                .map(s -> ResponseEntity.ok(new StockPriceResponse(s.getCode(), s.getName(), "-", "0")))
+                .map(s -> ResponseEntity.ok(new StockPriceResponse(s.getCode(), s.getName(), "—", "0")))
                 .orElse(ResponseEntity.notFound().build());
     }
 

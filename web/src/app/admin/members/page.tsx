@@ -76,8 +76,8 @@ export default function AdminMembersPage() {
         </p>
       )}
 
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden dark:border-neutral-800 dark:bg-neutral-900">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-gray-50 dark:border-neutral-800 dark:bg-neutral-900">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-gray-500 dark:border-neutral-800 dark:text-neutral-500">
               <th className="px-4 py-3 text-left font-medium">닉네임</th>
