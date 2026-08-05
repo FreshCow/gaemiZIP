@@ -5,6 +5,7 @@ import type {
   AdminTradeItem,
   SignupTrendItem,
   TradeVolumeItem,
+  AuditLogItem,
 } from "@/types/admin";
 import type { BoardPost, Comment } from "@/types/board";
 
@@ -48,4 +49,7 @@ export const adminApi = {
     api
       .get<TradeVolumeItem[]>(`${ADMIN_BASE}/stats/trade-volume`, { params: { days } })
       .then((r) => r.data),
+
+  // 감사 로그 — 잔고 조정/거래 삭제 이력 조회
+  getAuditLogs: () => api.get<AuditLogItem[]>(`${ADMIN_BASE}/audit-logs`).then((r) => r.data),
 };
