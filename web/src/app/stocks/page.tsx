@@ -48,21 +48,23 @@ export default function StocksPage() {
       .then(async (data) => {
         if (cancelled || !data?.keywords?.length) return;
 
-        // 전체 종목 코드 중복 제거 후 현재가 병렬 조회
+        // 전체 종목 코드 중복 제거 후 현재가 조회 — 캐시 없는 종목은 백엔드가 그 자리에서
+        // 키움 API를 호출하므로, 한꺼번에 다 쏘면 몰려서 일부가 실패할 수 있어 소량씩 나눠 요청
         const allCodes = [...new Set(
           data.keywords.flatMap((kg) => kg.stocks.map((s) => s.stockCode))
         )];
 
-        const priceResults = await Promise.allSettled(
-          allCodes.map((code) => fetchStockPrice(code))
-        );
-
+        const PRICE_FETCH_CONCURRENCY = 3;
         const priceMap: Record<string, StockPriceItem> = {};
-        priceResults.forEach((result, i) => {
-          if (result.status === "fulfilled") {
-            priceMap[allCodes[i]] = result.value;
-          }
-        });
+        for (let i = 0; i < allCodes.length; i += PRICE_FETCH_CONCURRENCY) {
+          const batch = allCodes.slice(i, i + PRICE_FETCH_CONCURRENCY);
+          const results = await Promise.allSettled(batch.map((code) => fetchStockPrice(code)));
+          results.forEach((result, j) => {
+            if (result.status === "fulfilled") {
+              priceMap[batch[j]] = result.value;
+            }
+          });
+        }
 
         if (cancelled) return;
 
@@ -147,35 +149,39 @@ export default function StocksPage() {
                     ))}
                   </div>
 
-                  {/* 관련 종목 카드 Grid */}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {/* 관련 종목 카드 — 모바일은 가로로 긴 직사각형 카드를 세로로 쌓고, sm 이상은 기존 정사각 카드 그리드 */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     {selectedGroup?.stocks.map((stock) => {
                       const isUp = !stock.rate.startsWith("-");
                       return (
                         <div
                           key={stock.code}
-                          className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800"
+                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800 sm:block"
                         >
-                          <p className="text-[10px] text-gray-400 dark:text-neutral-500">{stock.code}</p>
-                          <p className="mt-0.5 text-sm font-semibold leading-tight text-gray-900 dark:text-white">
-                            {stock.name}
-                          </p>
-                          <p className="mt-3 text-base font-bold text-gray-900 dark:text-white">
-                            {stock.price === "—"
-                              ? <span className="text-gray-400 dark:text-neutral-500">—</span>
-                              : <>{Number(stock.price).toLocaleString()}<span className="ml-0.5 text-xs font-normal text-gray-400 dark:text-neutral-500">원</span></>
-                            }
-                          </p>
-                          <div className="mt-1">
-                            <span
-                              className={`inline-block rounded-md px-1.5 py-0.5 text-xs font-semibold ${
-                                isUp
-                                  ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
-                                  : "bg-blue-50 text-blue-500 dark:bg-blue-900/20 dark:text-blue-400"
-                              }`}
-                            >
-                              {stock.rate}%
-                            </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] text-gray-400 dark:text-neutral-500">{stock.code}</p>
+                            <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-gray-900 dark:text-white">
+                              {stock.name}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right sm:mt-3 sm:text-left">
+                            <p className="text-base font-bold text-gray-900 dark:text-white">
+                              {stock.price === "—"
+                                ? <span className="text-gray-400 dark:text-neutral-500">—</span>
+                                : <>{Number(stock.price).toLocaleString()}<span className="ml-0.5 text-xs font-normal text-gray-400 dark:text-neutral-500">원</span></>
+                              }
+                            </p>
+                            <div className="mt-1">
+                              <span
+                                className={`inline-block rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                                  isUp
+                                    ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
+                                    : "bg-blue-50 text-blue-500 dark:bg-blue-900/20 dark:text-blue-400"
+                                }`}
+                              >
+                                {stock.rate}%
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );

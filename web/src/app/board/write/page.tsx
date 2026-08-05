@@ -84,7 +84,7 @@ export default function BoardWritePage() {
   };
 
   return (
-    <div className="mx-auto p-6 max-w-[80%] space-y-5">
+    <div className="mx-auto max-w-full space-y-5 p-4 sm:max-w-[80%] sm:p-6">
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push("/board")}

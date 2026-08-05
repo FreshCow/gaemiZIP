@@ -155,18 +155,28 @@ export default function StockDetailPage() {
   }, [code]);
 
   // 관련 뉴스 카드는 좌측 컬럼 높이에 맞춰 늘어나므로, 실제 보이는 영역 높이에 맞게 페이지당 개수를 계산
+  // (lg 미만에서는 좌우 컬럼이 세로로 쌓여 "좌측 높이에 맞춘다"는 전제가 깨지므로 고정 개수만 사용)
   useEffect(() => {
     const el = newsListRef.current;
     if (!el) return;
 
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
     const updatePageSize = () => {
+      if (!desktopQuery.matches) {
+        setNewsPageSize(NEWS_MIN_PAGE_SIZE);
+        return;
+      }
       setNewsPageSize(Math.max(NEWS_MIN_PAGE_SIZE, Math.floor(el.clientHeight / NEWS_ITEM_HEIGHT)));
     };
 
     updatePageSize();
     const observer = new ResizeObserver(updatePageSize);
     observer.observe(el);
-    return () => observer.disconnect();
+    desktopQuery.addEventListener("change", updatePageSize);
+    return () => {
+      observer.disconnect();
+      desktopQuery.removeEventListener("change", updatePageSize);
+    };
   }, [news.length]);
 
   // 예약 주문 목록 폴링 — balance/lockedBalance도 함께 갱신되어
@@ -326,7 +336,7 @@ export default function StockDetailPage() {
   const pagedNews = news.slice(clampedNewsPage * newsPageSize, clampedNewsPage * newsPageSize + newsPageSize);
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 space-y-4 sm:p-6 sm:space-y-5">
       {/* 뒤로가기 */}
       <Link
         href="/stocks"
@@ -499,14 +509,14 @@ export default function StockDetailPage() {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-end">
                 {/* 매수/매도 탭 */}
-                <div className="flex shrink-0 overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700">
+                <div className="flex overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700 sm:shrink-0">
                   {(["BUY", "SELL"] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => { setTradeTab(t); setQty(""); }}
-                      className={`px-6 py-3 text-base font-bold transition-colors ${
+                      className={`flex-1 px-6 py-3 text-base font-bold transition-colors sm:flex-none ${
                         tradeTab === t
                           ? t === "BUY"
                             ? "bg-emerald-500 text-white"
@@ -520,7 +530,7 @@ export default function StockDetailPage() {
                 </div>
 
                 {/* 주문 가격 */}
-                <div className="min-w-[160px] flex-1 space-y-1">
+                <div className="space-y-1 sm:min-w-[160px] sm:flex-1">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">주문 가격</label>
                     <button
@@ -549,7 +559,7 @@ export default function StockDetailPage() {
                 </div>
 
                 {/* 수량 */}
-                <div className="min-w-[140px] flex-1 space-y-1">
+                <div className="space-y-1 sm:min-w-[140px] sm:flex-1">
                   <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">수량</label>
                   <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
                     <input
@@ -566,7 +576,7 @@ export default function StockDetailPage() {
                 </div>
 
                 {/* 비율 버튼 */}
-                <div className="flex shrink-0 gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5 sm:flex sm:shrink-0">
                   {RATIOS.map(({ label, value }) => (
                     <button
                       key={label}
@@ -579,9 +589,9 @@ export default function StockDetailPage() {
                   ))}
                 </div>
 
-                {/* 예상 금액 + 실행 버튼 — 우측 정렬 */}
-                <div className="ml-auto flex shrink-0 items-end gap-4">
-                  <div className="text-right">
+                {/* 예상 금액 + 실행 버튼 */}
+                <div className="flex flex-col gap-3 sm:ml-auto sm:shrink-0 sm:flex-row sm:items-end sm:gap-4">
+                  <div className="text-left sm:text-right">
                     <p className="text-sm text-gray-500 dark:text-neutral-500">
                       예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
                     </p>
@@ -594,7 +604,7 @@ export default function StockDetailPage() {
                   <button
                     disabled={!isLoggedIn || !canSubmit}
                     onClick={handleSubmit}
-                    className={`shrink-0 rounded-xl px-8 py-3.5 text-base font-bold text-white transition-colors disabled:opacity-40 ${
+                    className={`w-full rounded-xl px-8 py-3.5 text-base font-bold text-white transition-colors disabled:opacity-40 sm:w-auto sm:shrink-0 ${
                       tradeTab === "BUY"
                         ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700"
                         : "bg-rose-500 hover:bg-rose-600 active:bg-rose-700"
@@ -653,7 +663,7 @@ export default function StockDetailPage() {
             {/* 차트 */}
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
               <h2 className="mb-3 text-sm font-medium text-gray-700 dark:text-neutral-300">주가 차트</h2>
-              <div className="h-72">
+              <div className="h-64 sm:h-72">
                 <CandlestickChart stockCode={code} />
               </div>
             </div>
@@ -684,7 +694,8 @@ export default function StockDetailPage() {
             </div>
 
             {/* ── 우측 ────────────────────────────────────────────────────── */}
-            <div className="flex h-full flex-col gap-5">
+            {/* h-full은 lg 이상(좌우 컬럼 배치)에서만 적용 — lg 미만에서는 세로로 쌓이므로 콘텐츠 높이 그대로 사용 */}
+            <div className="flex flex-col gap-5 lg:h-full">
 
             {/* 시장 정보 */}
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">

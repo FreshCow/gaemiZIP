@@ -53,7 +53,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-2 z-50 w-80 rounded-xl border border-gray-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="fixed inset-x-4 top-16 z-50 rounded-xl border border-gray-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-80">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-neutral-800">
             <p className="text-sm font-semibold text-gray-700 dark:text-neutral-300">알림</p>
             {unreadCount > 0 && (
