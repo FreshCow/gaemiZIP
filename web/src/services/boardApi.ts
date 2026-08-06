@@ -13,6 +13,9 @@ export const boardApi = {
   create: (dto: BoardCreateDto) =>
     api.post<BoardPost>("/boards", dto).then((r) => r.data),
 
+  update: (id: number, dto: BoardCreateDto) =>
+    api.put<BoardPost>(`/boards/${id}`, dto).then((r) => r.data),
+
   // 서버가 raw Board 엔티티를 반환 — tag/sharedStocks는 안 옴, likeCount만 신뢰
   like: (id: number) => api.post<{ likeCount: number }>(`/boards/${id}/like`).then((r) => r.data),
 
