@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { adminApi } from "@/services/adminApi";
-import type { BoardPost, Comment } from "@/types/board";
+import type { BoardListItem, Comment } from "@/types/board";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
@@ -32,7 +32,7 @@ function BlindBadge({ blinded }: { blinded: boolean }) {
 }
 
 export default function AdminContentPage() {
-  const [boards, setBoards] = useState<BoardPost[]>([]);
+  const [boards, setBoards] = useState<BoardListItem[]>([]);
   const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [commentsByBoard, setCommentsByBoard] = useState<Record<number, Comment[]>>({});
@@ -46,7 +46,7 @@ export default function AdminContentPage() {
     adminApi.getBoards().then(setBoards).catch((e) => setError(getErrorMessage(e, "게시글을 불러오지 못했습니다.")));
   }, []);
 
-  const handleToggleBlindBoard = async (board: BoardPost) => {
+  const handleToggleBlindBoard = async (board: BoardListItem) => {
     try {
       await adminApi.blindBoard(board.id);
       setBoards((prev) => prev.map((b) => (b.id === board.id ? { ...b, blinded: !b.blinded } : b)));
