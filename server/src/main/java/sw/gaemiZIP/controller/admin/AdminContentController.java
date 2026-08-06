@@ -3,7 +3,7 @@ package sw.gaemiZIP.controller.admin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import sw.gaemiZIP.entity.board.Board;
+import sw.gaemiZIP.dto.board.BoardListResponse;
 import sw.gaemiZIP.entity.board.Comment;
 import sw.gaemiZIP.service.admin.AdminContentService;
 
@@ -43,7 +43,7 @@ public class AdminContentController {
     }
 
     @GetMapping("/boards")
-    public ResponseEntity<List<Board>> getAllBoards() {
+    public ResponseEntity<List<BoardListResponse>> getAllBoards() {
         return ResponseEntity.ok(adminContentService.getAllBoards());
     }
 
