@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { boardApi } from "@/services/boardApi";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
-import { ArrowLeft, ThumbsUp, MessageCircle, CornerDownRight } from "lucide-react";
+import { ArrowLeft, ThumbsUp, MessageCircle, CornerDownRight, Pencil, Trash2 } from "lucide-react";
 import type { BoardPost, Comment } from "@/types/board";
 import { BOARD_TAG_BADGE_CLASSES, BOARD_TAG_LABELS } from "@/types/board";
 
@@ -22,6 +22,7 @@ export default function BoardDetailPage() {
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     boardApi.getById(id).then(setPost);
@@ -67,6 +68,19 @@ export default function BoardDetailPage() {
     }
   };
 
+  const handleDeletePost = async () => {
+    if (!window.confirm("게시글을 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.")) return;
+    try {
+      await boardApi.remove(id);
+      router.push("/board");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: string } })?.response?.data ??
+        "게시글 삭제 중 오류가 발생했습니다.";
+      setError(typeof msg === "string" ? msg : "게시글 삭제 중 오류가 발생했습니다.");
+    }
+  };
+
   const handleLikeComment = async (commentId: number) => {
     const updated = await boardApi.likeComment(commentId);
     setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
@@ -92,6 +106,12 @@ export default function BoardDetailPage() {
         <ArrowLeft size={15} />
         게시판으로
       </button>
+
+      {error && (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+          {error}
+        </p>
+      )}
 
       {/* 게시글 본문 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -153,6 +173,24 @@ export default function BoardDetailPage() {
               <MessageCircle size={14} />
               댓글 {comments.length}
             </span>
+          )}
+          {post.author === nickname && (
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => router.push(`/board/edit/${id}`)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium border border-gray-300 text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-600 dark:hover:text-neutral-200"
+              >
+                <Pencil size={14} />
+                수정
+              </button>
+              <button
+                onClick={handleDeletePost}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium border border-gray-300 text-gray-500 transition-colors hover:border-rose-400 hover:text-rose-500 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-rose-600 dark:hover:text-rose-400"
+              >
+                <Trash2 size={14} />
+                삭제
+              </button>
+            </div>
           )}
         </div>
       </div>

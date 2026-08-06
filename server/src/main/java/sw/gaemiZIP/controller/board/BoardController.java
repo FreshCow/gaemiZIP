@@ -180,6 +180,7 @@ public class BoardController {
         return ResponseEntity.ok(BoardDetailResponse.from(saved, savedShares));
     }
 
+
     // 게시글 삭제: 익명 작성글은 비밀번호 검증 후 삭제
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteBoard(@PathVariable Long id, Authentication auth) {
@@ -195,5 +196,56 @@ public class BoardController {
         }else{
             return ResponseEntity.status(403).body("본인이 작성한 글만 삭제할 수 있습니다.");
         }
+    }
+
+
+    //게시글 수정
+    @Transactional
+    @PutMapping("/{id}")
+    public ResponseEntity<?> udateBoard(@PathVariable Long id, @RequestBody BoardCreateRequest request, Authentication auth) {
+
+        //작성한 게시글 찾기
+        Board board = boardRepository.findById(id).orElse(null);
+        if(board == null) return ResponseEntity.status(404).body("게시글을 찾을 수 없습니다.");
+
+        MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
+                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+
+        if(board.getMemberId() == null || !board.getMemberId().equals(member.getId())) {
+            return ResponseEntity.status(403).body("본인이 작성한 글만 수정할 수 있습니다.");
+        }
+
+        if(request.tag() == BoardTag.NOTICE && member.getRole() != Role.ADMIN) {
+            return ResponseEntity.status(403).body("공지사항은 관리자만 작성할 수 있습니다.");
+        }
+
+        List<BoardStockShareRequest> sharedStocks = request.sharedStocks();
+        if(sharedStocks != null && sharedStocks.size() > MAX_SHARED_STOCKS) {
+            return ResponseEntity.status(400).body("공유 종목은 최대 " + MAX_SHARED_STOCKS + "개까지 선택할 수 있습니다. ");
+        }
+
+        board.setTitle(request.title());
+        board.setContent(request.content());
+        board.setTag(request.tag() != null ? request.tag() : BoardTag.DAILY);
+        Board saved = boardRepository.save(board);
+
+        boardStockShareRepository.deleteAllByBoardId(id);
+        List<BoardStockShare> savedShares = List.of();
+        if(sharedStocks != null && !sharedStocks.isEmpty()) {
+            savedShares = sharedStocks.stream().map(s ->{
+                BoardStockShare share = new BoardStockShare();
+                share.setBoardId(id);
+                share.setStockCode(s.stockCode());
+                share.setStockName(s.stockName());
+                share.setQuantity(s.quantity());
+                share.setAvgPrice(s.avgPrice());
+                share.setPriceAtShare(s.priceAtShare());
+                share.setProfitLossAmount(s.profitLossAmount());
+                share.setProfitLossRate(s.profitLossRate());
+                return boardStockShareRepository.save(share);
+            }).toList();
+        }
+
+        return ResponseEntity.ok(BoardDetailResponse.from(saved, savedShares));
     }
 }

@@ -8,7 +8,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { boardApi } from "@/services/boardApi";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
-import { Plus, X, ThumbsUp, MessageCircle, Flame, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ThumbsUp, MessageCircle, Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   BOARD_TAG_ACTIVE_CLASSES,
   BOARD_TAG_BADGE_CLASSES,
@@ -22,8 +22,7 @@ import {
 export default function BoardPage() {
   const router = useRouter();
   const { boards, setBoards } = useAppStore();
-  const { nickname, isLoggedIn } = useAuthStore();
-  const [error, setError] = useState("");
+  const { isLoggedIn } = useAuthStore();
   const [activeTag, setActiveTag] = useState<BoardTag | null>(null);
   const [popularBoards, setPopularBoards] = useState<BoardListItem[]>([]);
 
@@ -61,20 +60,6 @@ export default function BoardPage() {
     scrollRef.current?.scrollBy({ left: dir === "right" ? 420 : -420, behavior: "smooth" });
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    setError("");
-    try {
-      await boardApi.remove(id);
-      setBoards(boards.filter((b) => b.id !== id));
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: string } })?.response?.data ??
-        "게시글 삭제 중 오류가 발생했습니다.";
-      setError(typeof msg === "string" ? msg : "게시글 삭제 중 오류가 발생했습니다.");
-    }
-  };
-
   return (
     <div className="mx-auto max-w-full space-y-6 p-4 sm:max-w-[80%] sm:p-6">
       <div className="flex items-center justify-between">
@@ -94,12 +79,6 @@ export default function BoardPage() {
           </Button>
         )}
       </div>
-
-      {error && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
-          {error}
-        </p>
-      )}
 
       {/* 인기글 */}
       {popularBoards.length > 0 && (
@@ -228,14 +207,6 @@ export default function BoardPage() {
                   {post.commentCount ?? 0}
                 </span>
               </div>
-              {post.author === nickname && (
-                <button
-                  onClick={(e) => handleDelete(e, post.id)}
-                  className="shrink-0 text-gray-300 transition-colors hover:text-rose-500 dark:text-neutral-700 dark:hover:text-rose-400"
-                >
-                  <X size={16} />
-                </button>
-              )}
             </div>
           </motion.div>
         ))}
