@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import type { StockItem, StockUpdate, TickData, IndexItem } from "@/types/stock";
+import type { StockItem, StockUpdate, TickData, IndexItem, OrderBookData } from "@/types/stock";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://127.0.0.1:8080/ws";
 const RECONNECT_DELAY = 5000;
@@ -19,6 +19,7 @@ export function useWebSocket() {
   const updateHoldingPrice = useAppStore((s) => s.updateHoldingPrice);
   const setIndices = useAppStore((s) => s.setIndices);
   const updateLivePrice = useAppStore((s) => s.updateLivePrice);
+  const updateOrderBook = useAppStore((s) => s.updateOrderBook);
 
   // 정규장 고빈도 구간(종목당 초당 수십 건)에서는 메시지마다 그대로 상태를 갱신하면
   // 리렌더가 수신 속도를 못 따라가 쌓이면서 "Maximum update depth exceeded"로 탭이
@@ -27,6 +28,7 @@ export function useWebSocket() {
   const pendingUpdatesRef = useRef<Map<string, StockUpdate>>(new Map());
   const pendingTickRef = useRef<TickData | null>(null);
   const pendingIndicesRef = useRef<IndexItem[] | null>(null);
+  const pendingOrderBooksRef = useRef<Map<string, OrderBookData>>(new Map());
   const rafIdRef = useRef<number | null>(null);
 
   const flushPending = useCallback(() => {
@@ -48,7 +50,13 @@ export function useWebSocket() {
       setIndices(pendingIndicesRef.current);
       pendingIndicesRef.current = null;
     }
-  }, [updateStock, updateLivePrice, updateHoldingPrice, setLatestTick, setIndices]);
+    if (pendingOrderBooksRef.current.size > 0) {
+      for (const orderBook of pendingOrderBooksRef.current.values()) {
+        updateOrderBook(orderBook);
+      }
+      pendingOrderBooksRef.current.clear();
+    }
+  }, [updateStock, updateLivePrice, updateHoldingPrice, setLatestTick, setIndices, updateOrderBook]);
 
   const scheduleFlush = useCallback(() => {
     if (rafIdRef.current == null) {
@@ -101,6 +109,14 @@ export function useWebSocket() {
         } catch (err) {
           console.error("[WS] INDEX_UPDATE 파싱 실패:", err, "raw:", data.slice("INDEX_UPDATE:".length, 300));
         }
+      } else if (data.startsWith("QUOTE_UPDATE:")) {
+        try {
+          const orderBook: OrderBookData = JSON.parse(data.slice("QUOTE_UPDATE:".length));
+          pendingOrderBooksRef.current.set(orderBook.code, orderBook);
+          scheduleFlush();
+        } catch (err) {
+          console.error("[WS] QUOTE_UPDATE 파싱 실패:", err, "raw:", data.slice("QUOTE_UPDATE:".length, 300));
+        }
       } else {
         console.warn("[WS] 알 수 없는 메시지:", data.slice(0, 100));
       }
@@ -128,6 +144,8 @@ export function useWebSocket() {
       pendingUpdatesRef.current.clear();
       pendingTickRef.current = null;
       pendingIndicesRef.current = null;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      pendingOrderBooksRef.current.clear();
       // 언마운트로 인한 의도적인 종료는 에러/재연결 핸들러를 타지 않도록 먼저 해제
       const ws = wsRef.current;
       if (ws) {

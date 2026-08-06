@@ -7,6 +7,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Plus,
   Newspaper,
   Sparkles,
   ChevronLeft,
@@ -16,13 +17,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
-import { fetchStockInfo, fetchStockPrice, fetchStockNews, subscribeStock } from "@/services/stockApi";
+import { OrderBook } from "@/components/stock/OrderBook";
+import { fetchStockInfo, fetchStockPrice, fetchStockNews, fetchStockQuote, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
 import { tradeApi } from "@/services/tradeApi";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Pagination } from "@/components/ui/pagination";
-import type { StockInfoData, StockPriceItem } from "@/types/stock";
+import type { StockInfoData, StockPriceItem, OrderBookData } from "@/types/stock";
 import type { NewsItem, AiStockAnalysisResponse } from "@/types/news";
 import type { ReservedOrder } from "@/types/trade";
 
@@ -81,6 +83,7 @@ export default function StockDetailPage() {
 
   const [info, setInfo] = useState<StockInfoData | null>(null);
   const [price, setPrice] = useState<StockPriceItem | null>(null);
+  const [quoteSnapshot, setQuoteSnapshot] = useState<OrderBookData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -110,6 +113,9 @@ export default function StockDetailPage() {
   const rankStock = useAppStore((s) => s.stocks.find((s) => s.code === code));
   // 키움 실시간 구독으로 들어오는 최신 시세 (top10 랭킹 밖 종목도 포함)
   const liveUpdate = useAppStore((s) => s.livePrices[code]);
+  // 실시간 호가(0D) — 아직 안 왔으면 REST 초기 스냅샷으로 대체
+  const liveOrderBook = useAppStore((s) => s.orderBooks[code]);
+  const orderBook = liveOrderBook ?? quoteSnapshot;
   const holding = useAppStore((s) => s.holdings.find((h) => h.code === code));
   const setHoldings = useAppStore((s) => s.setHoldings);
   const { isLoggedIn, balance, updateBalance } = useAuthStore();
@@ -118,10 +124,16 @@ export default function StockDetailPage() {
     if (!code) return;
     setLoading(true);
     setError(false);
-    Promise.all([fetchStockInfo(code), fetchStockPrice(code).catch(() => null)])
-      .then(([infoRes, priceRes]) => {
+    setQuoteSnapshot(null);
+    Promise.all([
+      fetchStockInfo(code),
+      fetchStockPrice(code).catch(() => null),
+      fetchStockQuote(code).catch(() => null),
+    ])
+      .then(([infoRes, priceRes, quoteRes]) => {
         setInfo(infoRes);
         setPrice(priceRes);
+        setQuoteSnapshot(quoteRes);
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
@@ -239,6 +251,22 @@ export default function StockDetailPage() {
   const qtyNum        = Math.max(0, Number(qty) || 0);
   const totalAmount   = orderPriceNum * qtyNum;
 
+  // 호가 단위(틱 사이즈) — 가격대별 공식 호가단위 표 대신, 호가창에 실제로 찍힌
+  // 같은 쪽(매도끼리/매수끼리) 인접 호가 가격차를 그대로 사용(스프레드는 제외)
+  const tickSize = (() => {
+    const diffsOf = (levels: { price: number }[]) => {
+      const prices = levels.map((l) => l.price).filter((p) => p > 0).sort((a, b) => a - b);
+      const diffs: number[] = [];
+      for (let i = 1; i < prices.length; i++) {
+        const d = prices[i] - prices[i - 1];
+        if (d > 0) diffs.push(d);
+      }
+      return diffs;
+    };
+    const diffs = [...diffsOf(orderBook?.asks ?? []), ...diffsOf(orderBook?.bids ?? [])];
+    return diffs.length > 0 ? Math.min(...diffs) : 1;
+  })();
+
   // 주문가 = 실시간 현재가일 때만 즉시 체결, 다르면 예약 주문으로 등록
   const isPriceMatch    = curPrice > 0 && orderPriceNum === curPrice;
   const availableBalance = Math.max(0, (balance ?? 0) - lockedBalance);
@@ -254,6 +282,25 @@ export default function StockDetailPage() {
     } else {
       setQty(String(Math.floor(availableQty * ratio)));
     }
+  };
+
+  // 호가창 클릭 — 가격만 채우고 현재 선택된 매수/매도 탭은 그대로 유지
+  const handleSelectPrice = (selectedPrice: number) => {
+    if (selectedPrice <= 0) return;
+    setOrderPrice(selectedPrice.toLocaleString());
+    setQty("");
+  };
+
+  // 주문가 좌우 -/+ 버튼 — 직접 입력 대신 호가 단위만큼 증감
+  // 연속 클릭 시 stale closure로 한 스텝만 반영되지 않도록 이전 state 기반 함수형 업데이트 사용
+  const handlePriceStep = (direction: 1 | -1) => {
+    setOrderPrice((prev) => {
+      const prevNum = Math.max(0, Number(prev.replace(/,/g, "")) || 0);
+      const base = prevNum > 0 ? prevNum : curPrice;
+      const next = Math.max(0, base + direction * tickSize);
+      return next > 0 ? next.toLocaleString() : "";
+    });
+    setQty("");
   };
 
   const canSubmit =
@@ -509,115 +556,130 @@ export default function StockDetailPage() {
                 )}
               </div>
 
-              <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-                {/* 매수/매도 탭 */}
-                <div className="flex overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700 sm:shrink-0">
-                  {(["BUY", "SELL"] as const).map((t) => (
+              <div className="mr-[10%] grid grid-cols-[140px_1fr] gap-2 sm:mx-[10%] sm:grid-cols-[minmax(0,400px)_minmax(0,400px)] sm:justify-center sm:gap-6">
+                {/* 호가창 */}
+                <OrderBook data={orderBook} currentPrice={curPrice} onSelectPrice={handleSelectPrice} />
+
+                {/* 주문 폼 (세로 배치) */}
+                <div className="flex flex-col gap-2">
+                  {/* 매수/매도 탭 */}
+                  <div className="flex overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700">
+                    {(["BUY", "SELL"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => { setTradeTab(t); setQty(""); }}
+                        className={`flex-1 py-1.5 text-xs font-bold transition-colors ${
+                          tradeTab === t
+                            ? t === "BUY"
+                              ? "bg-emerald-500 text-white"
+                              : "bg-rose-500 text-white"
+                            : "text-gray-500 hover:bg-gray-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                        }`}
+                      >
+                        {t === "BUY" ? "매수" : "매도"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 주문 가격 */}
+                  <div className="space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-gray-700 dark:text-neutral-300">주문 가격</label>
+                      <button
+                        onClick={() => setOrderPrice(curPrice > 0 ? curPrice.toLocaleString() : "")}
+                        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-emerald-500 dark:text-neutral-500 dark:hover:text-emerald-400 transition-colors"
+                      >
+                        <RefreshCw size={10} />
+                        현재가
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handlePriceStep(-1)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <div className="flex flex-1 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 dark:border-neutral-700">
+                        <input
+                          type="text"
+                          readOnly
+                          value={orderPrice}
+                          placeholder="0"
+                          className="w-full bg-transparent text-sm font-semibold text-gray-900 outline-none dark:text-white"
+                        />
+                        <span className="shrink-0 text-xs text-gray-400 dark:text-neutral-500">원</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePriceStep(1)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 수량 */}
+                  <div className="space-y-0.5">
+                    <label className="text-xs font-medium text-gray-700 dark:text-neutral-300">수량</label>
+                    <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={qty}
+                        onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="0"
+                        className="w-full bg-transparent text-sm font-semibold text-gray-900 outline-none dark:text-white"
+                      />
+                      <span className="shrink-0 text-xs text-gray-400 dark:text-neutral-500">주</span>
+                    </div>
+                  </div>
+
+                  {/* 비율 버튼 */}
+                  <div className="grid grid-cols-3 gap-1">
+                    {RATIOS.map(({ label, value }) => (
+                      <button
+                        key={label}
+                        onClick={() => handleRatio(value)}
+                        disabled={tradeTab === "BUY" && orderPriceNum <= 0}
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 transition-colors"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 예상 금액 + 실행 버튼 */}
+                  <div className="flex flex-col gap-1.5">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-neutral-500">
+                        예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
+                      </p>
+                      <p className="text-base font-bold text-gray-900 dark:text-white">
+                        {totalAmount > 0 ? `₩${totalAmount.toLocaleString()}` : "—"}
+                      </p>
+                    </div>
+
+                    {/* 실행 버튼 */}
                     <button
-                      key={t}
-                      onClick={() => { setTradeTab(t); setQty(""); }}
-                      className={`flex-1 px-6 py-3 text-base font-bold transition-colors sm:flex-none ${
-                        tradeTab === t
-                          ? t === "BUY"
-                            ? "bg-emerald-500 text-white"
-                            : "bg-rose-500 text-white"
-                          : "text-gray-500 hover:bg-gray-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                      disabled={!isLoggedIn || !canSubmit}
+                      onClick={handleSubmit}
+                      className={`w-full rounded-lg px-4 py-2 text-sm font-bold text-white transition-colors disabled:opacity-40 ${
+                        tradeTab === "BUY"
+                          ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700"
+                          : "bg-rose-500 hover:bg-rose-600 active:bg-rose-700"
                       }`}
                     >
-                      {t === "BUY" ? "매수" : "매도"}
-                    </button>
-                  ))}
-                </div>
-
-                {/* 주문 가격 */}
-                <div className="space-y-1 sm:min-w-[160px] sm:flex-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">주문 가격</label>
-                    <button
-                      onClick={() => setOrderPrice(curPrice > 0 ? curPrice.toLocaleString() : "")}
-                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-500 dark:text-neutral-500 dark:hover:text-emerald-400 transition-colors"
-                    >
-                      <RefreshCw size={12} />
-                      현재가
+                      {isTrading || isReserving
+                        ? "처리 중..."
+                        : tradeTab === "BUY"
+                        ? `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매수하기`
+                        : `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매도하기`}
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={orderPrice}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/[^0-9]/g, "");
-                        setOrderPrice(digits ? Number(digits).toLocaleString() : "");
-                        setQty("");
-                      }}
-                      placeholder="0"
-                      className="w-full bg-transparent text-base font-semibold text-gray-900 outline-none dark:text-white"
-                    />
-                    <span className="shrink-0 text-sm text-gray-400 dark:text-neutral-500">원</span>
-                  </div>
-                </div>
-
-                {/* 수량 */}
-                <div className="space-y-1 sm:min-w-[140px] sm:flex-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">수량</label>
-                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={qty}
-                      onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="0"
-                      className="w-full bg-transparent text-base font-semibold text-gray-900 outline-none dark:text-white"
-                    />
-                    <span className="shrink-0 text-sm text-gray-400 dark:text-neutral-500">주</span>
-                  </div>
-                </div>
-
-                {/* 비율 버튼 */}
-                <div className="grid grid-cols-3 gap-1.5 sm:flex sm:shrink-0">
-                  {RATIOS.map(({ label, value }) => (
-                    <button
-                      key={label}
-                      onClick={() => handleRatio(value)}
-                      disabled={tradeTab === "BUY" && orderPriceNum <= 0}
-                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 transition-colors"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* 예상 금액 + 실행 버튼 */}
-                <div className="flex flex-col gap-3 sm:ml-auto sm:shrink-0 sm:flex-row sm:items-end sm:gap-4">
-                  <div className="text-left sm:text-right">
-                    <p className="text-sm text-gray-500 dark:text-neutral-500">
-                      예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
-                    </p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">
-                      {totalAmount > 0 ? `₩${totalAmount.toLocaleString()}` : "—"}
-                    </p>
-                  </div>
-
-                  {/* 실행 버튼 */}
-                  <button
-                    disabled={!isLoggedIn || !canSubmit}
-                    onClick={handleSubmit}
-                    className={`w-full rounded-xl px-8 py-3.5 text-base font-bold text-white transition-colors disabled:opacity-40 sm:w-auto sm:shrink-0 ${
-                      tradeTab === "BUY"
-                        ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700"
-                        : "bg-rose-500 hover:bg-rose-600 active:bg-rose-700"
-                    }`}
-                  >
-                    {isTrading || isReserving
-                      ? "처리 중..."
-                      : !isPriceMatch
-                      ? "예약 주문 걸기"
-                      : tradeTab === "BUY"
-                      ? `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매수하기`
-                      : `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매도하기`}
-                  </button>
                 </div>
               </div>
 

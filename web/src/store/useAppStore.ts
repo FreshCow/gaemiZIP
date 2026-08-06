@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { StockItem, HoldingItem, TickData, StockUpdate, IndexItem } from "@/types/stock";
+import type { StockItem, HoldingItem, TickData, StockUpdate, IndexItem, OrderBookData } from "@/types/stock";
 import type { BoardListItem } from "@/types/board";
 import type { NotificationItem } from "@/types/notification";
 
@@ -13,6 +13,7 @@ interface AppState {
   latestTick: TickData | null;
   indices: IndexItem[];
   livePrices: Record<string, StockUpdate>;
+  orderBooks: Record<string, OrderBookData>;
   notifications: NotificationItem[];
   unreadCount: number;
 
@@ -20,6 +21,7 @@ interface AppState {
   setIndices: (indices: IndexItem[]) => void;
   updateStock: (update: StockUpdate) => void;
   updateLivePrice: (update: StockUpdate) => void;
+  updateOrderBook: (orderBook: OrderBookData) => void;
   setHoldings: (holdings: HoldingItem[]) => void;
   updateHoldingPrice: (code: string, currentPrice: number) => void;
   setBoards: (boards: BoardListItem[]) => void;
@@ -66,6 +68,7 @@ export const useAppStore = create<AppState>((set) => ({
   latestTick: null,
   indices: [],
   livePrices: {},
+  orderBooks: {},
   notifications: [],
   unreadCount: 0,
 
@@ -91,6 +94,11 @@ export const useAppStore = create<AppState>((set) => ({
         ...s.livePrices,
         [update.code]: { ...s.livePrices[update.code], ...update },
       },
+    })),
+  // 종목 상세 페이지 호가창 — 코드별로 최신 스냅샷만 유지
+  updateOrderBook: (orderBook) =>
+    set((s) => ({
+      orderBooks: { ...s.orderBooks, [orderBook.code]: orderBook },
     })),
   setHoldings: (holdings) => set({ holdings }),
   updateHoldingPrice: (code, currentPrice) =>
