@@ -252,8 +252,8 @@ export default function DashboardPage() {
                         variant="outline"
                         className={`ml-2 shrink-0 ${
                           isPos
-                            ? "border-emerald-700 text-emerald-500 dark:text-emerald-400"
-                            : "border-rose-700 text-rose-500 dark:text-rose-400"
+                            ? "border-rose-700 text-rose-500 dark:text-rose-400"
+                            : "border-blue-700 text-blue-500 dark:text-blue-400"
                         }`}
                       >
                         {stock.rate}%
@@ -377,7 +377,7 @@ export default function DashboardPage() {
                       </p>
                       <span
                         className={`text-xs font-semibold ${
-                          h.profitRate >= 0 ? "text-emerald-500" : "text-rose-500"
+                          h.profitRate >= 0 ? "text-rose-500" : "text-blue-500"
                         }`}
                       >
                         {h.profitRate >= 0 ? "+" : ""}{h.profitRate.toFixed(2)}%
