@@ -7,7 +7,7 @@ import type {
   TradeVolumeItem,
   AuditLogItem,
 } from "@/types/admin";
-import type { BoardPost, Comment } from "@/types/board";
+import type { BoardListItem, Comment } from "@/types/board";
 
 // 백엔드 admin API는 /api가 아니라 /admin 하위에 매핑되어 있어
 // services/api.ts의 baseURL(.../api)을 그대로 못 씀 — 절대경로로 호출해 baseURL을 무시시킴
@@ -28,7 +28,7 @@ export const adminApi = {
     api.patch(`${ADMIN_BASE}/members/${id}/balanceAdjust`, { delta }),
 
   // 콘텐츠 관리 — 블라인드 포함 전체 조회 (공개 API는 블라인드 글/댓글을 거름)
-  getBoards: () => api.get<BoardPost[]>(`${ADMIN_BASE}/boards`).then((r) => r.data),
+  getBoards: () => api.get<BoardListItem[]>(`${ADMIN_BASE}/boards`).then((r) => r.data),
   getComments: (boardId: number) =>
     api.get<Comment[]>(`${ADMIN_BASE}/boards/${boardId}/comments`).then((r) => r.data),
 
