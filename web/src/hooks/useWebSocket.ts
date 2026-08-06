@@ -20,6 +20,42 @@ export function useWebSocket() {
   const setIndices = useAppStore((s) => s.setIndices);
   const updateLivePrice = useAppStore((s) => s.updateLivePrice);
 
+  // 정규장 고빈도 구간(종목당 초당 수십 건)에서는 메시지마다 그대로 상태를 갱신하면
+  // 리렌더가 수신 속도를 못 따라가 쌓이면서 "Maximum update depth exceeded"로 탭이
+  // 죽는 문제가 있었음(원인 분석은 TROUBLESHOOTING.md 참고) — 프레임당 1회로 모아
+  // 반영(같은 종목은 그 프레임의 마지막 값만 유지)해 리렌더 빈도를 rAF 상한으로 제한
+  const pendingUpdatesRef = useRef<Map<string, StockUpdate>>(new Map());
+  const pendingTickRef = useRef<TickData | null>(null);
+  const pendingIndicesRef = useRef<IndexItem[] | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+
+  const flushPending = useCallback(() => {
+    rafIdRef.current = null;
+
+    if (pendingUpdatesRef.current.size > 0) {
+      for (const update of pendingUpdatesRef.current.values()) {
+        updateStock(update);
+        updateLivePrice(update);
+        if (update.price) updateHoldingPrice(update.code, Number(update.price));
+      }
+      pendingUpdatesRef.current.clear();
+    }
+    if (pendingTickRef.current) {
+      setLatestTick(pendingTickRef.current);
+      pendingTickRef.current = null;
+    }
+    if (pendingIndicesRef.current) {
+      setIndices(pendingIndicesRef.current);
+      pendingIndicesRef.current = null;
+    }
+  }, [updateStock, updateLivePrice, updateHoldingPrice, setLatestTick, setIndices]);
+
+  const scheduleFlush = useCallback(() => {
+    if (rafIdRef.current == null) {
+      rafIdRef.current = requestAnimationFrame(flushPending);
+    }
+  }, [flushPending]);
+
   const connect = useCallback(() => {
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
@@ -44,24 +80,24 @@ export function useWebSocket() {
       } else if (data.startsWith("REALTIME_UPDATE:")) {
         try {
           const update: StockUpdate = JSON.parse(data.slice("REALTIME_UPDATE:".length));
-          updateStock(update);
-          updateLivePrice(update);
-          // 보유 종목의 현재가·수익률 실시간 갱신
-          if (update.price) updateHoldingPrice(update.code, Number(update.price));
+          pendingUpdatesRef.current.set(update.code, update);
+          scheduleFlush();
         } catch (err) {
           console.error("[WS] REALTIME_UPDATE 파싱 실패:", err, "raw:", data.slice("REALTIME_UPDATE:".length, 300));
         }
       } else if (data.startsWith("TICK_UPDATE:")) {
         try {
           const tick: TickData = JSON.parse(data.slice("TICK_UPDATE:".length));
-          setLatestTick(tick);
+          pendingTickRef.current = tick;
+          scheduleFlush();
         } catch (err) {
           console.error("[WS] TICK_UPDATE 파싱 실패:", err, "raw:", data.slice("TICK_UPDATE:".length, 300));
         }
       } else if (data.startsWith("INDEX_UPDATE:")) {
         try {
           const indices: IndexItem[] = JSON.parse(data.slice("INDEX_UPDATE:".length));
-          setIndices(indices);
+          pendingIndicesRef.current = indices;
+          scheduleFlush();
         } catch (err) {
           console.error("[WS] INDEX_UPDATE 파싱 실패:", err, "raw:", data.slice("INDEX_UPDATE:".length, 300));
         }
@@ -80,12 +116,18 @@ export function useWebSocket() {
       console.error("[WS] 에러:", e);
       ws.close();
     };
-  }, [setStocks, updateStock, setWsConnected, setLatestTick, updateHoldingPrice, setIndices, updateLivePrice]);
+  }, [setStocks, setWsConnected, scheduleFlush]);
 
   useEffect(() => {
     connect();
     return () => {
       timerRef.current && clearTimeout(timerRef.current);
+      if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+      // pendingUpdatesRef는 DOM이 아닌 순수 버퍼용 ref라 최신값 참조로도 안전
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      pendingUpdatesRef.current.clear();
+      pendingTickRef.current = null;
+      pendingIndicesRef.current = null;
       // 언마운트로 인한 의도적인 종료는 에러/재연결 핸들러를 타지 않도록 먼저 해제
       const ws = wsRef.current;
       if (ws) {
