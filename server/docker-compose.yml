@@ -5,7 +5,7 @@ services:
     image: postgres:18.1  # 노트북 버전
     container_name: scalper-postgres # PC에 뜰 컨테이너 이름
     ports:
-      - "5432:5432"     # 데스크톱의 5432 포트를 도커 안의 5432 포트 연결
+      - "15432:5432"     # 호스트에 네이티브 PostgreSQL 17/18이 5432·5433을 모두 점유 중이라 15432로 매핑
     environment:
       POSTGRES_USER: postgres        # 노트북에서 쓰던 DB 아이디
       POSTGRES_PASSWORD: seon8227  # 노트북에서 쓰던 DB 비밀번호

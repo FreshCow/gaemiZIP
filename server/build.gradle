@@ -49,6 +49,11 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+tasks.named('bootRun') {
+    // -Dspring.profiles.active=prod 로 덮어쓰지 않으면 로컬 개발 프로파일이 기본값
+    systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
+}
+
 tasks.named('test') {
     useJUnitPlatform {
         // 벤치마크/동시성 재현 테스트는 실제 RDS에 데이터를 만들고 시간이 걸려 기본 test에서 제외
