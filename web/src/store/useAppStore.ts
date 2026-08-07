@@ -26,6 +26,7 @@ interface AppState {
   updateHoldingPrice: (code: string, currentPrice: number) => void;
   setBoards: (boards: BoardListItem[]) => void;
   toggleWatchlist: (code: string) => void;
+  setWatchlist: (codes: string[]) => void;
   toggleAutoTrading: () => void;
   setWsConnected: (connected: boolean) => void;
   setLatestTick: (tick: TickData) => void;
@@ -125,6 +126,14 @@ export const useAppStore = create<AppState>((set) => ({
         localStorage.setItem("gaemi_watchlist", JSON.stringify(next));
       }
       return { watchlist: next };
+    }),
+  // 로그인 시 서버 즐겨찾기 목록으로 통째로 교체(로그아웃 시 초기화용으로도 사용)
+  setWatchlist: (codes) =>
+    set(() => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("gaemi_watchlist", JSON.stringify(codes));
+      }
+      return { watchlist: codes };
     }),
   toggleAutoTrading: () =>
     set((s) => ({ isAutoTrading: !s.isAutoTrading })),
