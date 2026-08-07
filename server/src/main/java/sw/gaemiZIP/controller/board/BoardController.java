@@ -204,10 +204,11 @@ public class BoardController {
     @PutMapping("/{id}")
     public ResponseEntity<?> udateBoard(@PathVariable Long id, @RequestBody BoardCreateRequest request, Authentication auth) {
 
-        //작성한 게시글 찾기
+        //작성한 게시글
         Board board = boardRepository.findById(id).orElse(null);
         if(board == null) return ResponseEntity.status(404).body("게시글을 찾을 수 없습니다.");
 
+        //id가져오기
         MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 

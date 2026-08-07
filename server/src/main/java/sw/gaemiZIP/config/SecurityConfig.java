@@ -1,6 +1,7 @@
 package sw.gaemiZIP.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,6 +25,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+
+    // FREE_DEPLOY_TEMP(단, 플랫폼 무관하게 유지 권장): 배포 환경에서는 CORS_ALLOWED_ORIGINS 환경변수로
+    // 프론트엔드 도메인(Vercel 등)을 콤마로 구분해 전달. 로컬 기본값은 그대로 localhost:3000
+    @Value("${cors.allowed-origins:http://localhost:3000}")
+    private String allowedOrigins;
 
     @Bean // 리턴되는 암호화 객체를 스프링 빈에 등록해서 AuthService에서 꺼내 쓸 수 있게 함
     public BCryptPasswordEncoder passwordEncoder() {
@@ -62,7 +68,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // 1. 허용할 프론트엔드 도메인 (Next.js 주소)
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        configuration.setAllowedOrigins(List.of(allowedOrigins.split(",")));
 
         // 2. 허용할 HTTP 메서드
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

@@ -1,0 +1,13 @@
+kiwoom:
+  api:
+    url: https://mockapi.kiwoom.com # 모의투자
+
+jwt:
+  expiration_time: 86400000 # 24시간 (밀리초 단위)
+
+logging:
+  level:
+    sw:
+      gaemiZIP:
+        service:
+          kiwoom: INFO

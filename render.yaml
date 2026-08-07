@@ -1,0 +1,45 @@
+# FREE_DEPLOY_TEMP: Render 전용 Blueprint. Render 안 쓰게 되면 이 파일 통째로 삭제
+services:
+  - type: web
+    name: gaemizip-server
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: free
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: REDIS_SSL_ENABLED
+        value: "true"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: KIWOOM_APP_KEY
+        sync: false
+      - key: KIWOOM_APP_SECRET
+        sync: false
+      - key: NAVER_CLIENT_ID
+        sync: false
+      - key: NAVER_CLIENT_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
