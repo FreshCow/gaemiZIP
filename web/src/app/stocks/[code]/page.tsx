@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { OrderBook } from "@/components/stock/OrderBook";
+import { useFavorite } from "@/hooks/useFavorite";
 import { fetchStockInfo, fetchStockPrice, fetchStockNews, fetchStockQuote, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
 import { tradeApi } from "@/services/tradeApi";
@@ -250,7 +251,10 @@ export default function StockDetailPage() {
   const [quoteSnapshot, setQuoteSnapshot] = useState<OrderBookData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { isFavorite, toggleFavorite } = useFavorite();
+  // 서버와 클라이언트의 첫 렌더 트리를 일치시키기 위해 마운트 후에만 watchlist 상태를 반영
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // AI 종목 분석 / 관련 뉴스 — 지연이 있을 수 있어 본문 로딩과 분리
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -634,12 +638,12 @@ export default function StockDetailPage() {
                 </div>
 
                 <button
-                  onClick={() => setIsFavorite((p) => !p)}
+                  onClick={() => toggleFavorite(code, info.name)}
                   className="flex flex-col items-center gap-0.5 transition-transform active:scale-90"
                 >
                   <Star
                     size={26}
-                    className={isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-300 dark:text-neutral-600"}
+                    className={mounted && isFavorite(code) ? "fill-yellow-400 text-yellow-400" : "text-gray-300 dark:text-neutral-600"}
                   />
                 </button>
               </div>
