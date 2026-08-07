@@ -116,6 +116,22 @@ export interface IndexItem {
   rate: string; // 부호 포함, % 제외 (예: "+1.58")
 }
 
+// 호가창 1단계(가격+잔량)
+export interface OrderBookLevel {
+  price: number;
+  quantity: number;
+}
+
+// GET /api/stocks/{code}/quote 응답 + QUOTE_UPDATE 수신용
+// asks/bids 둘 다 index0=1호가(현재가와 가장 가까움) ~ index9=10호가
+export interface OrderBookData {
+  code: string;
+  asks: OrderBookLevel[];
+  bids: OrderBookLevel[];
+  totalAskQty: number;
+  totalBidQty: number;
+}
+
 // GET /api/trades/holdings 서버 응답
 export interface HoldingData {
   stockCode: string;

@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import sw.gaemiZIP.dto.stock.OrderBookResponse;
 import sw.gaemiZIP.dto.stock.StockInfoResponse;
 import sw.gaemiZIP.dto.stock.StockPriceResponse;
 import sw.gaemiZIP.dto.stock.StockRankingResponse;
@@ -16,6 +17,7 @@ import sw.gaemiZIP.service.news.NewsService;
 import sw.gaemiZIP.service.stock.StockFetchService;
 import sw.gaemiZIP.service.stock.StockInfoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import sw.gaemiZIP.service.stock.StockQuoteService;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +33,7 @@ public class StockController {
     private final StringRedisTemplate redisTemplate;
     private final NewsService newsService;
     private final KiwoomRealtimeService kiwoomRealtimeService;
+    private final StockQuoteService stockQuoteService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 종목명·초성 검색 (최대 10건)
@@ -114,5 +117,12 @@ public class StockController {
         }catch (NumberFormatException e){
         }
         return rate.startsWith("+") || rate.startsWith("-") ? rate : "+" + rate;
+    }
+
+    // 호가창 초기 데이터 가져오기 이후 갱신은 QUOTE_UPDATE
+    @GetMapping("/{code}/quote")
+    public ResponseEntity<OrderBookResponse> getQuote(@PathVariable String code) {
+        OrderBookResponse quote = stockQuoteService.getQuote(code);
+        return quote != null ? ResponseEntity.ok(quote) : ResponseEntity.notFound().build();
     }
 }
