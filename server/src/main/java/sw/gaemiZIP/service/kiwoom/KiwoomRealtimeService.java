@@ -13,6 +13,8 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import sw.gaemiZIP.dto.stock.OrderBookLevel;
+import sw.gaemiZIP.dto.stock.OrderBookResponse;
 import sw.gaemiZIP.service.stock.ReservationService;
 import sw.gaemiZIP.websocket.StockWebSocketHandler;
 
@@ -150,22 +152,54 @@ public class KiwoomRealtimeService {
         try {
             JsonNode root = objectMapper.readTree(payload);
             for (JsonNode entry : root.path("data")) {
-                if (!"0B".equals(entry.path("type").asText())) continue; // 주식체결만 처리
-
+                String type = entry.path("type").asText();
                 String code = entry.path("item").asText();
                 JsonNode values = entry.path("values");
 
-                String cntrTm   = values.path("20").asText("");  // 체결시간 (HHmmss)
-                String rawPrice = values.path("10").asText("0"); // 현재가 (부호 포함)
-                String rawRate  = values.path("12").asText("0"); // 등락율 (부호 포함)
-                String rawVolume = values.path("13").asText("0"); // 누적거래량
-
-                processTick(code, cntrTm, rawPrice, rawRate, rawVolume);
+                if ("0B".equals(type)) {
+                    String cntrTm   = values.path("20").asText("");
+                    String rawPrice = values.path("10").asText("0");
+                    String rawRate  = values.path("12").asText("0");
+                    String rawVolume = values.path("13").asText("0");
+                    processTick(code, cntrTm, rawPrice, rawRate, rawVolume);
+                } else if ("0D".equals(type)) {
+                    processQuote(code, values);
+                }
             }
         } catch (Exception e) {
             log.warn("REAL 데이터 파싱 실패: {}", e.getMessage());
         }
     }
+
+    private void processQuote(String code, JsonNode values) {
+        try {
+            List<OrderBookLevel> asks = new ArrayList<>();
+            List<OrderBookLevel> bids = new ArrayList<>();
+            for (int i = 0; i < 10; i++) {
+                long askPrice = absLong(values.path(String.valueOf(41 + i)).asText("0"));
+                long askQty   = absLong(values.path(String.valueOf(61 + i)).asText("0"));
+                asks.add(new OrderBookLevel(askPrice, askQty));
+
+                long bidPrice = absLong(values.path(String.valueOf(51 + i)).asText("0"));
+                long bidQty   = absLong(values.path(String.valueOf(71 + i)).asText("0"));
+                bids.add(new OrderBookLevel(bidPrice, bidQty));
+            }
+            long totalAskQty = absLong(values.path("121").asText("0"));
+            long totalBidQty = absLong(values.path("125").asText("0"));
+
+            OrderBookResponse response = new OrderBookResponse(code, asks, bids, totalAskQty, totalBidQty);
+            frontEndHandler.broadcast("QUOTE_UPDATE:" + objectMapper.writeValueAsString(response));
+        } catch (Exception e) {
+            log.warn("실시간 호가 처리 실패 ({}): {}", code, e.getMessage());
+        }
+    }
+
+    private long absLong(String raw) {
+        if (raw == null || raw.isBlank()) return 0;
+        return Math.abs(Long.parseLong(raw.replace(",", "").trim()));
+    }
+
+
 
     // 파싱된 필드로 REALTIME_UPDATE + TICK_UPDATE 브로드캐스트, 예약 주문 체결 매칭
     private void processTick(String code, String cntrTm, String rawPrice, String rawRate, String rawVolume) {
@@ -272,7 +306,7 @@ public class KiwoomRealtimeService {
         try {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("item", codes);
-            entry.put("type", List.of("0B"));
+            entry.put("type", List.of("0B", "0D"));
 
             Map<String, Object> reg = new LinkedHashMap<>();
             reg.put("trnm", "REG");
@@ -298,7 +332,7 @@ public class KiwoomRealtimeService {
         try {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("item", codes);
-            entry.put("type", List.of("0B"));
+            entry.put("type", List.of("0B", "0D"));
 
             Map<String, Object> remove = new LinkedHashMap<>();
             remove.put("trnm", "REMOVE");

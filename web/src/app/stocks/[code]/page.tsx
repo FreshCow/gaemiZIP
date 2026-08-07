@@ -560,7 +560,7 @@ export default function StockDetailPage() {
                 {/* 호가창 */}
                 <OrderBook data={orderBook} currentPrice={curPrice} onSelectPrice={handleSelectPrice} />
 
-                {/* 주문 폼 (세로 배치) */}
+                {/* 주문 폼 (세로 배치, 호가창과 높이를 맞춰 하단에 예상금액/버튼 고정) */}
                 <div className="flex flex-col gap-2">
                   {/* 매수/매도 탭 */}
                   <div className="flex overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700">
@@ -652,8 +652,8 @@ export default function StockDetailPage() {
                     ))}
                   </div>
 
-                  {/* 예상 금액 + 실행 버튼 */}
-                  <div className="flex flex-col gap-1.5">
+                  {/* 예상 금액 + 실행 버튼 — 호가창 하단과 높이 맞춤 */}
+                  <div className="mt-auto flex flex-col gap-1.5">
                     <div>
                       <p className="text-xs text-gray-500 dark:text-neutral-500">
                         예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
