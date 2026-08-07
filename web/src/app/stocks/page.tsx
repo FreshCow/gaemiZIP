@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2, Sparkles, TrendingUp, BarChart3 } from "lucide-react";
 import { fetchAiTheme, fetchLatestNews } from "@/services/newsApi";
 import { fetchStockPrice } from "@/services/stockApi";
+import { RankingTicker } from "@/components/stock/RankingTicker";
 import { useAppStore } from "@/store/useAppStore";
 import { Pagination } from "@/components/ui/pagination";
 import type { StockPriceItem } from "@/types/stock";
@@ -154,9 +156,10 @@ export default function StocksPage() {
                     {selectedGroup?.stocks.map((stock) => {
                       const isUp = !stock.rate.startsWith("-");
                       return (
-                        <div
+                        <Link
                           key={stock.code}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800 sm:block"
+                          href={`/stocks/${stock.code}`}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 transition-colors hover:border-emerald-300 hover:bg-gray-100 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-emerald-700 dark:hover:bg-neutral-700 sm:block"
                         >
                           <div className="min-w-0">
                             <p className="text-[10px] text-gray-400 dark:text-neutral-500">{stock.code}</p>
@@ -183,12 +186,21 @@ export default function StocksPage() {
                               </span>
                             </div>
                           </div>
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
                 </>
               )}
+            </section>
+
+            {/* 실시간 순위 — 모바일 전용 (데스크톱은 상단 헤더의 랭킹 티커로 대체) */}
+            <section className="rounded-2xl border border-gray-200 bg-white p-6 lg:hidden dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="mb-4 flex items-center gap-2">
+                <TrendingUp size={15} className="text-emerald-500" />
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">실시간 순위</h2>
+              </div>
+              <RankingTicker />
             </section>
 
             {/* 코스피 / 코스닥 / 코스피200 지수 */}
