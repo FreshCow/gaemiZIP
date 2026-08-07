@@ -5,11 +5,17 @@ import Link from "next/link";
 import { TrendingUp } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
-export function RankingTicker() {
+interface RankingTickerProps {
+  /** "header": 데스크톱 헤더용(클릭 시 드롭다운) · "card": 모바일 카드용(드롭다운 없이 폭 100%로 표시) */
+  variant?: "header" | "card";
+}
+
+export function RankingTicker({ variant = "header" }: RankingTickerProps) {
   const stocks = useAppStore((s) => s.stocks);
   const [activeIdx, setActiveIdx] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const isCard = variant === "card";
 
   useEffect(() => {
     if (open || stocks.length === 0) return;
@@ -17,15 +23,15 @@ export function RankingTicker() {
     return () => clearInterval(id);
   }, [open, stocks.length]);
 
-  // 바깥 클릭 시 드롭다운 닫기
+  // 바깥 클릭 시 드롭다운 닫기 (card 모드는 드롭다운 자체가 없음)
   useEffect(() => {
-    if (!open) return;
+    if (isCard || !open) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  }, [open, isCard]);
 
   const top10 = stocks.slice(0, 10);
 
@@ -33,6 +39,40 @@ export function RankingTicker() {
 
   const stock = top10[activeIdx];
   const isUp = !stock.rate.startsWith("-");
+
+  const tickerContent = (
+    <>
+      <TrendingUp size={isCard ? 14 : 15} className="text-emerald-500 shrink-0" />
+      <span className={`shrink-0 text-right font-bold text-emerald-500 ${isCard ? "w-5 text-xs" : "w-6"}`}>
+        {activeIdx + 1}
+      </span>
+      <span
+        className={`truncate font-medium text-gray-700 dark:text-neutral-300 ${
+          isCard ? "min-w-0 flex-1 text-xs" : "w-[120px]"
+        }`}
+      >
+        {stock.name}
+      </span>
+      <span className={`shrink-0 font-semibold text-gray-900 dark:text-white ${isCard ? "text-xs" : ""}`}>
+        {Number(stock.price).toLocaleString()}원
+      </span>
+      <span
+        className={`shrink-0 font-bold ${isCard ? "text-xs" : ""} ${
+          isUp ? "text-green-500 dark:text-green-400" : "text-blue-500 dark:text-blue-400"
+        }`}
+      >
+        {stock.rate}%
+      </span>
+    </>
+  );
+
+  if (isCard) {
+    return (
+      <div className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
+        {tickerContent}
+      </div>
+    );
+  }
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -42,13 +82,7 @@ export function RankingTicker() {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-left cursor-pointer select-none dark:border-neutral-700 dark:bg-neutral-800 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
       >
-        <TrendingUp size={15} className="text-emerald-500 shrink-0" />
-        <span className="w-6 shrink-0 text-right font-bold text-emerald-500">{activeIdx + 1}</span>
-        <span className="w-[120px] truncate font-medium text-gray-700 dark:text-neutral-300">{stock.name}</span>
-        <span className="font-semibold text-gray-900 dark:text-white">{Number(stock.price).toLocaleString()}원</span>
-        <span className={`font-bold ${isUp ? "text-green-500 dark:text-green-400" : "text-blue-500 dark:text-blue-400"}`}>
-          {stock.rate}%
-        </span>
+        {tickerContent}
       </button>
 
       {/* 드롭다운 */}

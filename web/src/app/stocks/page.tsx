@@ -200,7 +200,7 @@ export default function StocksPage() {
                 <TrendingUp size={15} className="text-emerald-500" />
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">실시간 순위</h2>
               </div>
-              <RankingTicker />
+              <RankingTicker variant="card" />
             </section>
 
             {/* 코스피 / 코스닥 / 코스피200 지수 */}
