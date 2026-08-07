@@ -689,7 +689,7 @@ export default function StockDetailPage() {
             </div>
 
             {/* 매수/매도 주문 (UI 우선 배치 — 실제 매매 API 연동은 다음 단계에서 진행) */}
-            <div className="relative rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="relative rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
               {!isLoggedIn && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 dark:bg-neutral-900/70">
                   <p className="text-base font-medium text-gray-500 dark:text-neutral-400">
@@ -720,7 +720,7 @@ export default function StockDetailPage() {
                 )}
               </div>
 
-              <div className="mr-[10%] grid grid-cols-[140px_1fr] gap-2 sm:mx-[10%] sm:grid-cols-[minmax(0,400px)_minmax(0,400px)] sm:justify-center sm:gap-6">
+              <div className="grid grid-cols-[120px_1fr] gap-1.5 sm:mx-[10%] sm:grid-cols-[minmax(0,400px)_minmax(0,400px)] sm:justify-center sm:gap-6">
                 {/* 호가창 */}
                 <OrderBook data={orderBook} currentPrice={curPrice} onSelectPrice={handleSelectPrice} />
 
@@ -757,28 +757,28 @@ export default function StockDetailPage() {
                         현재가
                       </button>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
                       <button
                         type="button"
                         onClick={() => handlePriceStep(-1)}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400 sm:h-8 sm:w-8"
                       >
                         <Minus size={14} />
                       </button>
-                      <div className="flex flex-1 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 dark:border-neutral-700">
+                      <div className="flex flex-1 items-center gap-1 rounded-lg border border-gray-200 px-1.5 py-2 dark:border-neutral-700 sm:gap-1.5 sm:px-2.5 sm:py-1.5">
                         <input
                           type="text"
                           readOnly
                           value={orderPrice}
                           placeholder="0"
-                          className="w-full bg-transparent text-sm font-semibold text-gray-900 outline-none dark:text-white"
+                          className="w-full min-w-0 bg-transparent text-base font-bold text-gray-900 outline-none dark:text-white sm:text-sm sm:font-semibold"
                         />
                         <span className="shrink-0 text-xs text-gray-400 dark:text-neutral-500">원</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => handlePriceStep(1)}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400 sm:h-8 sm:w-8"
                       >
                         <Plus size={14} />
                       </button>
@@ -788,7 +788,7 @@ export default function StockDetailPage() {
                   {/* 수량 */}
                   <div className="space-y-0.5">
                     <label className="text-xs font-medium text-gray-700 dark:text-neutral-300">수량</label>
-                    <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors">
+                    <div className="flex items-center gap-1 rounded-lg border border-gray-200 px-1.5 py-2 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors sm:gap-1.5 sm:px-2.5 sm:py-1.5">
                       <input
                         type="text"
                         inputMode="numeric"
@@ -796,7 +796,7 @@ export default function StockDetailPage() {
                         value={qty}
                         onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="0"
-                        className="w-full bg-transparent text-sm font-semibold text-gray-900 outline-none dark:text-white"
+                        className="w-full min-w-0 bg-transparent text-base font-bold text-gray-900 outline-none dark:text-white sm:text-sm sm:font-semibold"
                       />
                       <span className="shrink-0 text-xs text-gray-400 dark:text-neutral-500">주</span>
                     </div>
@@ -822,7 +822,7 @@ export default function StockDetailPage() {
                       <p className="text-xs text-gray-500 dark:text-neutral-500">
                         예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
                       </p>
-                      <p className="text-base font-bold text-gray-900 dark:text-white">
+                      <p className="text-lg font-bold text-gray-900 dark:text-white sm:text-base">
                         {totalAmount > 0 ? `₩${totalAmount.toLocaleString()}` : "—"}
                       </p>
                     </div>
@@ -831,7 +831,7 @@ export default function StockDetailPage() {
                     <button
                       disabled={!isLoggedIn || !canSubmit}
                       onClick={handleSubmit}
-                      className={`w-full rounded-lg px-4 py-2 text-sm font-bold text-white transition-colors disabled:opacity-40 ${
+                      className={`w-full rounded-lg px-4 py-3 text-base font-bold text-white transition-colors disabled:opacity-40 sm:py-2 sm:text-sm ${
                         tradeTab === "BUY"
                           ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700"
                           : "bg-rose-500 hover:bg-rose-600 active:bg-rose-700"
