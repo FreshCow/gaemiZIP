@@ -14,6 +14,7 @@ import {
   Clock,
   Loader2,
   RefreshCw,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
@@ -24,6 +25,7 @@ import { tradeApi } from "@/services/tradeApi";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Pagination } from "@/components/ui/pagination";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import type { StockInfoData, StockPriceItem, OrderBookData } from "@/types/stock";
 import type { NewsItem, AiStockAnalysisResponse } from "@/types/news";
 import type { ReservedOrder } from "@/types/trade";
@@ -61,15 +63,177 @@ function fmtDate(val: string | undefined): string {
   return `${val.slice(0, 4)}-${val.slice(4, 6)}-${val.slice(6, 8)}`;
 }
 
+// 주식 초보자를 위한 재무·시장 지표 용어 설명 — 안내 아이콘 팝오버 해석 문구
+// fullName이 있는 항목(영문 약어)만 라벨 옆에 괄호 표기, 한글 용어는 팝오버 설명만 제공
+const METRIC_INFO: Record<string, { fullName?: string; interpretation: string }> = {
+  PER: {
+    fullName: "주가수익비율",
+    interpretation:
+      "주가를 주당순이익으로 나눈 값. 낮을수록 이익 대비 저평가로 보는 경우가 많지만, 성장주는 높아도 정당화될 수 있어 업종 평균과 비교해서 봐야 해요.",
+  },
+  EPS: {
+    fullName: "주당순이익",
+    interpretation:
+      "순이익을 발행주식수로 나눈 값. 높을수록 주당 벌어들이는 이익이 많다는 뜻으로 일반적으로 좋게 봐요.",
+  },
+  ROE: {
+    fullName: "자기자본이익률",
+    interpretation:
+      "자기자본 대비 순이익 비율. 높을수록 자본을 효율적으로 굴려 수익을 낸다는 뜻으로 일반적으로 좋게 봐요.",
+  },
+  PBR: {
+    fullName: "주가순자산비율",
+    interpretation:
+      "주가를 주당순자산으로 나눈 값. 1보다 낮으면 자산가치보다 싸게 거래된다는 뜻(저평가 신호)이지만, 부실기업일 수도 있어 다른 지표와 함께 봐야 해요.",
+  },
+  BPS: {
+    fullName: "주당순자산가치",
+    interpretation: "순자산을 발행주식수로 나눈 값. 높을수록 회사가 보유한 자산가치가 주당 많다는 뜻이에요.",
+  },
+  EV: {
+    fullName: "기업가치",
+    interpretation:
+      "시가총액에 순부채를 더한 실질 기업가치. 높고 낮음 자체보다는 시가총액과 비교해 부채 수준을 가늠하는 용도로 주로 써요.",
+  },
+  매출액: {
+    interpretation: "일정 기간 벌어들인 총 판매 금액. 높을수록 사업 규모가 크지만, 이익이 나는지는 별도로 봐야 해요.",
+  },
+  영업이익: {
+    interpretation: "매출에서 원가·판관비를 뺀, 본업으로 번 이익. 높을수록 본업이 잘되고 있다는 뜻이에요.",
+  },
+  당기순이익: {
+    interpretation: "영업이익에서 세금·이자까지 뺀 최종 이익. 높을수록 회사에 실제로 남은 돈이 많다는 뜻이에요.",
+  },
+  시가총액: {
+    interpretation: "현재 주가 × 발행주식수. 회사 규모를 비교하는 용도로 주로 쓰고, 절대적인 높낮이 기준은 없어요.",
+  },
+  자본금: {
+    interpretation: "주주가 낸 돈의 기초 금액. 회사 규모의 기초 단위일 뿐 높낮이로 좋고 나쁨을 판단하진 않아요.",
+  },
+  신용비율: {
+    interpretation: "전체 거래 중 대출(신용)로 매수된 비중. 높을수록 주가 하락 시 반대매매 위험이 커질 수 있어요.",
+  },
+  거래량: {
+    interpretation: "하루 동안 거래된 주식 수. 많을수록 관심이 몰리고 있다는 뜻이에요.",
+  },
+  거래대금: {
+    interpretation: "거래량 × 가격, 그날 실제로 오간 돈. 많을수록 거래 규모가 크다는 뜻이에요.",
+  },
+  외인소진율: {
+    interpretation: "전체 주식 중 외국인 보유 비율. 높을수록 외국인 매도 시 주가 영향이 커질 수 있어요.",
+  },
+  연중최고: {
+    interpretation: "올해 들어 기록한 가장 높은 가격이에요.",
+  },
+  연중최저: {
+    interpretation: "올해 들어 기록한 가장 낮은 가격이에요.",
+  },
+  "250일최고": {
+    interpretation: "최근 약 1년(거래일 250일)간 최고가와 그 날짜예요.",
+  },
+  "250일최저": {
+    interpretation: "최근 약 1년(거래일 250일)간 최저가와 그 날짜예요.",
+  },
+  결산월: {
+    interpretation: "회사 회계연도가 끝나는 달. 실적 발표 시기의 기준이 돼요.",
+  },
+  매매단위: {
+    interpretation: "한 번에 살 수 있는 최소 주식 수예요.",
+  },
+  대용가: {
+    interpretation: "신용거래·대출 시 이 주식을 담보로 잡을 때 인정해주는 가격이에요(보통 시가보다 낮음).",
+  },
+};
+
+// PER/PBR/ROE 실측값을 경험적 기준 구간과 비교해 상태 배지 표시 — 업종 평균 데이터가 없어 절대적 기준선으로 대체
+type Tone = "good" | "neutral" | "bad";
+const TONE_STYLES: Record<Tone, { text: string; badge: string }> = {
+  good: {
+    text: "text-emerald-500 dark:text-emerald-400",
+    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  neutral: {
+    text: "text-amber-500 dark:text-amber-400",
+    badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  },
+  bad: {
+    text: "text-rose-500 dark:text-rose-400",
+    badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  },
+};
+
+function getBand(label: string, value: string): { tone: Tone; text: string } | null {
+  if (!value || value === "—") return null;
+  const n = absNum(value);
+  if (!Number.isFinite(n) || n === 0) return null;
+
+  if (label === "PER") {
+    if (n < 10) return { tone: "good", text: "저평가" };
+    if (n <= 30) return { tone: "neutral", text: "보통" };
+    return { tone: "bad", text: "고평가" };
+  }
+  if (label === "PBR") {
+    if (n < 1) return { tone: "good", text: "저평가" };
+    if (n <= 3) return { tone: "neutral", text: "보통" };
+    return { tone: "bad", text: "고평가" };
+  }
+  if (label === "ROE") {
+    if (n < 10) return { tone: "bad", text: "저조" };
+    if (n <= 15) return { tone: "neutral", text: "보통" };
+    return { tone: "good", text: "우수" };
+  }
+  return null;
+}
+
 // ── 정보 행 컴포넌트 ───────────────────────────────────────────────────────────
 
 function InfoRow({ label, value, colored }: { label: string; value: string; colored?: boolean }) {
   const up = isUp(value);
+  const info = METRIC_INFO[label];
+  const band = getBand(label, value);
   return (
     <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-neutral-800 last:border-0">
-      <span className="text-xs text-gray-500 dark:text-neutral-500">{label}</span>
-      <span className={`text-xs font-medium ${colored ? (up ? "text-emerald-500" : "text-rose-500") : "text-gray-900 dark:text-white"}`}>
-        {value || "—"}
+      <span className="text-xs text-gray-500 dark:text-neutral-500">
+        {label}
+        {info?.fullName && <span className="ml-1 text-gray-400 dark:text-neutral-600">({info.fullName})</span>}
+      </span>
+      <span className="flex items-center gap-1.5">
+        {band && (
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${TONE_STYLES[band.tone].badge}`}>
+            {band.text}
+          </span>
+        )}
+        <span className={`text-xs font-medium ${colored ? (up ? "text-emerald-500" : "text-rose-500") : "text-gray-900 dark:text-white"}`}>
+          {value || "—"}
+        </span>
+        {info && (
+          <Popover>
+            <PopoverTrigger
+              className={`flex shrink-0 items-center justify-center transition-colors ${
+                band
+                  ? `${TONE_STYLES[band.tone].text} hover:opacity-70`
+                  : "text-gray-300 hover:text-gray-500 dark:text-neutral-600 dark:hover:text-neutral-400"
+              }`}
+              aria-label={`${label} 설명 보기`}
+            >
+              <Info size={12} />
+            </PopoverTrigger>
+            <PopoverContent side="top" align="end">
+              <p className="font-semibold text-foreground">
+                {label}
+                {info.fullName && ` (${info.fullName})`}
+              </p>
+              {band && (
+                <p
+                  className={`mt-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold ${TONE_STYLES[band.tone].badge}`}
+                >
+                  현재 {value} · {band.text} 구간
+                </p>
+              )}
+              <p className="mt-1.5 text-muted-foreground">{info.interpretation}</p>
+            </PopoverContent>
+          </Popover>
+        )}
       </span>
     </div>
   );
