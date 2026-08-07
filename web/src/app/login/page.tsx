@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi } from "@/services/authApi";
 import { useAuthStore } from "@/store/useAuthStore";
+import { syncFavoritesFromServer } from "@/lib/favoriteSync";
 import { Button } from "@/components/ui/button";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 
@@ -26,6 +27,7 @@ export default function LoginPage() {
     try {
       const response = await authApi.login({ username, password });
       setAuth(response);
+      syncFavoritesFromServer().catch(() => {});
       router.push("/");
       router.refresh();
     } catch (e: unknown) {
@@ -42,6 +44,7 @@ export default function LoginPage() {
     try {
       const response = await authApi.googleLogin(idToken);
       setAuth(response);
+      syncFavoritesFromServer().catch(() => {});
       router.push("/");
       router.refresh();
     } catch (e: unknown) {
