@@ -27,6 +27,7 @@ export default function LoginPage() {
       const response = await authApi.login({ username, password });
       setAuth(response);
       router.push("/");
+      router.refresh();
     } catch (e: unknown) {
       const err = e as { response?: { data?: string } };
       setError(err.response?.data ?? "로그인에 실패했습니다.");
@@ -42,6 +43,7 @@ export default function LoginPage() {
       const response = await authApi.googleLogin(idToken);
       setAuth(response);
       router.push("/");
+      router.refresh();
     } catch (e: unknown) {
       const err = e as { response?: { data?: string } };
       setError(err.response?.data ?? "구글 로그인에 실패했습니다.");
