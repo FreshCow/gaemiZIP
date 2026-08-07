@@ -554,7 +554,7 @@ export default function StockDetailPage() {
         className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:text-neutral-500 dark:hover:text-neutral-200 transition-colors"
       >
         <ChevronLeft size={16} />
-        AI 탐색으로 돌아가기
+        마켓으로 돌아가기
       </Link>
 
       {loading && (
