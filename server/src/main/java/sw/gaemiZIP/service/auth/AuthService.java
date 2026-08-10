@@ -1,12 +1,15 @@
 package sw.gaemiZIP.service.auth;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import sw.gaemiZIP.dto.auth.FindPasswordRequestDto;
@@ -24,8 +27,10 @@ import sw.gaemiZIP.util.JwtUtil;
 import sw.gaemiZIP.util.SecurityCodeGenerator;
 
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+@Slf4j
 @Service // 서비스 계층 명시
 @RequiredArgsConstructor // final이 붙은 필드의 생성자를 자동으로 만들어서 의존성 주입 편리
 public class AuthService {
@@ -36,7 +41,14 @@ public class AuthService {
     private final TradeHistoryRepository tradeHistoryRepository;
     private final HoldingRepository holdingRepository;
 
+    private final StringRedisTemplate redisTemplate;
+    private static final String LOGIN_CACHE_KEY = "auth:session:";
+
     private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9]{4,20}$");
+
+    @Value("${jwt.expiration_time}")
+    private long expirationTime;
+
 
     @Transactional
     public SignUpResponseDto signUp(SignUpRequestDto signUpRequestDto) {
@@ -107,7 +119,13 @@ public class AuthService {
             throw new  IllegalStateException("정지된 계정입니다.");
         }
 
+        String sessionKey = LOGIN_CACHE_KEY + member.getUsername();
+        if(Boolean.TRUE.equals(redisTemplate.hasKey(sessionKey))){
+            throw new IllegalStateException("이미 다른 곳에서 로그인 중입니다.");
+        }
+
         String token = jwtUtil.generateToken(member.getUsername(), member.getRole().getKey());
+        redisTemplate.opsForValue().set(sessionKey, token, expirationTime, TimeUnit.MILLISECONDS);
 
         return new LoginResponseDto(token, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey());
     }
@@ -132,6 +150,7 @@ public class AuthService {
     @Value("${oauth.google.client-id}")
     private String googleClientId;
 
+    //구글 계정으로 로그인
     public LoginResponseDto googleLogin(String idTokenString) throws Exception {
 
         //구글 토큰 검증기 생성
@@ -166,9 +185,19 @@ public class AuthService {
             throw new  IllegalStateException("정지된 계정입니다.");
         }
 
-        // 5. 우리 서비스 전용 JWT 발급
+        String sessionKey = LOGIN_CACHE_KEY + member.getEmail();
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(sessionKey))) {
+            throw new IllegalStateException("이미 다른 곳에서 로그인 중입니다.");
+        }
+
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey());
+        redisTemplate.opsForValue().set(sessionKey, gaemiToken, expirationTime, TimeUnit.MILLISECONDS);
 
         return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey());
+    }
+
+    //로그아웃
+    public void logout(String loginId) {
+        redisTemplate.delete(LOGIN_CACHE_KEY + loginId);
     }
 }

@@ -1,6 +1,7 @@
 export interface LoginRequest {
   username: string;
   password: string;
+  rememberMe: boolean;
 }
 
 export interface SignUpRequest {
@@ -30,4 +31,5 @@ export interface AuthResponse {
   balance: number;
   provider: string;
   role: string; // "ROLE_USER" | "ROLE_ADMIN"
+  expiresIn: number; // 초 단위
 }
