@@ -36,6 +36,7 @@ public class AuthController {
 
     }
 
+    //패스워드 찾기
     @PostMapping("/find-password")
     public ResponseEntity<?> findPassword(@RequestBody FindPasswordRequestDto requestDto) {
         try {
@@ -46,6 +47,7 @@ public class AuthController {
         }
     }
 
+    //보안코드확인
     @PostMapping("/verify-security-code")
     public ResponseEntity<?> verifySecurityCode(@RequestBody VerifySecurityCodeRequestDto requestDto) {
         try {
@@ -56,6 +58,7 @@ public class AuthController {
         }
     }
 
+    //로그인
     @PostMapping("/login") // POST /api/auth/login 으로 요청이 오면 실행
     public ResponseEntity<?> login(@RequestBody LoginReqeustDto reqeustDto) {
         try {
@@ -66,6 +69,7 @@ public class AuthController {
         }
     }
 
+    //구글계정으로 로그인
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest request) {
         try {
@@ -78,6 +82,7 @@ public class AuthController {
         }
     }
 
+    //패스워드 확인
     @PostMapping("/verify-password")
     public ResponseEntity<?> verifyPassword(Authentication auth, @RequestBody Map<String, String> body) {
         try {
@@ -88,6 +93,7 @@ public class AuthController {
         }
     }
 
+    //회원탈퇴
     @DeleteMapping("/me")
     public ResponseEntity<?> withdraw(Authentication auth) {
         try {
@@ -98,4 +104,22 @@ public class AuthController {
         }
     }
 
+    //로그아웃
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(Authentication auth) {
+        authService.logout(auth.getName());
+        return ResponseEntity.ok().build();
+    }
+
+    //패스워드 변경
+    @PutMapping("/password")
+    public ResponseEntity<?> changePassword(Authentication auth, @RequestBody Map<String, String> body) {
+        try{
+            authService.changePassword(auth.getName(), body.get("currentPassword"), body.get("newPassword"));
+            return ResponseEntity.ok().build();
+        }
+        catch (IllegalStateException e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
 }

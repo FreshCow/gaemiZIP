@@ -5,15 +5,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, TrendingUp, MessageSquare, Sun, Moon, LogIn, LogOut, User, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, TrendingUp, MessageSquare, Sun, Moon, LogIn, ShieldCheck } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { StockSearchBar } from "@/components/stock/StockSearchBar";
 import { RankingTicker } from "@/components/stock/RankingTicker";
-import { WithdrawModal } from "@/components/auth/WithdrawModal";
+import { AccountMenu } from "@/components/layout/AccountMenu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { authApi } from "@/services/authApi";
 
 export const navItems = [
   { href: "/stocks",   icon: TrendingUp,     label: "마켓"    },
@@ -24,17 +25,23 @@ export const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoggedIn, nickname, provider, isAdmin, clearAuth } = useAuthStore();
+  const { isLoggedIn, nickname, isAdmin, clearAuth } = useAuthStore();
   const setWatchlist = useAppStore((s) => s.setWatchlist);
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   const toggleTheme = () => setTheme(resolvedTheme === "dark" ? "light" : "dark");
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // clearAuth()로 토큰을 지우기 전에 로그아웃 요청이 먼저 서버에 도달해야 함
+    // (먼저 지우면 axios 인터셉터가 Authorization 헤더를 못 붙여 서버 세션이 안 지워짐)
+    try {
+      await authApi.logout();
+    } catch {
+      // 서버 세션 정리 실패해도 클라이언트 로그아웃은 진행
+    }
     clearAuth();
     setWatchlist([]); // 계정 소유 즐겨찾기를 다음 게스트/다른 계정 세션에 남기지 않음
     router.push("/login");
@@ -115,27 +122,7 @@ export function Sidebar() {
 
           {mounted && (
             isLoggedIn ? (
-              <div className="flex items-center gap-1.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                  <User size={13} className="text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <span className="hidden lg:block text-xs font-medium text-gray-700 dark:text-neutral-300 max-w-[80px] truncate">
-                  {nickname}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-rose-500 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-rose-400"
-                  aria-label="로그아웃"
-                >
-                  <LogOut size={14} />
-                </button>
-                <button
-                  onClick={() => setShowWithdraw(true)}
-                  className="hidden lg:block text-[11px] text-gray-300 hover:text-rose-400 transition-colors dark:text-neutral-700 dark:hover:text-rose-500"
-                >
-                  탈퇴
-                </button>
-              </div>
+              <AccountMenu nickname={nickname} onLogout={handleLogout} />
             ) : (
               <Link
                 href="/login"
@@ -159,10 +146,6 @@ export function Sidebar() {
         </div>
       </div>
     </header>
-
-    {showWithdraw && (
-      <WithdrawModal provider={provider} onClose={() => setShowWithdraw(false)} />
-    )}
   </>
   );
 }

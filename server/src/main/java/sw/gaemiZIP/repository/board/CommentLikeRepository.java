@@ -10,4 +10,7 @@ public interface CommentLikeRepository extends JpaRepository<CommentLike, Long> 
 
     //좋아요 취소
     long deleteByMemberIdAndCommentId(Long memberId, Long commentId);
+
+    //전체삭제
+    void deleteAllByMemberId(Long memberId);
 }

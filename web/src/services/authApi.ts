@@ -22,4 +22,10 @@ export const authApi = {
 
   withdraw: () =>
     api.delete<string>("/auth/me"),
+
+  logout: () =>
+    api.post<void>("/auth/logout"),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.put<void>("/auth/password", { currentPassword, newPassword }),
 };

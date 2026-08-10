@@ -11,4 +11,5 @@ public class LoginResponseDto {
     private Long balance;
     private String provider;
     private String role; // ROLE_USER / ROLE_ADMIN — JWT의 role claim과 동일한 값
+    private Long expiresIn;
 }
