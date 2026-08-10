@@ -14,6 +14,7 @@ export default function LoginPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,8 +26,8 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await authApi.login({ username, password });
-      setAuth(response);
+      const response = await authApi.login({ username, password, rememberMe });
+      setAuth(response, rememberMe);
       syncFavoritesFromServer().catch(() => {});
       router.push("/");
       router.refresh();
@@ -43,7 +44,8 @@ export default function LoginPage() {
     setError("");
     try {
       const response = await authApi.googleLogin(idToken);
-      setAuth(response);
+      // 구글 로그인은 "로그인 상태 유지" 체크박스가 없어 항상 세션 유지(브라우저 종료 시 로그아웃)로 처리
+      setAuth(response, false);
       syncFavoritesFromServer().catch(() => {});
       router.push("/");
       router.refresh();
@@ -96,6 +98,16 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-neutral-600 dark:bg-neutral-800"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            로그인 상태 유지
+          </label>
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
             {loading ? "로그인 중..." : "로그인"}

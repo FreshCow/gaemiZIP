@@ -12,4 +12,7 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
     boolean existsByMemberIdAndStockCode(Long memberId, String stockCode);
 
     void deleteByMemberIdAndStockCode(Long memberId, String stockCode);
+
+    void deleteAllByMemberId(Long memberId);
+
 }

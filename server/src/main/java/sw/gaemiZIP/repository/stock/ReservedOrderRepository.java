@@ -18,4 +18,6 @@ public interface ReservedOrderRepository extends JpaRepository<ReservedOrder, Lo
     @Query("select o from ReservedOrder o where o.stockCode = :stockCode and o.status = :status")
     List<ReservedOrder> findByStockCodeAndStatusForUpdate(@Param("stockCode") String stockCode,
                                                           @Param("status") TradeStatus status);
+
+    void deleteAllByMemberId(Long memberId);
 }
