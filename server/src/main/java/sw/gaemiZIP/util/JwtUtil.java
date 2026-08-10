@@ -27,9 +27,9 @@ public class JwtUtil {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
     }
 
-    public  String generateToken(String subject, String role){
+    public  String generateToken(String subject, String role, long expirationMillis){
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expirationTime);
+        Date expiryDate = new Date(now.getTime() + expirationMillis);
 
         return Jwts.builder()
                 .setSubject(subject)

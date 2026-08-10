@@ -48,6 +48,7 @@ public class SecurityConfig {
                         // 탈퇴·비밀번호 확인은 반드시 인증 필요 (permitAll인 /api/auth/** 보다 먼저 선언)
                         .requestMatchers(HttpMethod.DELETE, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/auth/password").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/verify-password").authenticated()
                         .requestMatchers("/api/auth/**", "/ws/**", "/api/news/**", "/api/ai/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/boards/**", "/api/comments/**").permitAll()

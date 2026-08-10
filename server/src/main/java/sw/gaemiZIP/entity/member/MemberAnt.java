@@ -92,6 +92,7 @@ public class MemberAnt extends BaseTimeEntity {
     public void updateBalance(long delta) {
         this.balance += delta;
     }
+
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
     }
