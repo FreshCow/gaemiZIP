@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { boardApi } from "@/services/boardApi";
 import { Button } from "@/components/ui/button";
+import ErrorToast from "@/components/ui/ErrorToast";
 import { formatDateTime } from "@/lib/utils";
 import { ArrowLeft, ThumbsUp, MessageCircle, CornerDownRight, Pencil, Trash2 } from "lucide-react";
 import type { BoardPost, Comment } from "@/types/board";
@@ -23,6 +24,7 @@ export default function BoardDetailPage() {
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [commentError, setCommentError] = useState("");
 
   useEffect(() => {
     boardApi.getById(id).then(setPost);
@@ -38,6 +40,7 @@ export default function BoardDetailPage() {
   const handleSubmitComment = async () => {
     if (!commentText.trim() || submitting) return;
     setSubmitting(true);
+    setCommentError("");
     try {
       const created = await boardApi.createComment(id, {
         author: nickname ?? "익명의 개미",
@@ -46,6 +49,11 @@ export default function BoardDetailPage() {
       });
       setComments((prev) => [...prev, created]);
       setCommentText("");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: string } })?.response?.data ??
+        "댓글 작성 중 오류가 발생했습니다.";
+      setCommentError(typeof msg === "string" ? msg : "댓글 작성 중 오류가 발생했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -54,6 +62,7 @@ export default function BoardDetailPage() {
   const handleSubmitReply = async (parentCommentId: number) => {
     if (!replyText.trim() || submitting) return;
     setSubmitting(true);
+    setCommentError("");
     try {
       const created = await boardApi.createComment(id, {
         author: nickname ?? "익명의 개미",
@@ -63,6 +72,11 @@ export default function BoardDetailPage() {
       setComments((prev) => [...prev, created]);
       setReplyText("");
       setReplyingTo(null);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: string } })?.response?.data ??
+        "댓글 작성 중 오류가 발생했습니다.";
+      setCommentError(typeof msg === "string" ? msg : "댓글 작성 중 오류가 발생했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -99,19 +113,16 @@ export default function BoardDetailPage() {
   return (
     <div className="mx-auto max-w-full space-y-6 p-4 sm:max-w-[80%] sm:p-6">
       {/* 뒤로가기 */}
-      <button
-        onClick={() => router.push("/board")}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-neutral-500 dark:hover:text-white transition-colors"
-      >
-        <ArrowLeft size={15} />
-        게시판으로
-      </button>
-
-      {error && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
-          {error}
-        </p>
-      )}
+      <div className="relative">
+        <button
+          onClick={() => router.push("/board")}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-neutral-500 dark:hover:text-white transition-colors"
+        >
+          <ArrowLeft size={15} />
+          게시판으로
+        </button>
+        <ErrorToast message={error} onDismiss={() => setError("")} />
+      </div>
 
       {/* 게시글 본문 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -311,7 +322,8 @@ export default function BoardDetailPage() {
         })}
 
         {/* 댓글 입력창 */}
-        <div className="flex gap-2 items-center pt-2">
+        <div className="relative flex gap-2 items-center pt-2">
+          <ErrorToast message={commentError} onDismiss={() => setCommentError("")} />
           <textarea
             className="flex-1 h-9 rounded-lg bg-gray-100 px-4 py-2 text-base text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
             placeholder="댓글을 입력하세요"

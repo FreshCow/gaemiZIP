@@ -18,7 +18,9 @@ import sw.gaemiZIP.entity.board.BoardTag;
 import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.member.Role;
 import sw.gaemiZIP.repository.board.*;
+import sw.gaemiZIP.exception.InappropriateContentException;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
+import sw.gaemiZIP.service.moderation.ModerationService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +40,7 @@ public class BoardController {
     private final MemberAntRepository memberAntRepository;
     private final BoardLikeRepository boardLikeRepository;
     private final BoardStockShareRepository boardStockShareRepository;
+    private final ModerationService moderationService;
 
     // 게시글 전체 목록 조회 (최신순)
     @GetMapping
@@ -159,6 +162,12 @@ public class BoardController {
         board.setTag(request.tag() != null ? request.tag() : BoardTag.DAILY);
         board.setAuthor(member.getNickname()); // 클라이언트가 보낸 author는 무시하고 서버가 덮어씀
         board.setMemberId(member.getId());
+
+        //불적절한 내용 포함확인
+        if(moderationService.isInappropriate(request.title() + " " + request.content())){
+            throw new InappropriateContentException("부적절한 내용이 포함되어 있습니다.");
+        }
+
         Board saved = boardRepository.save(board);
 
         List<BoardStockShare> savedShares = List.of();
