@@ -10,9 +10,11 @@ import sw.gaemiZIP.dto.board.CommentRequest;
 import sw.gaemiZIP.entity.board.Comment;
 import sw.gaemiZIP.entity.board.CommentLike;
 import sw.gaemiZIP.entity.member.MemberAnt;
+import sw.gaemiZIP.exception.InappropriateContentException;
 import sw.gaemiZIP.repository.board.CommentLikeRepository;
 import sw.gaemiZIP.repository.board.CommentRepository;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
+import sw.gaemiZIP.service.moderation.ModerationService;
 
 import java.util.List;
 
@@ -23,6 +25,7 @@ public class CommentController {
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final MemberAntRepository memberAntRepository;
+    private final ModerationService moderationService;
 
     // 댓글 목록 조회 (작성 시간 오름차순)
     @GetMapping("/api/boards/{boardId}/comments")
@@ -46,6 +49,11 @@ public class CommentController {
         comment.setAuthor(member.getNickname());
         comment.setContent(request.getContent());
         comment.setParentCommentId(request.getParentCommentId()); // null이면 일반 댓글
+
+        //불적절한 내용 포함확인
+        if(moderationService.isInappropriate(comment.getContent())){
+            throw new InappropriateContentException("부적절한 내용이 포함되어 있습니다.");
+        }
 
         Comment saved = commentRepository.save(comment);
         return ResponseEntity.ok(saved);
