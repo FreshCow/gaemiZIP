@@ -75,7 +75,7 @@ public class AdminContentService {
     //관리자 전용 - 블라인드 처리된 댓글 가져오기
     @Transactional(readOnly = true)
     public List<Comment> getComments(Long boardId) {
-        return commentRepository.findAllByBoardIdOrderByCreatedAtAsc(boardId);
+        return commentRepository.findAllByBoard_IdOrderByCreatedAtAsc(boardId);
     }
 
 

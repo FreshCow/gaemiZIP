@@ -10,10 +10,10 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Long
 
     List<TradeHistory> findAllByOrderByTradeTimeDesc();
 
-    List<TradeHistory> findByMemberIdOrderByTradeTimeDesc(Long memberId);
+    List<TradeHistory> findByMember_IdOrderByTradeTimeDesc(Long memberId);
 
-    Page<TradeHistory> findByMemberIdOrderByTradeTimeDesc(Long memberId, Pageable pageable);
+    Page<TradeHistory> findByMember_IdOrderByTradeTimeDesc(Long memberId, Pageable pageable);
 
-    void deleteAllByMemberId(Long memberId);
+    void deleteAllByMember_Id(Long memberId);
 }
 

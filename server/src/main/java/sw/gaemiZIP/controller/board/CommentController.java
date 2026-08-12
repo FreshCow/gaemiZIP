@@ -11,6 +11,7 @@ import sw.gaemiZIP.entity.board.Comment;
 import sw.gaemiZIP.entity.board.CommentLike;
 import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.exception.InappropriateContentException;
+import sw.gaemiZIP.repository.board.BoardRepository;
 import sw.gaemiZIP.repository.board.CommentLikeRepository;
 import sw.gaemiZIP.repository.board.CommentRepository;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
@@ -25,12 +26,13 @@ public class CommentController {
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final MemberAntRepository memberAntRepository;
+    private final BoardRepository boardRepository;
     private final ModerationService moderationService;
 
     // 댓글 목록 조회 (작성 시간 오름차순)
     @GetMapping("/api/boards/{boardId}/comments")
     public ResponseEntity<List<Comment>> getComments(@PathVariable Long boardId) {
-        List<Comment> comments = commentRepository.findAllByBoardIdAndIsBlindedFalseOrderByCreatedAtAsc(boardId);
+        List<Comment> comments = commentRepository.findAllByBoard_IdAndIsBlindedFalseOrderByCreatedAtAsc(boardId);
         return ResponseEntity.ok(comments);
     }
 
@@ -45,10 +47,12 @@ public class CommentController {
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
         Comment comment = new Comment();
-        comment.setBoardId(boardId);
+        comment.setBoard(boardRepository.getReferenceById(boardId));
         comment.setAuthor(member.getNickname());
         comment.setContent(request.getContent());
-        comment.setParentCommentId(request.getParentCommentId()); // null이면 일반 댓글
+        if (request.getParentCommentId() != null) { // null이면 일반 댓글
+            comment.setParentComment(commentRepository.getReferenceById(request.getParentCommentId()));
+        }
 
         //불적절한 내용 포함확인
         if(moderationService.isInappropriate(comment.getContent())){
@@ -69,14 +73,14 @@ public class CommentController {
         MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
-        if(commentLikeRepository.existsByMemberIdAndCommentId(member.getId(), id)) {
+        if(commentLikeRepository.existsByMember_IdAndComment_Id(member.getId(), id)) {
             //좋아요 해제
-            if(commentLikeRepository.deleteByMemberIdAndCommentId(member.getId(), id) != 0) comment.setLikeCount(comment.getLikeCount() - 1);
+            if(commentLikeRepository.deleteByMember_IdAndComment_Id(member.getId(), id) != 0) comment.setLikeCount(comment.getLikeCount() - 1);
 
         }else{
             CommentLike commentLike = new CommentLike();
-            commentLike.setCommentId(id);
-            commentLike.setMemberId(member.getId());
+            commentLike.setComment(comment);
+            commentLike.setMember(member);
 
             try{
                 commentLikeRepository.save(commentLike);

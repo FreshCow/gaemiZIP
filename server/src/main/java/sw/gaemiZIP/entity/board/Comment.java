@@ -1,8 +1,11 @@
 package sw.gaemiZIP.entity.board;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
 
@@ -16,11 +19,20 @@ public class Comment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long boardId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "board_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnore
+    private Board board;
 
-    @Column(nullable = true)
-    private Long parentCommentId; // 대댓글인 경우 부모 댓글 ID
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnore
+    private Comment parentComment; // 대댓글인 경우 부모 댓글
+
+    public Long getBoardId() { return board != null ? board.getId() : null; }
+    public Long getParentCommentId() { return parentComment != null ? parentComment.getId() : null; }
 
     @Column(nullable = false)
     private String author;

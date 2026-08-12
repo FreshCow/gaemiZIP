@@ -1,8 +1,13 @@
 package sw.gaemiZIP.entity.board;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+import sw.gaemiZIP.entity.member.MemberAnt;
+import sw.gaemiZIP.entity.stock.Stock;
 
 import java.time.LocalDateTime;
 
@@ -16,8 +21,11 @@ public class Board {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column
-    private Long memberId; //작성자 계정
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JsonIgnore
+    private MemberAnt member; //작성자 계정
 
     @Column(nullable = false)
     private String author; // 작성자 (키움증권 계정)
@@ -28,11 +36,16 @@ public class Board {
     @Column(nullable = false)
     private String content; //글 내용
 
-    @Column(nullable = true)
-    private String stockCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_code")
+    @JsonIgnore
+    private Stock stock;
 
     @Column(nullable = true)
     private String stockName;
+
+    public Long getMemberId() { return member != null ? member.getId() : null; }
+    public String getStockCode() { return stock != null ? stock.getCode() : null; }
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
