@@ -1,11 +1,15 @@
 package sw.gaemiZIP.entity.stock;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import sw.gaemiZIP.entity.BaseTimeEntity;
+import sw.gaemiZIP.entity.member.MemberAnt;
 
 @Entity
 @Getter
@@ -17,19 +21,27 @@ public class Favorite extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long memberId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnore
+    private MemberAnt member;
 
-    @Column(nullable = false)
-    private String stockCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_code", nullable = false)
+    @JsonIgnore
+    private Stock stock;
 
     @Column(nullable = false)
     private String stockName;
 
     @Builder
-    public Favorite(Long memberId, String stockCode, String stockName) {
-        this.memberId = memberId;
-        this.stockCode = stockCode;
+    public Favorite(MemberAnt member, Stock stock, String stockName) {
+        this.member = member;
+        this.stock = stock;
         this.stockName = stockName;
     }
+
+    public Long getMemberId() { return member != null ? member.getId() : null; }
+    public String getStockCode() { return stock != null ? stock.getCode() : null; }
 }

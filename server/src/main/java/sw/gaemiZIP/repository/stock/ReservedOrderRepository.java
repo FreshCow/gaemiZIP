@@ -12,12 +12,12 @@ import java.util.List;
 
 public interface ReservedOrderRepository extends JpaRepository<ReservedOrder, Long> {
 
-    List<ReservedOrder> findByMemberIdAndStatus(Long memberId, TradeStatus status);
+    List<ReservedOrder> findByMember_IdAndStatus(Long memberId, TradeStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select o from ReservedOrder o where o.stockCode = :stockCode and o.status = :status")
+    @Query("select o from ReservedOrder o where o.stock.code = :stockCode and o.status = :status")
     List<ReservedOrder> findByStockCodeAndStatusForUpdate(@Param("stockCode") String stockCode,
                                                           @Param("status") TradeStatus status);
 
-    void deleteAllByMemberId(Long memberId);
+    void deleteAllByMember_Id(Long memberId);
 }

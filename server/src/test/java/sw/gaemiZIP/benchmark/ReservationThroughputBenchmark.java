@@ -15,12 +15,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.member.Role;
 import sw.gaemiZIP.entity.stock.ReservedOrder;
+import sw.gaemiZIP.entity.stock.Stock;
 import sw.gaemiZIP.entity.stock.TradeStatus;
 import sw.gaemiZIP.entity.stock.TradeType;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.notification.NotificationRepository;
 import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
+import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.service.stock.ReservationService;
 
@@ -62,6 +64,7 @@ class ReservationThroughputBenchmark {
     @Autowired private HoldingRepository holdingRepository;
     @Autowired private TradeHistoryRepository tradeHistoryRepository;
     @Autowired private NotificationRepository notificationRepository;
+    @Autowired private StockRepository stockRepository;
     @Autowired private PlatformTransactionManager transactionManager;
 
     private final List<Long> seededMemberIds = new ArrayList<>();
@@ -74,9 +77,9 @@ class ReservationThroughputBenchmark {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             reservedOrderRepository.deleteAllById(seededOrderIds);
             for (Long memberId : seededMemberIds) {
-                holdingRepository.deleteAllByMemberId(memberId);
-                tradeHistoryRepository.deleteAllByMemberId(memberId);
-                notificationRepository.deleteAllByMemberId(memberId);
+                holdingRepository.deleteAllByMember_Id(memberId);
+                tradeHistoryRepository.deleteAllByMember_Id(memberId);
+                notificationRepository.deleteAllByMember_Id(memberId);
             }
             memberAntRepository.deleteAllById(seededMemberIds);
         });
@@ -147,9 +150,15 @@ class ReservationThroughputBenchmark {
             seededMemberIds.add(member.getId());
 
             String stockCode = "BENCH" + suffix;
+            Stock stock = stockRepository.save(Stock.builder()
+                    .code(stockCode)
+                    .name("벤치마크종목")
+                    .initial("ㅂㅊㅁㅋㅈㅁ")
+                    .market("KOSPI")
+                    .build());
             ReservedOrder order = reservedOrderRepository.save(ReservedOrder.builder()
-                    .memberId(member.getId())
-                    .stockCode(stockCode)
+                    .member(member)
+                    .stock(stock)
                     .stockName("벤치마크종목")
                     .tradeType(TradeType.BUY)
                     .targetPrice(TARGET_PRICE)

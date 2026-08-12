@@ -1,8 +1,12 @@
 package sw.gaemiZIP.entity.board;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+import sw.gaemiZIP.entity.stock.Stock;
 
 @Entity
 @Getter
@@ -12,14 +16,22 @@ public class BoardStockShare {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long boardId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "board_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnore
+    private Board board;
 
-    @Column(nullable = false)
-    private String stockCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_code", nullable = false)
+    @JsonIgnore
+    private Stock stock;
 
     @Column(nullable = false)
     private String stockName;
+
+    public Long getBoardId() { return board != null ? board.getId() : null; }
+    public String getStockCode() { return stock != null ? stock.getCode() : null; }
 
     @Column(nullable = false)
     private int quantity;

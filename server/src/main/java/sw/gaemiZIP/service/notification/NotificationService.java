@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sw.gaemiZIP.dto.notification.NotificationResponse;
 import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.notification.Notification;
+import sw.gaemiZIP.entity.stock.Stock;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.notification.NotificationRepository;
 
@@ -18,12 +19,12 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final MemberAntRepository memberAntRepository;
 
-    // 예약 체결 등 이벤트 발생 시 알림 생성 — memberId를 이미 알고 있는 호출부(ReservationService)에서 직접 호출
+    // 예약 체결 등 이벤트 발생 시 알림 생성 — member/stock을 이미 알고 있는 호출부(ReservationService)에서 직접 호출
     @Transactional
-    public void notify(Long memberId, String stockCode, String message) {
+    public void notify(MemberAnt member, Stock stock, String message) {
         notificationRepository.save(Notification.builder()
-                .memberId(memberId)
-                .stockCode(stockCode)
+                .member(member)
+                .stock(stock)
                 .message(message)
                 .read(false)
                 .build());
@@ -32,13 +33,13 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public Page<NotificationResponse> getMyNotifications(String email, Pageable pageable) {
         Long memberId = findMemberId(email);
-        return notificationRepository.findByMemberIdOrderByCreatedDateDesc(memberId, pageable)
+        return notificationRepository.findByMember_IdOrderByCreatedDateDesc(memberId, pageable)
                 .map(NotificationResponse::from);
     }
 
     @Transactional(readOnly = true)
     public long getUnreadCount(String email) {
-        return notificationRepository.countByMemberIdAndReadFalse(findMemberId(email));
+        return notificationRepository.countByMember_IdAndReadFalse(findMemberId(email));
     }
 
     @Transactional
@@ -57,7 +58,7 @@ public class NotificationService {
     @Transactional
     public void markAllAsRead(String email) {
         Long memberId = findMemberId(email);
-        notificationRepository.findByMemberIdAndReadFalse(memberId)
+        notificationRepository.findByMember_IdAndReadFalse(memberId)
                 .forEach(Notification::markAsRead);
     }
 
