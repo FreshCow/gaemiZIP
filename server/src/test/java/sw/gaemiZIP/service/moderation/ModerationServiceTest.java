@@ -22,7 +22,7 @@ class ModerationServiceTest {
     void setUp() throws IOException {
         server = new MockWebServer();
         server.start();
-        moderationService = new ModerationService(WebClient.builder(), server.url("/").toString());
+        moderationService = new ModerationService(server.url("/").toString());
     }
 
     @AfterEach
