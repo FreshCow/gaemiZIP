@@ -6,11 +6,11 @@ import sw.gaemiZIP.entity.board.BoardLike;
 public interface BoardLikeRepository extends JpaRepository<BoardLike, Long> {
 
     // 중복확인
-    boolean existsByMemberIdAndBoardId(Long memberId, Long boardId);
+    boolean existsByMember_IdAndBoard_Id(Long memberId, Long boardId);
 
     //개별 삭제
-    long deleteByMemberIdAndBoardId(Long memberId, Long boardId);
+    long deleteByMember_IdAndBoard_Id(Long memberId, Long boardId);
 
     //전체 삭제
-    void deleteAllByMemberId(Long memberId);
+    void deleteAllByMember_Id(Long memberId);
 }

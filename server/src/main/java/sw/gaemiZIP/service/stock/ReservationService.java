@@ -11,6 +11,7 @@ import sw.gaemiZIP.entity.stock.*;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
+import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.service.notification.NotificationService;
 
@@ -23,6 +24,7 @@ public class ReservationService {
     private final HoldingRepository holdingRepository;
     private final ReservedOrderRepository reservedOrderRepository;
     private final TradeHistoryRepository tradeHistoryRepository;
+    private final StockRepository stockRepository;
     private final NotificationService notificationService;
 
 
@@ -45,10 +47,10 @@ public class ReservationService {
                 member.unlockBalance(amount); //체결금액 뺀 자산으로 lock 해제
 
                 Holding holding = holdingRepository
-                        .findByMemberIdAndStockCode(member.getId(), order.getStockCode())
+                        .findByMember_IdAndStock_Code(member.getId(), order.getStockCode())
                         .orElse(Holding.builder()
-                                .memberId(member.getId())
-                                .stockCode(order.getStockCode())
+                                .member(member)
+                                .stock(order.getStock())
                                 .stockName(order.getStockName())
                                 .quantity(0)
                                 .avgPrice(0L)
@@ -57,10 +59,10 @@ public class ReservationService {
                 holding.addPurchase(order.getQuantity(), order.getTargetPrice());
                 holdingRepository.save(holding);
 
-                saveHistory(member.getId(), order, "BUY", null);
+                saveHistory(member, order, "BUY", null);
             }else{
                 Holding holding = holdingRepository
-                        .findByMemberIdAndStockCode(member.getId(), order.getStockCode())
+                        .findByMember_IdAndStock_Code(member.getId(), order.getStockCode())
                         .orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
                 double profitRate = ((double) order.getTargetPrice() - holding.getAvgPrice()) / holding.getAvgPrice() * 100.0;
 
@@ -71,13 +73,13 @@ public class ReservationService {
                     holdingRepository.delete(holding);
                 }
 
-                saveHistory(member.getId(), order, "SELL", profitRate);
+                saveHistory(member, order, "SELL", profitRate);
             }
 
             order.excute();
 
             String tradeLabel = order.getTradeType() == TradeType.BUY ? "매수" : "매도";
-            notificationService.notify(member.getId(), order.getStockCode(),
+            notificationService.notify(member, order.getStock(),
                     String.format("%s %s %d주가 %,d원에 체결되었습니다.", order.getStockName(), tradeLabel, order.getQuantity(), order.getTargetPrice()));
         }
     }
@@ -89,10 +91,10 @@ public class ReservationService {
                 : currentPrice >= order.getTargetPrice();
     }
 
-    private void saveHistory(Long id, ReservedOrder order, String type, Double profitRate) {
+    private void saveHistory(MemberAnt member, ReservedOrder order, String type, Double profitRate) {
         TradeHistory tradeHistory = new TradeHistory();
-        tradeHistory.setMemberId(id);
-        tradeHistory.setStockCode(order.getStockCode()); //종목코드
+        tradeHistory.setMember(member);
+        tradeHistory.setStock(order.getStock()); //종목코드
         tradeHistory.setStockName(order.getStockName()); //종목이름
         tradeHistory.setTradeType(type);
         tradeHistory.setPrice(order.getTargetPrice().intValue());
@@ -127,7 +129,7 @@ public class ReservationService {
         }
         else { //매도
 
-            Holding holding = holdingRepository.findByMemberIdAndStockCode(member.getId(), request.getStockCode()).orElseThrow(()-> new IllegalStateException("보유하지 않은 종목입니다."));
+            Holding holding = holdingRepository.findByMember_IdAndStock_Code(member.getId(), request.getStockCode()).orElseThrow(()-> new IllegalStateException("보유하지 않은 종목입니다."));
             int available = holding.getQuantity() - holding.getLockedQuantity();
 
             //
@@ -139,8 +141,8 @@ public class ReservationService {
         }
 
         ReservedOrder order = ReservedOrder.builder()
-                .memberId(member.getId())
-                .stockCode(request.getStockCode())
+                .member(member)
+                .stock(stockRepository.getReferenceById(request.getStockCode()))
                 .stockName(request.getStockName())
                 .tradeType(tradeType)
                 .targetPrice(request.getPrice().longValue())
@@ -156,7 +158,7 @@ public class ReservationService {
     public ReservationListResponse getMyReservations(String email) {
         MemberAnt member = findMember(email);
         List<ReservationResponse> reservations = reservedOrderRepository
-                .findByMemberIdAndStatus(member.getId(), TradeStatus.PENDING)
+                .findByMember_IdAndStatus(member.getId(), TradeStatus.PENDING)
                 .stream()
                 .map(ReservationResponse::from)
                 .toList();
@@ -180,7 +182,7 @@ public class ReservationService {
             member.unlockBalance(order.getTargetPrice() * order.getQuantity());
         }
         else{
-            Holding holding = holdingRepository.findByMemberIdAndStockCode(member.getId(), order.getStockCode()).orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
+            Holding holding = holdingRepository.findByMember_IdAndStock_Code(member.getId(), order.getStockCode()).orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
             holding.unlock(order.getQuantity());
         }
 

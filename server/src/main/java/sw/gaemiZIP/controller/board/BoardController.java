@@ -18,7 +18,10 @@ import sw.gaemiZIP.entity.board.BoardTag;
 import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.member.Role;
 import sw.gaemiZIP.repository.board.*;
+import sw.gaemiZIP.exception.InappropriateContentException;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
+import sw.gaemiZIP.repository.stock.StockRepository;
+import sw.gaemiZIP.service.moderation.ModerationService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +41,8 @@ public class BoardController {
     private final MemberAntRepository memberAntRepository;
     private final BoardLikeRepository boardLikeRepository;
     private final BoardStockShareRepository boardStockShareRepository;
+    private final StockRepository stockRepository;
+    private final ModerationService moderationService;
 
     // 게시글 전체 목록 조회 (최신순)
     @GetMapping
@@ -70,7 +75,7 @@ public class BoardController {
     public ResponseEntity<BoardDetailResponse> getBoard(@PathVariable Long id) {
         Board board = boardRepository.findById(id).orElse(null);
         if (board == null) return ResponseEntity.status(404).body(null);
-        List<BoardStockShare> shares = boardStockShareRepository.findAllByBoardId(id);
+        List<BoardStockShare> shares = boardStockShareRepository.findAllByBoard_Id(id);
         return ResponseEntity.ok(BoardDetailResponse.from(board, shares));
     }
 
@@ -114,16 +119,16 @@ public class BoardController {
         MemberAnt member = memberAntRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
-        if (boardLikeRepository.existsByMemberIdAndBoardId(member.getId(), id)){
+        if (boardLikeRepository.existsByMember_IdAndBoard_Id(member.getId(), id)){
             //좋아요 해제
-            if(boardLikeRepository.deleteByMemberIdAndBoardId(member.getId(), id) != 0) board.setLikeCount(board.getLikeCount() - 1);
+            if(boardLikeRepository.deleteByMember_IdAndBoard_Id(member.getId(), id) != 0) board.setLikeCount(board.getLikeCount() - 1);
 
         }else{
 
             //좋아요~
             BoardLike like =  new BoardLike();
-            like.setBoardId(id);
-            like.setMemberId(member.getId());
+            like.setBoard(board);
+            like.setMember(member);
             try{
                 boardLikeRepository.save(like);
                 board.setLikeCount(board.getLikeCount() + 1);
@@ -158,15 +163,21 @@ public class BoardController {
         board.setContent(request.content());
         board.setTag(request.tag() != null ? request.tag() : BoardTag.DAILY);
         board.setAuthor(member.getNickname()); // 클라이언트가 보낸 author는 무시하고 서버가 덮어씀
-        board.setMemberId(member.getId());
+        board.setMember(member);
+
+        //불적절한 내용 포함확인
+        if(moderationService.isInappropriate(request.title() + " " + request.content())){
+            throw new InappropriateContentException("부적절한 내용이 포함되어 있습니다.");
+        }
+
         Board saved = boardRepository.save(board);
 
         List<BoardStockShare> savedShares = List.of();
         if (sharedStocks != null && !sharedStocks.isEmpty()) {
             savedShares = sharedStocks.stream().map(s -> {
                 BoardStockShare share = new BoardStockShare();
-                share.setBoardId(saved.getId());
-                share.setStockCode(s.stockCode());
+                share.setBoard(saved);
+                share.setStock(stockRepository.getReferenceById(s.stockCode()));
                 share.setStockName(s.stockName());
                 share.setQuantity(s.quantity());
                 share.setAvgPrice(s.avgPrice());
@@ -230,13 +241,13 @@ public class BoardController {
         board.setTag(request.tag() != null ? request.tag() : BoardTag.DAILY);
         Board saved = boardRepository.save(board);
 
-        boardStockShareRepository.deleteAllByBoardId(id);
+        boardStockShareRepository.deleteAllByBoard_Id(id);
         List<BoardStockShare> savedShares = List.of();
         if(sharedStocks != null && !sharedStocks.isEmpty()) {
             savedShares = sharedStocks.stream().map(s ->{
                 BoardStockShare share = new BoardStockShare();
-                share.setBoardId(id);
-                share.setStockCode(s.stockCode());
+                share.setBoard(saved);
+                share.setStock(stockRepository.getReferenceById(s.stockCode()));
                 share.setStockName(s.stockName());
                 share.setQuantity(s.quantity());
                 share.setAvgPrice(s.avgPrice());

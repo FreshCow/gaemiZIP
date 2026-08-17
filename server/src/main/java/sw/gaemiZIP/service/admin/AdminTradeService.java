@@ -41,7 +41,7 @@ public class AdminTradeService {
         }
 
         adminAuditLogRepository.save(AdminAuditLog.builder()
-                .adminId(admin.getId())
+                .admin(admin)
                 .adminNickname(admin.getNickname())
                 .action(ACTION_ADJUST_BALANCE)
                 .targetId(id)
@@ -62,7 +62,7 @@ public class AdminTradeService {
         tradeHistoryRepository.delete(tradeHistory);
 
         adminAuditLogRepository.save(AdminAuditLog.builder()
-                .adminId(admin.getId())
+                .admin(admin)
                 .adminNickname(admin.getNickname())
                 .action(ACTION_DELETE_TRADE)
                 .targetId(tradeid)

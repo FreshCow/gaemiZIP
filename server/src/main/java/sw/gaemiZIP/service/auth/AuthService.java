@@ -166,13 +166,13 @@ public class AuthService {
         MemberAnt member = memberAntRepository.findByUsernameOrEmail(loginId, loginId)
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
-        tradeHistoryRepository.deleteAllByMemberId(member.getId());
-        holdingRepository.deleteAllByMemberId(member.getId());
-        reservedOrderRepository.deleteAllByMemberId(member.getId());
-        favoriteRepository.deleteAllByMemberId(member.getId());
-        notificationRepository.deleteAllByMemberId(member.getId());
-        boardLikeRepository.deleteAllByMemberId(member.getId());
-        commentLikeRepository.deleteAllByMemberId(member.getId());
+        tradeHistoryRepository.deleteAllByMember_Id(member.getId());
+        holdingRepository.deleteAllByMember_Id(member.getId());
+        reservedOrderRepository.deleteAllByMember_Id(member.getId());
+        favoriteRepository.deleteAllByMember_Id(member.getId());
+        notificationRepository.deleteAllByMember_Id(member.getId());
+        boardLikeRepository.deleteAllByMember_Id(member.getId());
+        commentLikeRepository.deleteAllByMember_Id(member.getId());
 
         memberAntRepository.delete(member);
         redisTemplate.delete(LOGIN_CACHE_KEY + loginId);

@@ -8,9 +8,9 @@ import java.util.Optional;
 
 public interface HoldingRepository extends JpaRepository<Holding, Long> {
 
-    List<Holding> findAllByMemberId(Long memberId);
+    List<Holding> findAllByMember_Id(Long memberId);
 
-    Optional<Holding> findByMemberIdAndStockCode(Long memberId, String stockCode);
+    Optional<Holding> findByMember_IdAndStock_Code(Long memberId, String stockCode);
 
-    void deleteAllByMemberId(Long memberId);
+    void deleteAllByMember_Id(Long memberId);
 }

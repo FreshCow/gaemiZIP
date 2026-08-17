@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+import ErrorToast from "@/components/ui/ErrorToast";
 import {
   BOARD_TAG_ACTIVE_CLASSES,
   BOARD_TAG_BADGE_CLASSES,
@@ -162,13 +163,8 @@ export default function BoardForm({
         </div>
       )}
 
-      {error && (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
-          {error}
-        </p>
-      )}
-
-      <div className="flex justify-end gap-2 pt-1">
+      <div className="relative flex justify-end gap-2 pt-1">
+        <ErrorToast message={error} onDismiss={() => setError("")} />
         <Button variant="outline" size="sm" onClick={onCancel}>
           취소
         </Button>

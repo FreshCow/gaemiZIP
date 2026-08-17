@@ -6,7 +6,7 @@ import sw.gaemiZIP.entity.board.BoardStockShare;
 import java.util.List;
 
 public interface BoardStockShareRepository extends JpaRepository<BoardStockShare, Long> {
-    List<BoardStockShare> findAllByBoardId(Long boardId);
+    List<BoardStockShare> findAllByBoard_Id(Long boardId);
 
-    void deleteAllByBoardId(Long boardId);
+    void deleteAllByBoard_Id(Long boardId);
 }

@@ -9,10 +9,20 @@ services:
     environment:
       POSTGRES_USER: postgres        # 노트북에서 쓰던 DB 아이디
       POSTGRES_PASSWORD: ***REMOVED***  # 노트북에서 쓰던 DB 비밀번호
-      POSTGRES_DB: scalper_db      #db 이름
+      POSTGRES_DB: scalper_db      # db 이름
 
   redis:
     image: redis:7.2
     container_name: scalper-redis
     ports:
       - "6379:6379"
+
+  moderation:
+    build:
+      context: ../moderation
+    container_name: gaemizip-moderation
+    ports:
+      - "8001:8001"
+    environment:
+      MODEL_NAME: smilegate-ai/kor_unsmile
+      TOXIC_THRESHOLD: "0.7"
