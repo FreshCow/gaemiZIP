@@ -2,8 +2,8 @@ package sw.gaemiZIP.dto.stock;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import sw.gaemiZIP.dto.kiwoom.KiwoomStockInfoResponse;
 import sw.gaemiZIP.entity.stock.Stock;
-import sw.gaemiZIP.entity.stock.StockInfo;
 
 @Getter
 @AllArgsConstructor
@@ -66,7 +66,7 @@ public class StockInfoResponse {
     private String dstrRt;
     private String mktRt;
 
-    public static StockInfoResponse from(StockInfo info, Stock stock) {
+    public static StockInfoResponse from(KiwoomStockInfoResponse info, Stock stock) {
         return new StockInfoResponse(
                 stock.getCode(),
                 stock.getName(),
