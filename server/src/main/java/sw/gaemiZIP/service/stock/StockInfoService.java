@@ -53,7 +53,7 @@ public class StockInfoService {
         //주식테이블에서 코드로 주식찾고 없으면 null값 리턴
         Stock stock = stockRepository.findById(code).orElse(null);
         if (stock == null) {
-            log.warn("Stock 마스터에 없는 종목: {}", code);
+            log.warn("Stock 테이블에 없는 종목: {}", code);
             return Optional.empty();
         }
 
