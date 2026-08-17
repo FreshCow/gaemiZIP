@@ -52,4 +52,4 @@ oauth:
   google:
     client-id: ${GOOGLE_CLIENT_ID}
 
-moderation.service.url: ${MODERATION_SERVICE_URL}
+moderation.service.url: ${MODERATION_SERVICE_URL:http://localhost:8001}
