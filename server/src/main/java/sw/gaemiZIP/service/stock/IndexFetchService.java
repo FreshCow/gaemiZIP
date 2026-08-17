@@ -37,7 +37,7 @@ public class IndexFetchService {
     private final WebClient.Builder webClientBuilder; //Rest 호출
 
     //volatile은 자바 코드의 변수를 메인 메모리에 저장 할 것을 명시하기 위해 쓰임
-    //메인 메모리로부터 읽히고, 쓰기 작업은 메인 메모리로 직접 이루어짐 / Cpu캐시 쓰이지 않는다.
+    //메인 메모리로부터 읽히고, 쓰기 작업은 메인 메모리로 직접 이루어짐 / Cpu캐시 쓰이지 않는다.2
     private  volatile List<IndexResponse> currentIndices = Collections.emptyList();
 
     //컨트롤러 전달용
@@ -68,11 +68,13 @@ public class IndexFetchService {
 
     //키움증권 dto를 필요한 dto로 변경
     private IndexResponse toIndexResponse(KiwoomIndexResponse kr, String code, String name) {
-        String price = parseAbsPrice(kr.getCurPrc());
-        String rate = builderRate(kr.getPredPreSig(), kr.getFluRt());
+        String price = parseAbsPrice(kr.getCurPrc()); //주식 현재가
+        String rate = builderRate(kr.getPredPreSig(), kr.getFluRt()); // 등락율
         return new IndexResponse(code, name, price, rate);
     }
 
+
+    //등락율
     private String builderRate(String sign, String rate) {
         if(rate == null || rate.isBlank()) return "0";
         String raw = rate.trim();
@@ -83,6 +85,7 @@ public class IndexFetchService {
         };
     }
 
+    //절대값 가격 변환
     private String parseAbsPrice(String val) {
         if(val == null || val.isBlank()) return "0";
 
@@ -93,6 +96,7 @@ public class IndexFetchService {
         }
     }
 
+    //7초 마다 지수 값 불러오기
     @Scheduled(fixedDelay = 7_000, initialDelay = 7_000)
     public void fetchIndices() throws InterruptedException {
         KiwoomIndexResponse kospi = callKa20001("0","001"); //코스피
@@ -124,6 +128,8 @@ public class IndexFetchService {
         }
     }
 
+
+    //초기 실행 시 지수(코스피,코스닥,코스피200) 값 가져오기
     @PostConstruct
     public void initCache(){
         Optional<List<IndexResponse>> recent = loadIndicesFromRedis();
@@ -139,6 +145,9 @@ public class IndexFetchService {
         }
     }
 
+
+
+    //
     private Optional<List<IndexResponse>> loadIndicesFromRedis() {
         try {
             String cached = redisTemplate.opsForValue().get(INDEX_CACHE_KEY);

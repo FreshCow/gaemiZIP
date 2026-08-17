@@ -97,6 +97,13 @@ public class StockController {
         return ResponseEntity.ok().build();
     }
 
+    // 호가창 초기 데이터 가져오기 이후 갱신은 QUOTE_UPDATE
+    @GetMapping("/{code}/quote")
+    public ResponseEntity<OrderBookResponse> getQuote(@PathVariable String code) {
+        OrderBookResponse quote = stockQuoteService.getQuote(code);
+        return quote != null ? ResponseEntity.ok(quote) : ResponseEntity.notFound().build();
+    }
+
     private String resolveCurrentPrice(StockInfoResponse i) {
         if(i.getCurPric() != null && !i.getCurPric().isBlank()) {
             return StockFetchService.parseAbsPrice(i.getCurPric());
@@ -117,12 +124,5 @@ public class StockController {
         }catch (NumberFormatException e){
         }
         return rate.startsWith("+") || rate.startsWith("-") ? rate : "+" + rate;
-    }
-
-    // 호가창 초기 데이터 가져오기 이후 갱신은 QUOTE_UPDATE
-    @GetMapping("/{code}/quote")
-    public ResponseEntity<OrderBookResponse> getQuote(@PathVariable String code) {
-        OrderBookResponse quote = stockQuoteService.getQuote(code);
-        return quote != null ? ResponseEntity.ok(quote) : ResponseEntity.notFound().build();
     }
 }

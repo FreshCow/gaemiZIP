@@ -97,9 +97,7 @@ public class NewsService {
             List<News> result = new ArrayList<>();
             int savedCount = 0;
             for (NaverNewsItem item : response.items()) {
-                String link = (item.originallink() != null && !item.originallink().isBlank())
-                        ? item.originallink()
-                        : item.link();
+                String link = (item.originallink() != null && !item.originallink().isBlank()) ? item.originallink() : item.link();
 
                 News news = News.builder()
                         .title(cleanHtml(item.title()))

@@ -14,7 +14,7 @@ import sw.gaemiZIP.util.NicknameGenerator;
 public class MemberAnt extends BaseTimeEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // 자동 증가
     private Long id;
 
     @Column(unique = true)
@@ -34,7 +34,7 @@ public class MemberAnt extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private MemberStatus status;
 
-    private String provider; //Local, kakao, google
+    private String provider; //Local, google
 
     private String providerId;
 
@@ -46,15 +46,14 @@ public class MemberAnt extends BaseTimeEntity {
     private String securityCodeHash; // 비밀번호 재설정용 보안코드 해시 (GOOGLE 계정·마이그레이션 이전 로컬 계정은 null)
 
 
-
     @PrePersist // - DB에 INSERT 쿼리가 실행되기 직전에 JPA가 자동으로 호출
     public void prePersist() {
-        // 1. 닉네임이 비어있으면 랜덤 닉네임 강제 부여
+        //닉네임이 비어있으면 랜덤 닉네임 강제 부여
         if (this.nickname == null) {
             this.nickname = NicknameGenerator.generate();
         }
 
-        // 2. 예수금이 비어있으면 기본금 1억 원 강제 부여
+        //예수금이 비어있으면 기본금 1억 부여
         if (this.balance == null) {
             this.balance = 100000000L;
         }
