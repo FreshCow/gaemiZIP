@@ -47,7 +47,7 @@ public class StockController {
         );
     }
 
-    // ka10001: 종목 기본정보 조회 (5분 DB 캐시)
+    // ka10001: 종목 기본정보 조회 (실시간, TODO: Redis 캐싱 적용 예정)
     @GetMapping("/{code}/info")
     public ResponseEntity<StockInfoResponse> getStockInfo(@PathVariable String code) {
         return stockInfoService.getStockInfo(code)
