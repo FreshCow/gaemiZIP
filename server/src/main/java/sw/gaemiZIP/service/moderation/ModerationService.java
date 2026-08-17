@@ -18,10 +18,11 @@ public class ModerationService {
 
     private final WebClient webClient;
 
-    public ModerationService(WebClient.Builder builder, @Value("${moderation.service.url}") String baseUrl) {
+    public ModerationService(@Value("${moderation.service.url}") String baseUrl) {
         HttpClient httpClient = HttpClient.create()
                 .responseTimeout(Duration.ofMillis(1500));
-        this.webClient = builder.baseUrl(baseUrl)
+        this.webClient = WebClient.builder()
+                .baseUrl(baseUrl)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
     }

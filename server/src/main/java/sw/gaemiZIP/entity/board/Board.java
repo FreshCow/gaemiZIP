@@ -28,7 +28,7 @@ public class Board {
     private MemberAnt member; //작성자 계정
 
     @Column(nullable = false)
-    private String author; // 작성자 (키움증권 계정)
+    private String author; // 작성자 닉네임
 
     @Column(nullable = false)
     private String title; //글 제목
@@ -49,9 +49,6 @@ public class Board {
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    @Column(nullable = true)
-    private String password;
 
     @Column(nullable = false)
     private int likeCount = 0;

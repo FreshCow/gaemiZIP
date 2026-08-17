@@ -39,8 +39,6 @@ public class AdminContentService {
     public void blindBoard(Long boardId) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new IllegalStateException("게시글을 찾을 수 없습니다."));
-
-
         if (!board.isBlinded()) {
             board.blind();
         }else{

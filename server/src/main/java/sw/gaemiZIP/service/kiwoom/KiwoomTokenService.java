@@ -35,6 +35,7 @@ public class KiwoomTokenService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final DateTimeFormatter EXPIRES_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
     // KST = UTC+9
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
@@ -46,7 +47,6 @@ public class KiwoomTokenService {
         );
 
         try {
-            // 단일 호출 — String으로 받아 로깅 후 직접 파싱
             // au10001(토큰 발급) 엔드포인트는 rate limit이 엄격하므로 절대 두 번 호출하지 않음
             String raw = webClientBuilder.build()
                     .post()
@@ -62,6 +62,7 @@ public class KiwoomTokenService {
                 return;
             }
 
+
             KiwoomTokenResponse response = objectMapper.readValue(raw, KiwoomTokenResponse.class);
 
             if (response.accessToken() != null) {
@@ -72,6 +73,8 @@ public class KiwoomTokenService {
             } else {
                 log.error("토큰 발급 실패: accessToken 필드 null. 원문: {}", raw);
             }
+
+
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
             log.error("API 통신 에러 - 상태코드: {}, 응답내용: {}", e.getStatusCode(), e.getResponseBodyAsString());
         } catch (Exception e) {
