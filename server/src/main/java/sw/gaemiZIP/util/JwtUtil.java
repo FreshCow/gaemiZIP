@@ -17,9 +17,6 @@ public class JwtUtil {
     @Value("${jwt.secret}") //application.yml에 설정한 jwt.secret 값을 가져옴
     private String secretKey;
 
-    @Value("${jwt.expiration_time}") //application.yml에 설정한 jwt.secret 값을 가져옴
-    private long expirationTime;
-
     private Key key;
 
     @PostConstruct //의존성 주입 완료 후 메서드를 자동 실행하여 초기화 진행

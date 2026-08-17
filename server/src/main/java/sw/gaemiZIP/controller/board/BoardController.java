@@ -213,7 +213,7 @@ public class BoardController {
     //게시글 수정
     @Transactional
     @PutMapping("/{id}")
-    public ResponseEntity<?> udateBoard(@PathVariable Long id, @RequestBody BoardCreateRequest request, Authentication auth) {
+    public ResponseEntity<?> updateBoard(@PathVariable Long id, @RequestBody BoardCreateRequest request, Authentication auth) {
 
         //작성한 게시글
         Board board = boardRepository.findById(id).orElse(null);
