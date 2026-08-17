@@ -15,6 +15,7 @@ import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.member.Role;
 import sw.gaemiZIP.entity.stock.Holding;
 import sw.gaemiZIP.entity.stock.ReservedOrder;
+import sw.gaemiZIP.entity.stock.Stock;
 import sw.gaemiZIP.entity.stock.TradeHistory;
 import sw.gaemiZIP.entity.stock.TradeStatus;
 import sw.gaemiZIP.entity.stock.TradeType;
@@ -22,6 +23,7 @@ import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.notification.NotificationRepository;
 import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
+import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.service.stock.ReservationService;
 
@@ -83,6 +85,7 @@ class ReservationRaceConditionTest {
     @Autowired private HoldingRepository holdingRepository;
     @Autowired private TradeHistoryRepository tradeHistoryRepository;
     @Autowired private NotificationRepository notificationRepository;
+    @Autowired private StockRepository stockRepository;
     @Autowired private PlatformTransactionManager transactionManager;
 
     @Test
@@ -99,7 +102,7 @@ class ReservationRaceConditionTest {
                 runsWithFailure++;
             }
 
-            long remainingPending = reservedOrderRepository.findByMemberIdAndStatus(seeded.memberId(), TradeStatus.PENDING).size();
+            long remainingPending = reservedOrderRepository.findByMember_IdAndStatus(seeded.memberId(), TradeStatus.PENDING).size();
             if (i == 0) {
                 log.info("[1회차] 예외로 실패한 동시 호출 수: {}/{} | 그 결과 PENDING으로 남은 주문 수: {}",
                         failedCalls, CONCURRENT_CALLERS, remainingPending);
@@ -130,9 +133,9 @@ class ReservationRaceConditionTest {
             runConcurrently(seeded.stockCode(), false);
 
             MemberAnt reloaded = memberAntRepository.findById(seeded.memberId()).orElseThrow();
-            Holding holding = holdingRepository.findByMemberIdAndStockCode(seeded.memberId(), seeded.stockCode()).orElseThrow();
-            List<TradeHistory> histories = tradeHistoryRepository.findByMemberIdOrderByTradeTimeDesc(seeded.memberId());
-            long unreadNotifications = notificationRepository.countByMemberIdAndReadFalse(seeded.memberId());
+            Holding holding = holdingRepository.findByMember_IdAndStock_Code(seeded.memberId(), seeded.stockCode()).orElseThrow();
+            List<TradeHistory> histories = tradeHistoryRepository.findByMember_IdOrderByTradeTimeDesc(seeded.memberId());
+            long unreadNotifications = notificationRepository.countByMember_IdAndReadFalse(seeded.memberId());
 
             long expectedBalance = INITIAL_BALANCE - (long) ORDER_COUNT * TARGET_PRICE * QUANTITY;
             int expectedQuantity = EXISTING_QUANTITY + ORDER_COUNT * QUANTITY;
@@ -214,6 +217,7 @@ class ReservationRaceConditionTest {
         String suffix = System.nanoTime() + "_" + iteration;
         Long memberId = createMember(suffix);
         String stockCode = "RACE1_" + suffix;
+        createStock(stockCode);
         createOrders(memberId, stockCode);
         return new Seeded(memberId, stockCode);
     }
@@ -222,10 +226,11 @@ class ReservationRaceConditionTest {
         String suffix = System.nanoTime() + "_" + iteration;
         Long memberId = createMember(suffix);
         String stockCode = "RACE2_" + suffix;
+        createStock(stockCode);
 
         holdingRepository.save(Holding.builder()
-                .memberId(memberId)
-                .stockCode(stockCode)
+                .member(memberAntRepository.getReferenceById(memberId))
+                .stock(stockRepository.getReferenceById(stockCode))
                 .stockName("레이스종목")
                 .quantity(EXISTING_QUANTITY)
                 .lockedQuantity(0)
@@ -234,6 +239,15 @@ class ReservationRaceConditionTest {
 
         createOrders(memberId, stockCode);
         return new Seeded(memberId, stockCode);
+    }
+
+    private void createStock(String stockCode) {
+        stockRepository.save(Stock.builder()
+                .code(stockCode)
+                .name("레이스종목")
+                .initial("ㄹㅅㅈㅁ")
+                .market("KOSPI")
+                .build());
     }
 
     private Long createMember(String suffix) {
@@ -250,8 +264,8 @@ class ReservationRaceConditionTest {
     private void createOrders(Long memberId, String stockCode) {
         for (int i = 0; i < ORDER_COUNT; i++) {
             reservedOrderRepository.save(ReservedOrder.builder()
-                    .memberId(memberId)
-                    .stockCode(stockCode)
+                    .member(memberAntRepository.getReferenceById(memberId))
+                    .stock(stockRepository.getReferenceById(stockCode))
                     .stockName("레이스종목")
                     .tradeType(TradeType.BUY)
                     .targetPrice(TARGET_PRICE)
@@ -263,11 +277,11 @@ class ReservationRaceConditionTest {
 
     private void cleanUp(Long memberId) {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            reservedOrderRepository.deleteAll(reservedOrderRepository.findByMemberIdAndStatus(memberId, TradeStatus.PENDING));
-            reservedOrderRepository.deleteAll(reservedOrderRepository.findByMemberIdAndStatus(memberId, TradeStatus.EXECUTED));
-            holdingRepository.deleteAllByMemberId(memberId);
-            tradeHistoryRepository.deleteAllByMemberId(memberId);
-            notificationRepository.deleteAllByMemberId(memberId);
+            reservedOrderRepository.deleteAll(reservedOrderRepository.findByMember_IdAndStatus(memberId, TradeStatus.PENDING));
+            reservedOrderRepository.deleteAll(reservedOrderRepository.findByMember_IdAndStatus(memberId, TradeStatus.EXECUTED));
+            holdingRepository.deleteAllByMember_Id(memberId);
+            tradeHistoryRepository.deleteAllByMember_Id(memberId);
+            notificationRepository.deleteAllByMember_Id(memberId);
             memberAntRepository.deleteById(memberId);
         });
     }

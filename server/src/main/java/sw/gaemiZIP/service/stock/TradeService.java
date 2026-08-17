@@ -13,6 +13,7 @@ import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.stock.TradeHistory;
 import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
+import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 
 import java.util.List;
@@ -24,6 +25,7 @@ public class TradeService {
     private final MemberAntRepository memberAntRepository;
     private final TradeHistoryRepository tradeHistoryRepository;
     private final HoldingRepository holdingRepository;
+    private final StockRepository stockRepository;
 
     @Transactional
     public TradeResponse executeBuy(String email, TradeRequest request) {
@@ -39,10 +41,10 @@ public class TradeService {
 
         // 보유 종목 가중평균 업데이트 (없으면 신규 생성)
         Holding holding = holdingRepository
-                .findByMemberIdAndStockCode(member.getId(), request.getStockCode())
+                .findByMember_IdAndStock_Code(member.getId(), request.getStockCode())
                 .orElse(Holding.builder()
-                        .memberId(member.getId())
-                        .stockCode(request.getStockCode())
+                        .member(member)
+                        .stock(stockRepository.getReferenceById(request.getStockCode()))
                         .stockName(request.getStockName())
                         .quantity(0)
                         .avgPrice(0L)
@@ -51,7 +53,7 @@ public class TradeService {
         holding.addPurchase(request.getQuantity(), request.getPrice());
         holdingRepository.save(holding);
 
-        TradeHistory saved = tradeHistoryRepository.save(buildHistory(member.getId(), request, "BUY", null));
+        TradeHistory saved = tradeHistoryRepository.save(buildHistory(member, request, "BUY", null));
         return TradeResponse.from(saved, member.getBalance());
     }
 
@@ -60,7 +62,7 @@ public class TradeService {
         MemberAnt member = findMember(email);
 
         Holding holding = holdingRepository
-                .findByMemberIdAndStockCode(member.getId(), request.getStockCode())
+                .findByMember_IdAndStock_Code(member.getId(), request.getStockCode())
                 .orElseThrow(() -> new IllegalStateException("보유하지 않은 종목입니다."));
 
         if (holding.getQuantity() < request.getQuantity()) {
@@ -78,14 +80,14 @@ public class TradeService {
             holdingRepository.delete(holding);
         }
 
-        TradeHistory saved = tradeHistoryRepository.save(buildHistory(member.getId(), request, "SELL", profitRate));
+        TradeHistory saved = tradeHistoryRepository.save(buildHistory(member, request, "SELL", profitRate));
         return TradeResponse.from(saved, member.getBalance());
     }
 
     @Transactional(readOnly = true)
     public List<TradeResponse> getMyTradeHistory(String email) {
         MemberAnt member = findMember(email);
-        return tradeHistoryRepository.findByMemberIdOrderByTradeTimeDesc(member.getId())
+        return tradeHistoryRepository.findByMember_IdOrderByTradeTimeDesc(member.getId())
                 .stream()
                 .map(h -> TradeResponse.from(h, null))
                 .toList();
@@ -94,14 +96,14 @@ public class TradeService {
     @Transactional(readOnly = true)
     public Page<TradeResponse> getMyTradeHistoryPaged(String email, Pageable pageable) {
         MemberAnt member = findMember(email);
-        return tradeHistoryRepository.findByMemberIdOrderByTradeTimeDesc(member.getId(), pageable).map(h -> TradeResponse.from(h, null));
+        return tradeHistoryRepository.findByMember_IdOrderByTradeTimeDesc(member.getId(), pageable).map(h -> TradeResponse.from(h, null));
     }
 
 
     @Transactional(readOnly = true)
     public List<HoldingResponse> getMyHoldings(String email) {
         MemberAnt member = findMember(email);
-        return holdingRepository.findAllByMemberId(member.getId())
+        return holdingRepository.findAllByMember_Id(member.getId())
                 .stream()
                 .map(HoldingResponse::from)
                 .toList();
@@ -112,10 +114,10 @@ public class TradeService {
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
     }
 
-    private TradeHistory buildHistory(Long memberId, TradeRequest request, String type, Double profitRate) {
+    private TradeHistory buildHistory(MemberAnt member, TradeRequest request, String type, Double profitRate) {
         TradeHistory h = new TradeHistory();
-        h.setMemberId(memberId);
-        h.setStockCode(request.getStockCode());
+        h.setMember(member);
+        h.setStock(stockRepository.getReferenceById(request.getStockCode()));
         h.setStockName(request.getStockName());
         h.setTradeType(type);
         h.setPrice(request.getPrice());

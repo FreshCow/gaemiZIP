@@ -8,6 +8,7 @@ import sw.gaemiZIP.entity.member.MemberAnt;
 import sw.gaemiZIP.entity.stock.Favorite;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.stock.FavoriteRepository;
+import sw.gaemiZIP.repository.stock.StockRepository;
 
 import java.util.List;
 
@@ -17,10 +18,11 @@ public class FavoriteService {
 
     private final MemberAntRepository memberAntRepository;
     private final FavoriteRepository favoriteRepository;
+    private final StockRepository stockRepository;
 
     public List<FavoriteResponse> getFavorites(String email) {
         MemberAnt member = findMember(email);
-        return favoriteRepository.findAllByMemberIdOrderByCreatedDateDesc(member.getId())
+        return favoriteRepository.findAllByMember_IdOrderByCreatedDateDesc(member.getId())
                 .stream()
                 .map(FavoriteResponse::from)
                 .toList();
@@ -30,10 +32,10 @@ public class FavoriteService {
     @Transactional
     public void addFavorite(String email, String stockCode, String stockName) {
         MemberAnt member = findMember(email);
-        if (favoriteRepository.existsByMemberIdAndStockCode(member.getId(), stockCode)) return;
+        if (favoriteRepository.existsByMember_IdAndStock_Code(member.getId(), stockCode)) return;
         favoriteRepository.save(Favorite.builder()
-                .memberId(member.getId())
-                .stockCode(stockCode)
+                .member(member)
+                .stock(stockRepository.getReferenceById(stockCode))
                 .stockName(stockName)
                 .build());
     }
@@ -41,7 +43,7 @@ public class FavoriteService {
     @Transactional
     public void removeFavorite(String email, String stockCode) {
         MemberAnt member = findMember(email);
-        favoriteRepository.deleteByMemberIdAndStockCode(member.getId(), stockCode);
+        favoriteRepository.deleteByMember_IdAndStock_Code(member.getId(), stockCode);
     }
 
     private MemberAnt findMember(String loginId) {

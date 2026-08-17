@@ -9,11 +9,11 @@ import java.util.List;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-    Page<Notification> findByMemberIdOrderByCreatedDateDesc(Long memberId, Pageable pageable);
+    Page<Notification> findByMember_IdOrderByCreatedDateDesc(Long memberId, Pageable pageable);
 
-    List<Notification> findByMemberIdAndReadFalse(Long memberId);
+    List<Notification> findByMember_IdAndReadFalse(Long memberId);
 
-    long countByMemberIdAndReadFalse(Long memberId);
+    long countByMember_IdAndReadFalse(Long memberId);
 
-    void deleteAllByMemberId(Long memberId);
+    void deleteAllByMember_Id(Long memberId);
 }

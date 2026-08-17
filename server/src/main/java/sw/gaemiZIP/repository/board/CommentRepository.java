@@ -8,11 +8,11 @@ import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
-    List<Comment> findAllByBoardIdOrderByCreatedAtAsc(Long boardId);
+    List<Comment> findAllByBoard_IdOrderByCreatedAtAsc(Long boardId);
 
     //블라인드 댓글 제외
-    List<Comment> findAllByBoardIdAndIsBlindedFalseOrderByCreatedAtAsc(Long boardId);
+    List<Comment> findAllByBoard_IdAndIsBlindedFalseOrderByCreatedAtAsc(Long boardId);
 
-    @Query("select c.boardId as boardId, count(c) as cnt from Comment c group by c.boardId")
+    @Query("select c.board.id as boardId, count(c) as cnt from Comment c group by c.board.id")
     List<BoardIdCount> countByBoardIdGroup();
 }

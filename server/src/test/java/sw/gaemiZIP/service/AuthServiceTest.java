@@ -401,13 +401,13 @@ class AuthServiceTest {
 
         authService.withdraw("testant1");
 
-        verify(tradeHistoryRepository).deleteAllByMemberId(1L);
-        verify(holdingRepository).deleteAllByMemberId(1L);
-        verify(reservedOrderRepository).deleteAllByMemberId(1L);
-        verify(favoriteRepository).deleteAllByMemberId(1L);
-        verify(notificationRepository).deleteAllByMemberId(1L);
-        verify(boardLikeRepository).deleteAllByMemberId(1L);
-        verify(commentLikeRepository).deleteAllByMemberId(1L);
+        verify(tradeHistoryRepository).deleteAllByMember_Id(1L);
+        verify(holdingRepository).deleteAllByMember_Id(1L);
+        verify(reservedOrderRepository).deleteAllByMember_Id(1L);
+        verify(favoriteRepository).deleteAllByMember_Id(1L);
+        verify(notificationRepository).deleteAllByMember_Id(1L);
+        verify(boardLikeRepository).deleteAllByMember_Id(1L);
+        verify(commentLikeRepository).deleteAllByMember_Id(1L);
         verify(memberAntRepository).delete(member);
         verify(redisTemplate).delete("auth:session:testant1");
     }
