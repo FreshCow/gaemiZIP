@@ -42,22 +42,11 @@ public class NicknameGenerator {
             "럭셔리", "고급진", "우아한", "품격있는", "엘리트", "스마트한", "클래식", "모던한", "힙스터", "매력만점"
     };
 
-    private  static final String[] ANT = {
-            "가시개미", "거북이개미", "검은개미", "고동털개미",
-            "곰개미", "공주개미", "군대개미", "꿀단지개미",
-            "날개미", "누운털개미", "도둑개미", "베짜기개미", "병정개미",
-            "불개미", "붉은개미", "사막개미", "수개미", "스미스개미",
-            "애집개미", "여왕개미", "왕개미", "유령개미", "일개미",
-            "잎꾼개미", "장님개미", "주름개미", "집개미",
-            "짱구개미", "총알개미", "침개미", "홍가슴개미", "황개미",
-            "황금개미", "황수염개미"
-    };
-
     private static final Random rd =  new Random();
 
     public static String generate() {
         String adjective = ADJECTIVES[rd.nextInt(ADJECTIVES.length)];
-        String ant = ANT[rd.nextInt(ANT.length)];
-        return adjective + " " + ant;
+        int discriminator = rd.nextInt(1_000_000); // #000000 ~ #999999
+        return String.format("%s %s#%06d", adjective, "개미", discriminator);
     }
 }
