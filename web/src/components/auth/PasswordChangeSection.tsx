@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { authApi } from "@/services/authApi";
 
 interface PasswordChangeSectionProps {
@@ -64,22 +65,19 @@ export function PasswordChangeSection({ provider }: PasswordChangeSectionProps) 
         </p>
       )}
 
-      <input
-        type="password"
+      <PasswordInput
         className="w-full rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
         placeholder="현재 비밀번호"
         value={currentPassword}
         onChange={(e) => setCurrentPassword(e.target.value)}
       />
-      <input
-        type="password"
+      <PasswordInput
         className="w-full rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
         placeholder="새 비밀번호"
         value={newPassword}
         onChange={(e) => setNewPassword(e.target.value)}
       />
-      <input
-        type="password"
+      <PasswordInput
         className="w-full rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
         placeholder="새 비밀번호 확인"
         value={newPasswordConfirm}
