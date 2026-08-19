@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { authApi } from "@/services/authApi";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -64,8 +65,7 @@ export function WithdrawSection({ provider }: WithdrawSectionProps) {
             </p>
           )}
 
-          <input
-            type="password"
+          <PasswordInput
             className="w-full rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
             placeholder="현재 비밀번호 입력"
             value={password}

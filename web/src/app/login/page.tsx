@@ -7,6 +7,7 @@ import { authApi } from "@/services/authApi";
 import { useAuthStore } from "@/store/useAuthStore";
 import { syncFavoritesFromServer } from "@/lib/favoriteSync";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 
 export default function LoginPage() {
@@ -90,8 +91,7 @@ export default function LoginPage() {
                 비밀번호를 잊으셨나요?
               </Link>
             </div>
-            <input
-              type="password"
+            <PasswordInput
               className="w-full rounded-lg bg-white px-3 py-2 text-sm text-gray-900 border border-gray-200 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
               placeholder="비밀번호 입력"
               value={password}
