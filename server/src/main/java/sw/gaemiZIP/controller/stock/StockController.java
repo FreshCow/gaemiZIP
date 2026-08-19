@@ -2,6 +2,7 @@ package sw.gaemiZIP.controller.stock;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -43,11 +44,11 @@ public class StockController {
             return ResponseEntity.ok(List.of());
         }
         return ResponseEntity.ok(
-                stockRepository.findTop10ByNameContainingOrInitialContaining(keyword, keyword)
+                stockRepository.searchByKeyword(keyword, PageRequest.of(0, 10))
         );
     }
 
-    // ka10001: 종목 기본정보 조회 (실시간, TODO: Redis 캐싱 적용 예정)
+    // ka10001: 종목 기본정보 조회
     @GetMapping("/{code}/info")
     public ResponseEntity<StockInfoResponse> getStockInfo(@PathVariable String code) {
         return stockInfoService.getStockInfo(code)
