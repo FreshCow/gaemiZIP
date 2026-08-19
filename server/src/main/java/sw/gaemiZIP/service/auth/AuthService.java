@@ -29,6 +29,7 @@ import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.util.JwtUtil;
+import sw.gaemiZIP.util.NicknameGenerator;
 import sw.gaemiZIP.util.SecurityCodeGenerator;
 
 import java.time.Duration;
@@ -86,6 +87,7 @@ public class AuthService {
 
         MemberAnt memberAnt = MemberAnt.builder()
                 .username(signUpRequestDto.getUsername())
+                .nickname(generateUniqueNickname())
                 .password(encodedPassword)
                 .role(Role.USER)
                 .provider("LOCAL")
@@ -178,7 +180,6 @@ public class AuthService {
         redisTemplate.delete(LOGIN_CACHE_KEY + loginId);
     }
 
-
     @Value("${oauth.google.client-id}")
     private String googleClientId;
 
@@ -199,20 +200,18 @@ public class AuthService {
         //토큰에서 이메일, 이름 추출
         GoogleIdToken.Payload payload = idToken.getPayload();
         String email = payload.getEmail();
-        String name = (String) payload.get("name");
 
         MemberAnt member = memberAntRepository.findByEmail(email).orElseGet(() -> {
             MemberAnt newMember = MemberAnt.builder()
                     .email(email)
                     .password("")
-                    .nickname(name + " 개미")
+                    .nickname(generateUniqueNickname())
                     .balance(100000000L)
                     .provider("GOOGLE")
                     .role(Role.USER)
                     .build();
             return memberAntRepository.save(newMember);
         });
-
 
         if(member.getStatus() == MemberStatus.SUSPENDED){
             throw new  IllegalStateException("정지된 계정입니다.");
@@ -222,7 +221,6 @@ public class AuthService {
         if (Boolean.TRUE.equals(redisTemplate.hasKey(sessionKey))) {
             throw new IllegalStateException("이미 다른 곳에서 로그인 중입니다.");
         }
-
 
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey(), expirationTime);
         redisTemplate.opsForValue().set(sessionKey, gaemiToken, expirationTime, TimeUnit.MILLISECONDS);
@@ -255,5 +253,20 @@ public class AuthService {
 
         //변경
         member.changePassword(passwordEncoder.encode(newPassword));
+    }
+
+    //닉네임 생성 중복 시 최대 5번 반복하여 재생성
+    private static final int MAX_NICKNAME_ATTEMPTS = 5;
+
+    private String generateUniqueNickname() {
+        String nickname;
+        int attempts = 0;
+        do {
+            if (++attempts > MAX_NICKNAME_ATTEMPTS) {
+                throw new IllegalStateException("닉네임 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+            }
+            nickname = NicknameGenerator.generate();
+        } while (memberAntRepository.existsByNickname(nickname));
+        return nickname;
     }
 }
