@@ -99,7 +99,6 @@ public class AuthService {
         return new SignUpResponseDto(securityCode);
     }
 
-
     //보안코드 확인
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public void verifySecurityCode(String username, String securityCode) {
