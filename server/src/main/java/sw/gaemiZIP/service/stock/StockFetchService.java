@@ -81,7 +81,7 @@ public class StockFetchService {
     }
 
 
-    @Scheduled(fixedDelay = 5_000, initialDelay = 5_000)
+    @Scheduled(fixedDelay = 30_000, initialDelay = 30_000)
     @Transactional
     public void fetchTopStocks() {
         try {
