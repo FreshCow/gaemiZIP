@@ -17,6 +17,8 @@ import sw.gaemiZIP.repository.stock.StockRepository;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -36,28 +38,46 @@ public class StockInfoService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+
+    private final ConcurrentHashMap<String, CompletableFuture<Optional<StockInfoResponse>>> inFlight = new ConcurrentHashMap<>();
+
     public Optional<StockInfoResponse> getStockInfo(String code) {
+        // 1차: 락 없이 캐시부터 확인 (웜 캐시일 때 빠른 경로 유지)
+        Optional<StockInfoResponse> cached = readFromCache(code);
+        if (cached.isPresent()) return cached;
 
-        String stockInfoCode = STOCK_INFO+":"+code;
+        // 2차: 같은 code로 진행 중인 요청이 있으면 그 Future를 그대로 받고,
+        //      없으면 여기서 딱 한 번만 fetchAndCache를 실행하는 Future를 등록
+        CompletableFuture<Optional<StockInfoResponse>> future = inFlight.computeIfAbsent(
+                code, c -> CompletableFuture.supplyAsync(() -> fetchAndCache(c)));
 
-        //레디스에서 확인 후 있으면 값 리턴
-        String cachedStockInfo = redisTemplate.opsForValue().get(stockInfoCode);
-        if (cachedStockInfo != null) {
-            try{
-                return Optional.of(objectMapper.readValue(cachedStockInfo, StockInfoResponse.class));
-            }catch (Exception e){
-                log.warn("레디스 주식정보 역직렬화 실패 : {}", e.getMessage());
-            }
+        try {
+            return future.join(); // 먼저 온 스레드든 나중 온 스레드든 같은 결과를 기다림
+        } finally {
+            inFlight.remove(code, future); // 이 future가 여전히 맵에 걸려있을 때만 제거(경합 안전)
         }
+    }
 
-        //주식테이블에서 코드로 주식찾고 없으면 null값 리턴
+    private Optional<StockInfoResponse> readFromCache(String code) {
+        String cachedStockInfo = redisTemplate.opsForValue().get(STOCK_INFO + ":" + code);
+        if (cachedStockInfo == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(cachedStockInfo, StockInfoResponse.class));
+        } catch (Exception e) {
+            log.warn("레디스 주식정보 역직렬화 실패 : {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private Optional<StockInfoResponse> fetchAndCache(String code) {
         Stock stock = stockRepository.findById(code).orElse(null);
         if (stock == null) {
             log.warn("Stock 테이블에 없는 종목: {}", code);
             return Optional.empty();
         }
 
-        //키움증권RestAPI에 값 요청하기
         KiwoomStockInfoResponse apiResp = callKa10001(code);
         if (apiResp == null) {
             return Optional.empty();
@@ -65,14 +85,18 @@ public class StockInfoService {
 
         StockInfoResponse stockInfoResponse = StockInfoResponse.from(apiResp, stock);
 
-        try{
-            redisTemplate.opsForValue().set(stockInfoCode, objectMapper.writeValueAsString(stockInfoResponse), CACHE_TTL);
-        }catch (Exception e){
+        try {
+            redisTemplate.opsForValue().set(
+                    STOCK_INFO + ":" + code,
+                    objectMapper.writeValueAsString(stockInfoResponse),
+                    CACHE_TTL);
+        } catch (Exception e) {
             log.error("레디스 주식정보 저장 실패 : {}", e.getMessage());
         }
 
         return Optional.of(stockInfoResponse);
     }
+
 
     private KiwoomStockInfoResponse callKa10001(String code) {
         try {

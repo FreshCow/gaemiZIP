@@ -82,13 +82,13 @@ public class KiwoomTokenService {
         }
     }
 
-    /** 8005 등 인증 실패 시 외부에서 강제 갱신 요청 */
-    public void forceRefresh() {
+    // 인증 실패 시 외부에서 강제 갱신 요청
+    public synchronized void forceRefresh() {
         this.accessToken = null;
         refreshAccessToken();
     }
 
-    public String getAccessToken() {
+    public synchronized String getAccessToken() {
         // 만료 5분 전 또는 null이면 재발급
         if (accessToken == null || Instant.now().isAfter(tokenExpiresAt.minusSeconds(300))) {
             refreshAccessToken();
