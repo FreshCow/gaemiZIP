@@ -140,7 +140,7 @@ public class IndexFetchService {
                 String payload = "INDEX_UPDATE:" + objectMapper.writeValueAsString(currentIndices);
                 webSocketHandler.broadcast(payload);
             }catch (Exception e){
-                log.warn("초기 지수 캐시 브로드캐스트 실패 ; {}", e.getMessage());
+                log.warn("초기 지수 브로드캐스트 실패 ; {}", e.getMessage());
             }
         }
     }
