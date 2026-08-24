@@ -59,8 +59,8 @@ public class IndexFetchService {
 
 
         } catch (Exception e) {
-            log.error("ka20001 mrkt_tp 호출 실패 [{}]: {}", mrkttp, e.getMessage());
-            log.error("ka20001 inds_cd 호출 실패 [{}]: {}", indscd, e.getMessage());
+            log.error("지수요청 mrkt_tp 호출 실패 [{}]: {}", mrkttp, e.getMessage());
+            log.error("지수요청 inds_cd 호출 실패 [{}]: {}", indscd, e.getMessage());
 
             return null;
         }
