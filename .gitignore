@@ -6,3 +6,5 @@ ANNOTATION.md
 img/
 pdf/
 server/.mcp.json
+.env
+.env.prod
