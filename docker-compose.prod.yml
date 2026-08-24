@@ -1,0 +1,22 @@
+# EC2 배포용. DB(NeonDB)/Redis(Upstash)는 외부 서비스 사용 — 여기서는 백엔드/프론트만 기동
+# moderation 서비스는 t3.micro 메모리 제약으로 배포 범위에서 제외 (PROGRESS.md TODO 참고)
+services:
+  backend:
+    image: ghcr.io/freshcow/gaemizip-server:latest
+    container_name: gaemizip-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  frontend:
+    image: ghcr.io/freshcow/gaemizip-web:latest
+    container_name: gaemizip-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
