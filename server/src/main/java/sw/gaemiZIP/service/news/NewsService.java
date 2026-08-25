@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-// 네이버 뉴스 검색 API를 60초마다 호출해 주식 관련 뉴스를 DB에 저장하는 서비스
+// 네이버 뉴스 검색 API를 월~금 오전8시부터 오후4시까지 10분간격으로 호출해 주식 관련 뉴스를 DB에 저장하는 서비스
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -46,7 +46,7 @@ public class NewsService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Scheduled(fixedDelay = 60_000)
+    @Scheduled(cron = "0 0/10 8-16 * * MON-FRI", zone = "Asia/Seoul")
     public void fetchNews() {
        fetchFromNaver(SEARCH_QUERY);
     }
