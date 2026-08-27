@@ -26,6 +26,9 @@ export const authApi = {
   logout: () =>
     api.post<void>("/auth/logout"),
 
+  heartbeat: () =>
+    api.post<void>("/auth/heartbeat"),
+
   changePassword: (currentPassword: string, newPassword: string) =>
     api.put<void>("/auth/password", { currentPassword, newPassword }),
 };

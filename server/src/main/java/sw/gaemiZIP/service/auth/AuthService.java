@@ -1,6 +1,5 @@
 package sw.gaemiZIP.service.auth;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -32,7 +31,6 @@ import sw.gaemiZIP.util.JwtUtil;
 import sw.gaemiZIP.util.NicknameGenerator;
 import sw.gaemiZIP.util.SecurityCodeGenerator;
 
-import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -64,6 +62,8 @@ public class AuthService {
     @Value("${jwt.remember-expiration-time}")
     private long rememberExpirationTime;
 
+    @Value("${jwt.session-lock-ttl}")
+    private long sessionLockTtl;
 
     //회원가입
     @Transactional
@@ -147,7 +147,7 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(member.getUsername(), member.getRole().getKey(), expiresMillis);
-        redisTemplate.opsForValue().set(sessionKey, token, expiresMillis, TimeUnit.MILLISECONDS);
+        redisTemplate.opsForValue().set(sessionKey, token, sessionLockTtl, TimeUnit.MILLISECONDS);
 
         return new LoginResponseDto(token, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey(),expiresMillis / 1000);
     }
@@ -217,14 +217,15 @@ public class AuthService {
         }
 
         String sessionKey = LOGIN_CACHE_KEY + member.getEmail();
+
         if (Boolean.TRUE.equals(redisTemplate.hasKey(sessionKey))) {
             throw new IllegalStateException("이미 다른 곳에서 로그인 중입니다.");
         }
 
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey(), expirationTime);
-        redisTemplate.opsForValue().set(sessionKey, gaemiToken, expirationTime, TimeUnit.MILLISECONDS);
+        redisTemplate.opsForValue().set(sessionKey, gaemiToken, sessionLockTtl, TimeUnit.MILLISECONDS);
 
-        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey(), expirationTime / 1000);
+        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey(), sessionLockTtl / 1000);
     }
 
     //로그아웃
@@ -267,5 +268,13 @@ public class AuthService {
             nickname = NicknameGenerator.generate();
         } while (memberAntRepository.existsByNickname(nickname));
         return nickname;
+    }
+
+    //하트비트 세션 락 TTL 갱신
+    public void refreshSession(String loginId) {
+        Boolean refreshed = redisTemplate.expire(LOGIN_CACHE_KEY + loginId, sessionLockTtl, TimeUnit.MILLISECONDS);
+        if (!Boolean.TRUE.equals(refreshed)) {
+            throw new IllegalStateException("세션이 만료되었습니다. 다시 로그인해주세요.");
+        }
     }
 }
