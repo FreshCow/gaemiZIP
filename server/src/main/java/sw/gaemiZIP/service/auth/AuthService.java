@@ -1,6 +1,5 @@
 package sw.gaemiZIP.service.auth;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -32,7 +31,6 @@ import sw.gaemiZIP.util.JwtUtil;
 import sw.gaemiZIP.util.NicknameGenerator;
 import sw.gaemiZIP.util.SecurityCodeGenerator;
 
-import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
