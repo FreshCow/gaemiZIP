@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
@@ -86,7 +85,7 @@ public class KiwoomRealtimeService {
                 @Override
                 protected void handleTextMessage(WebSocketSession session, TextMessage message) {
                     String payload = message.getPayload();
-                    log.debug("키움 원본: {}", payload.length() > 200 ? payload.substring(0, 200) : payload);
+                    //log.debug("키움 원본: {}", payload.length() > 200 ? payload.substring(0, 200) : payload);
 
                     // PING은 받은 그대로 echo해야 연결이 유지됨
                     if (payload.contains("\"trnm\":\"PING\"")) {
@@ -212,7 +211,7 @@ public class KiwoomRealtimeService {
             stockData.put("price",  price);
             stockData.put("rate",   rate);
             stockData.put("volume", volume);
-            log.info("실시간: code={} price={} rate={} volume={}", code, price, rate, volume);
+            //log.info("실시간: code={} price={} rate={} volume={}", code, price, rate, volume);
             frontEndHandler.broadcast("REALTIME_UPDATE:" + objectMapper.writeValueAsString(stockData));
             reservationService.matchAndExecute(code, Long.parseLong(price));
 
@@ -314,7 +313,7 @@ public class KiwoomRealtimeService {
             reg.put("data", List.of(entry));
 
             kiwoomSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(reg)));
-            log.info("실시간 구독 요청: {}개 종목 {}", codes.size(), codes);
+            log.info("실시간 구독 요청: {}개 종목", codes.size());
         } catch (IOException e) {
             log.error("구독 메시지 전송 실패: {}", e.getMessage());
         } catch (Exception e) {

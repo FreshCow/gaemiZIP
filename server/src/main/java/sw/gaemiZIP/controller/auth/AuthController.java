@@ -107,8 +107,12 @@ public class AuthController {
     //로그아웃
     @PostMapping("/logout")
     public ResponseEntity<?> logout(Authentication auth) {
-        authService.logout(auth.getName());
-        return ResponseEntity.ok().build();
+        try {
+            authService.logout(auth.getName());
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        }
     }
 
     //패스워드 변경
@@ -120,6 +124,16 @@ public class AuthController {
         }
         catch (IllegalStateException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/heartbeat")
+    public ResponseEntity<?> heartbeat(Authentication auth) {
+        try {
+            authService.refreshSession(auth.getName());
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }
 }
