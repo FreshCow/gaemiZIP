@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-// 로그인된 사용자가 접근하면 /로 돌려보내는 인증 전용 페이지
-const AUTH_ONLY_PATHS = ["/login", "/signup"];
-
-// 비로그인 포함 누구나 접근 가능한 페이지
-const OPEN_PATHS = ["/stocks", "/board", "/find-password"];
-
-// ADMIN 권한이 있어야만 접근 가능한 페이지
-const ADMIN_PATHS = ["/admin"];
+import { isAdminPath, requiresAuth } from "@/lib/authRoutes";
 
 // JWT는 서명 검증 없이 payload만 디코드 — 화면 가드용이며, 실제 인가는 서버 SecurityConfig가 처리
 function getRoleFromToken(token: string): string | null {
@@ -22,37 +14,22 @@ function getRoleFromToken(token: string): string | null {
   }
 }
 
+// gaemi_token 쿠키는 브라우저 프로세스 단위로 살아있어 실제 로그인 상태(탭 단위 sessionStorage 등)와
+// 어긋날 수 있음 — "로그인된 사용자를 /login,/signup에서 내보내는" 판단은 실제 상태를 아는
+// AuthStoreInitializer(클라이언트)가 전담하고, 미들웨어는 여기서 관여하지 않음 (안 그러면 서로 반대
+// 방향으로 리다이렉트를 주고받는 무한 루프가 생김)
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("gaemi_token")?.value;
   const { pathname } = request.nextUrl;
 
-  if (AUTH_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
-    if (token) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
-    return NextResponse.next();
-  }
-
-  if (ADMIN_PATHS.some((p) => pathname.startsWith(p))) {
+  if (isAdminPath(pathname)) {
     if (!token || getRoleFromToken(token) !== "ROLE_ADMIN") {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }
 
-  // 게시글 작성은 서버가 로그인 사용자만 허용하므로, 목록/상세는 열어두되 글쓰기만 로그인 요구
-  if (pathname.startsWith("/board/write")) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-    return NextResponse.next();
-  }
-
-  if (OPEN_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
-
-  if (!token) {
+  if (requiresAuth(pathname) && !token) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
