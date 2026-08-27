@@ -1,17 +1,17 @@
 package sw.gaemiZIP.service.stock;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.util.retry.Retry;
+import sw.gaemiZIP.dto.kiwoom.*;
 import sw.gaemiZIP.service.kiwoom.KiwoomTokenService;
-import sw.gaemiZIP.dto.kiwoom.KiwoomDailyChartResponse;
-import sw.gaemiZIP.dto.kiwoom.KiwoomMinuteChartResponse;
-import sw.gaemiZIP.dto.kiwoom.KiwoomTickChartResponse;
-import sw.gaemiZIP.dto.kiwoom.KiwoomWeeklyChartResponse;
 import sw.gaemiZIP.dto.stock.CandleResponse;
 
 import java.time.Duration;
@@ -19,10 +19,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 @Slf4j
 @Service
@@ -35,13 +35,26 @@ public class ChartService {
     private final KiwoomTokenService tokenService;
     private final WebClient.Builder webClientBuilder;
 
+    private final StringRedisTemplate redisTemplate;
+    private static final String STOCK_CANDLE = "stock:candle";
+    private static final Duration CACHE_TTL  = Duration.ofMinutes(5);
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+
     private static final String CHART_URL = "/api/dostk/chart";
     private static final DateTimeFormatter MINUTE_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final ZoneOffset KST = ZoneOffset.ofHours(9);
 
-    // 분봉 조회 (ticScope: "1","3","5","10","15","30","45","60")
+    private final ConcurrentHashMap<String, CompletableFuture<List<CandleResponse>>> inFlight = new ConcurrentHashMap<>();
+
+    //region 분봉 조회 (ticScope: "1","3","5","10","15","30","45","60")
     public List<CandleResponse> getMinuteChart(String stockCode, String ticScope) {
+        String cacheKey = STOCK_CANDLE + ":M" + ticScope + ":" + stockCode;
+        return getCached(cacheKey, () -> fetchMinuteChartFromApi(stockCode,  ticScope));
+    }
+
+    public List<CandleResponse> fetchMinuteChartFromApi(String stockCode, String ticScope) {
         KiwoomMinuteChartResponse res = post("ka10080",
                 Map.of("stk_cd", stockCode, "tic_scope", ticScope, "upd_stkpc_tp", "1"),
                 KiwoomMinuteChartResponse.class);
@@ -64,9 +77,15 @@ public class ChartService {
                 .sorted(Comparator.comparingLong(CandleResponse::time))  // 키움은 최신순 → 오름차순 정렬
                 .toList();
     }
+    //endregion
 
-    // 틱봉 조회 (ticScope: "1","3","5","10","30")
+    //region 틱봉 조회 (ticScope: "1","3","5","10","30")
     public List<CandleResponse> getTickChart(String stockCode, String ticScope) {
+        String cacheKey =  STOCK_CANDLE + ":T" + ticScope + ":" + stockCode;
+        return getCached(cacheKey, () -> fetchTickChartFromApi(stockCode,   ticScope));
+    }
+
+    public List<CandleResponse> fetchTickChartFromApi(String stockCode, String ticScope) {
         KiwoomTickChartResponse res = post("ka10079",
                 Map.of("stk_cd", stockCode, "tic_scope", ticScope, "upd_stkpc_tp", "1"),
                 KiwoomTickChartResponse.class);
@@ -89,9 +108,16 @@ public class ChartService {
                 .sorted(Comparator.comparingLong(CandleResponse::time))
                 .toList();
     }
+    //endregion
+
+    //region [일봉조회]
+    public List<CandleResponse> getDailyChart(String stockCode) {
+        String cacheKey = STOCK_CANDLE + ":D:" + stockCode;
+        return getCached(cacheKey, () -> fetchDailyChartFromApi(stockCode));
+    }
 
     // 일봉 조회
-    public List<CandleResponse> getDailyChart(String stockCode) {
+    public List<CandleResponse> fetchDailyChartFromApi(String stockCode) {
         String today = LocalDate.now().format(DATE_FMT);
         KiwoomDailyChartResponse res = post("ka10081",
                 Map.of("stk_cd", stockCode, "base_dt", today, "upd_stkpc_tp", "1"),
@@ -115,9 +141,15 @@ public class ChartService {
                 .sorted(Comparator.comparingLong(CandleResponse::time))
                 .toList();
     }
+    //endregion
 
-    // 주봉 조회
+    //region [주봉 조회]
     public List<CandleResponse> getWeeklyChart(String stockCode) {
+        String cacheKey = STOCK_CANDLE + ":W:" + stockCode;
+        return getCached(cacheKey, () -> fetchWeeklyChartFromApi(stockCode));
+    }
+
+    public List<CandleResponse> fetchWeeklyChartFromApi(String stockCode) {
         String today = LocalDate.now().format(DATE_FMT);
         KiwoomWeeklyChartResponse res = post("ka10082",
                 Map.of("stk_cd", stockCode, "base_dt", today, "upd_stkpc_tp", "1"),
@@ -141,6 +173,7 @@ public class ChartService {
                 .sorted(Comparator.comparingLong(CandleResponse::time))
                 .toList();
     }
+    //endregion
 
     private <T> T post(String apiId, Map<String, String> body, Class<T> clazz) {
         try {
@@ -197,6 +230,7 @@ public class ChartService {
         }
     }
 
+    //","제외 후 Long으로 변환
     private long parseLong(String val) {
         if (val == null || val.isBlank()) return 0;
         try {
@@ -205,4 +239,51 @@ public class ChartService {
             return 0;
         }
     }
+
+    private List<CandleResponse> getCached(String cacheKey, Supplier<List<CandleResponse>> fetcher) {
+        Optional<List<CandleResponse>> cached = readFromCache(cacheKey);
+        if (cached.isPresent()) return cached.get();
+
+        CompletableFuture<List<CandleResponse>> future = inFlight.computeIfAbsent(
+                cacheKey, k -> CompletableFuture.supplyAsync(() -> fetchAndCache(cacheKey, fetcher)));
+        try {
+            return future.join();
+        } finally {
+            inFlight.remove(cacheKey, future);
+        }
+    }
+
+    //region [레디스 처리]
+    private Optional<List<CandleResponse>> readFromCache(String cachekey) {
+        String cachedStockCandle = redisTemplate.opsForValue().get(cachekey);
+        if (cachedStockCandle == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(cachedStockCandle, new TypeReference<List<CandleResponse>>() {}));
+        } catch (Exception e) {
+            log.warn("레디스 주식캔들 역직렬화 실패 : {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private List<CandleResponse> fetchAndCache(String cacheKey, Supplier<List<CandleResponse>> fetcher) {
+        List<CandleResponse> result = fetcher.get();   // 실제 키움 호출은 fetcher가 담당
+
+        if (result == null || result.isEmpty()) {
+            return Collections.emptyList();   // 실패/빈 응답은 캐시에 안 남김 (아래 이유 참고)
+        }
+
+        try {
+            redisTemplate.opsForValue().set(
+                    cacheKey,
+                    objectMapper.writeValueAsString(result),
+                    CACHE_TTL);
+        } catch (Exception e) {
+            log.error("레디스 캔들 저장 실패: {}", e.getMessage());
+        }
+
+        return result;
+    }
+    //endregion
 }
