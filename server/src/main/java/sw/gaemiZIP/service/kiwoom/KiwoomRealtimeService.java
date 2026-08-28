@@ -73,9 +73,10 @@ public class KiwoomRealtimeService {
 
         try {
             client.execute(new TextWebSocketHandler() {
+
                 @Override
                 public void afterConnectionEstablished(WebSocketSession session) {
-                    session.setTextMessageSizeLimit(1024*1024); // 기본 버퍼(8kb)로는 다종목 배치 메시지가 못들어옴
+                    session.setTextMessageSizeLimit(1024*1024); // 기본 버퍼(8kb)로는 다종목 배치 메시지가 못들와서 확장
                     kiwoomSession = session;
                     loggedIn = false;
                     log.info("키움 실시간 서버 연결 성공");
@@ -198,7 +199,6 @@ public class KiwoomRealtimeService {
         return Math.abs(Long.parseLong(raw.replace(",", "").trim()));
     }
 
-
     // 파싱된 필드로 REALTIME_UPDATE + TICK_UPDATE 브로드캐스트, 예약 주문 체결 매칭
     private void processTick(String code, String cntrTm, String rawPrice, String rawRate, String rawVolume) {
         try {
@@ -293,6 +293,27 @@ public class KiwoomRealtimeService {
             log.error("로그인 메시지 전송 실패: {}", e.getMessage());
         }
     }
+
+    private void sendIndexSubscribeMessage() {
+        try {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("item", List.of("001", "101", "201"));
+            entry.put("type", List.of("0J"));
+
+            Map<String, Object> reg = new LinkedHashMap<>();
+            reg.put("trnm", "REG");
+            reg.put("grp_no", "2"); // 종목 그룹("1")과 분리 — 해제 로직에 안 걸리게
+            reg.put("refresh", "1");
+            reg.put("data", List.of(entry));
+
+            kiwoomSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(reg)));
+        }catch (IOException e) {
+            log.error("구독 메시지 전송 실패: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("실시간 구독 요청 중 오류: {}", e.getMessage());
+        }
+    }
+
 
     // 종목코드 여러 개를 REG 요청 한 번에 담아서 전송 (개별 전송 시 키움 rate limit(TRNM=REG)에 걸림)
     private void sendSubscribeMessage(List<String> codes) {
