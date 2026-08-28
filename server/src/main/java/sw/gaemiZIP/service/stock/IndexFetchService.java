@@ -96,8 +96,8 @@ public class IndexFetchService {
         }
     }
 
-    //7초 마다 지수 값 불러오기
-    @Scheduled(fixedDelay = 7_000, initialDelay = 7_000)
+    //20초 마다 지수 값 불러오기 / 다양한 유저가 접근 시 키움증권 rest api rate limit 발생 문제로 인해 기존 7초에서 20초로 수정
+    @Scheduled(fixedDelay = 20_000, initialDelay = 20_000)
     public void fetchIndices() throws InterruptedException {
         KiwoomIndexResponse kospi = callKa20001("0","001"); //코스피
         Thread.sleep(1000);
@@ -145,9 +145,7 @@ public class IndexFetchService {
         }
     }
 
-
-
-    //
+    //레디스에서 지수 불러오기
     private Optional<List<IndexResponse>> loadIndicesFromRedis() {
         try {
             String cached = redisTemplate.opsForValue().get(INDEX_CACHE_KEY);
