@@ -73,9 +73,10 @@ public class KiwoomRealtimeService {
 
         try {
             client.execute(new TextWebSocketHandler() {
+
                 @Override
                 public void afterConnectionEstablished(WebSocketSession session) {
-                    session.setTextMessageSizeLimit(1024*1024); // 기본 버퍼(8kb)로는 다종목 배치 메시지가 못들어옴
+                    session.setTextMessageSizeLimit(1024*1024); // 기본 버퍼(8kb)로는 다종목 배치 메시지가 못들와서 확장
                     kiwoomSession = session;
                     loggedIn = false;
                     log.info("키움 실시간 서버 연결 성공");
@@ -106,6 +107,7 @@ public class KiwoomRealtimeService {
                             lastAccessedAt.put("005930", Instant.now());
                         }
                         sendSubscribeMessage(new ArrayList<>(lastAccessedAt.keySet()));
+                        sendIndexSubscribeMessage();
                         return;
                     }
 
@@ -149,6 +151,7 @@ public class KiwoomRealtimeService {
     // REAL 메시지: {"trnm":"REAL","data":[{"type":"0B","item":"005930","values":{"10":"-82000", ...}}]}
     private void handleRealMessage(String payload) {
         try {
+            //리드트리는 json의 키나 구조가 매번 달라져서 고정된 DTO클래스를 만들기 어려울 때 사용
             JsonNode root = objectMapper.readTree(payload);
             for (JsonNode entry : root.path("data")) {
                 String type = entry.path("type").asText();
@@ -163,6 +166,9 @@ public class KiwoomRealtimeService {
                     processTick(code, cntrTm, rawPrice, rawRate, rawVolume);
                 } else if ("0D".equals(type)) {
                     processQuote(code, values);
+                } else if ("0J".equals(type)) {
+                    // TODO: 필드 ID 실측 확인 전 — 원본 payload로 값 구조 확인 후 processIndex 구현
+                    log.info("0J 원본 데이터 code={} values={}", code, values.toString());
                 }
             }
         } catch (Exception e) {
@@ -197,7 +203,6 @@ public class KiwoomRealtimeService {
         if (raw == null || raw.isBlank()) return 0;
         return Math.abs(Long.parseLong(raw.replace(",", "").trim()));
     }
-
 
     // 파싱된 필드로 REALTIME_UPDATE + TICK_UPDATE 브로드캐스트, 예약 주문 체결 매칭
     private void processTick(String code, String cntrTm, String rawPrice, String rawRate, String rawVolume) {
@@ -294,6 +299,27 @@ public class KiwoomRealtimeService {
         }
     }
 
+    private void sendIndexSubscribeMessage() {
+        try {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("item", List.of("001", "101", "201"));
+            entry.put("type", List.of("0J"));
+
+            Map<String, Object> reg = new LinkedHashMap<>();
+            reg.put("trnm", "REG");
+            reg.put("grp_no", "2"); // 종목 그룹("1")과 분리 — 해제 로직에 안 걸리게
+            reg.put("refresh", "1");
+            reg.put("data", List.of(entry));
+
+            kiwoomSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(reg)));
+        }catch (IOException e) {
+            log.error("구독 메시지 전송 실패: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("실시간 구독 요청 중 오류: {}", e.getMessage());
+        }
+    }
+
+
     // 종목코드 여러 개를 REG 요청 한 번에 담아서 전송 (개별 전송 시 키움 rate limit(TRNM=REG)에 걸림)
     private void sendSubscribeMessage(List<String> codes) {
         if (codes.isEmpty()) return;
@@ -347,7 +373,7 @@ public class KiwoomRealtimeService {
     }
 
     //1분마다 5분 이상 미접근 종목 구독 해제
-    @Scheduled(fixedRate = 60000, initialDelay = 60_000)
+    @Scheduled(fixedRate = 60_000, initialDelay = 60_000)
     public void cleanupStaleSubscriptions() {
         Instant threshold = Instant.now().minus(SUBSCRIPTION_TTL);
         List<String> stale = lastAccessedAt.entrySet().stream()

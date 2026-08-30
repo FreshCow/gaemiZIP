@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import sw.gaemiZIP.service.kiwoom.KiwoomRateLimiter;
 import sw.gaemiZIP.service.kiwoom.KiwoomTokenService;
 import sw.gaemiZIP.dto.kiwoom.KiwoomIndexResponse;
 import sw.gaemiZIP.dto.stock.IndexResponse;
@@ -35,6 +36,7 @@ public class IndexFetchService {
     private final KiwoomTokenService tokenService; //토큰
     private final StockWebSocketHandler  webSocketHandler; //브로드캐스트
     private final WebClient.Builder webClientBuilder; //Rest 호출
+    private final KiwoomRateLimiter rateLimiter;
 
     //volatile은 자바 코드의 변수를 메인 메모리에 저장 할 것을 명시하기 위해 쓰임
     //메인 메모리로부터 읽히고, 쓰기 작업은 메인 메모리로 직접 이루어짐 / Cpu캐시 쓰이지 않는다.2
@@ -44,7 +46,10 @@ public class IndexFetchService {
     public  List<IndexResponse> getCurrentIndices() { return currentIndices;}
 
     //현재 코스피, 코스닥 지수 요청
-    private KiwoomIndexResponse callKa20001(String mrkttp, String indscd) {
+    private KiwoomIndexResponse callStockIndex(String mrkttp, String indscd) {
+
+        if (!rateLimiter.acquire()) return null;
+
         try {
             return webClientBuilder.build()
                     .post()
@@ -73,7 +78,6 @@ public class IndexFetchService {
         return new IndexResponse(code, name, price, rate);
     }
 
-
     //등락율
     private String builderRate(String sign, String rate) {
         if(rate == null || rate.isBlank()) return "0";
@@ -96,14 +100,14 @@ public class IndexFetchService {
         }
     }
 
-    //7초 마다 지수 값 불러오기
-    @Scheduled(fixedDelay = 7_000, initialDelay = 7_000)
+    //20초 마다 지수 값 불러오기 / 다양한 유저가 접근 시 키움증권 rest api rate limit 발생 문제로 인해 기존 7초에서 20초로 수정
+    @Scheduled(fixedDelay = 20_000, initialDelay = 10_000)
     public void fetchIndices() throws InterruptedException {
-        KiwoomIndexResponse kospi = callKa20001("0","001"); //코스피
+        KiwoomIndexResponse kospi = callStockIndex("0","001"); //코스피
         Thread.sleep(1000);
-        KiwoomIndexResponse kosdaq = callKa20001("1","101"); //코스닥
+        KiwoomIndexResponse kosdaq = callStockIndex("1","101"); //코스닥
         Thread.sleep(1000);
-        KiwoomIndexResponse kospi200 =  callKa20001("2","201"); //코스피 200
+        KiwoomIndexResponse kospi200 =  callStockIndex("2","201"); //코스피 200
 
         if(kospi == null || kosdaq == null || kospi200 == null) {
             log.warn("지수 조회 실패 - 이전 캐시 유지");
@@ -128,7 +132,6 @@ public class IndexFetchService {
         }
     }
 
-
     //초기 실행 시 지수(코스피,코스닥,코스피200) 값 가져오기
     @PostConstruct
     public void initCache(){
@@ -145,9 +148,7 @@ public class IndexFetchService {
         }
     }
 
-
-
-    //
+    //레디스에서 지수 불러오기
     private Optional<List<IndexResponse>> loadIndicesFromRedis() {
         try {
             String cached = redisTemplate.opsForValue().get(INDEX_CACHE_KEY);
