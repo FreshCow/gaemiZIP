@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import sw.gaemiZIP.service.kiwoom.KiwoomRateLimiter;
 import sw.gaemiZIP.service.kiwoom.KiwoomTokenService;
 import sw.gaemiZIP.dto.kiwoom.KiwoomStockInfoResponse;
 import sw.gaemiZIP.dto.stock.StockInfoResponse;
@@ -31,6 +32,7 @@ public class StockInfoService {
     private final KiwoomTokenService tokenService;
     private final WebClient.Builder webClientBuilder;
     private final StockRepository stockRepository;
+    private final KiwoomRateLimiter rateLimiter;
 
     private final StringRedisTemplate  redisTemplate;
     private static final String STOCK_INFO = "stock:info";
@@ -38,18 +40,18 @@ public class StockInfoService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-
     private final ConcurrentHashMap<String, CompletableFuture<Optional<StockInfoResponse>>> inFlight = new ConcurrentHashMap<>();
 
     public Optional<StockInfoResponse> getStockInfo(String code) {
         // 1차: 락 없이 캐시부터 확인 (웜 캐시일 때 빠른 경로 유지)
         Optional<StockInfoResponse> cached = readFromCache(code);
+
+        //저장된 데이터가 있으면?
         if (cached.isPresent()) return cached;
 
         // 2차: 같은 code로 진행 중인 요청이 있으면 그 Future를 그대로 받고,
-        //      없으면 여기서 딱 한 번만 fetchAndCache를 실행하는 Future를 등록
-        CompletableFuture<Optional<StockInfoResponse>> future = inFlight.computeIfAbsent(
-                code, c -> CompletableFuture.supplyAsync(() -> fetchAndCache(c)));
+        // 없으면 여기서 딱 한 번만 fetchAndCache를 실행하는 Future를 등록
+        CompletableFuture<Optional<StockInfoResponse>> future = inFlight.computeIfAbsent(code, c -> CompletableFuture.supplyAsync(() -> fetchAndCache(c)));
 
         try {
             return future.join(); // 먼저 온 스레드든 나중 온 스레드든 같은 결과를 기다림
@@ -78,7 +80,7 @@ public class StockInfoService {
             return Optional.empty();
         }
 
-        KiwoomStockInfoResponse apiResp = callKa10001(code);
+        KiwoomStockInfoResponse apiResp = callStockInfoAPI(code);
         if (apiResp == null) {
             return Optional.empty();
         }
@@ -98,7 +100,10 @@ public class StockInfoService {
     }
 
 
-    private KiwoomStockInfoResponse callKa10001(String code) {
+    private KiwoomStockInfoResponse callStockInfoAPI(String code) {
+
+        if(!rateLimiter.acquire()) return null;
+
         try {
             return webClientBuilder.build()
                     .post()
@@ -111,7 +116,7 @@ public class StockInfoService {
                     .bodyToMono(KiwoomStockInfoResponse.class)
                     .block();
         } catch (Exception e) {
-            log.error("ka10001 호출 실패 [{}]: {}", code, e.getMessage());
+            log.error("주식 상세 정보 호출 실패 [{}]: {}", code, e.getMessage());
             return null;
         }
     }
