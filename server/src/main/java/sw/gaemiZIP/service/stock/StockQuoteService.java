@@ -25,16 +25,16 @@ public class StockQuoteService {
     private final WebClient.Builder webClientBuilder;
 
     public OrderBookResponse getQuote(String code) {
-        KiwoomQuoteResponse apiResp = callKa10004(code);
+
+        //주식 호가 조회
+        KiwoomQuoteResponse apiResp = callStockQuote(code);
         if(apiResp == null) return null;
         return toOrderBookResponse(code, apiResp);
-    }
 
-    private static long abs(String val) {
-        return Long.parseLong(StockFetchService.parseAbsPrice(val));
     }
 
      OrderBookResponse toOrderBookResponse(String code, KiwoomQuoteResponse r) {
+
         List<OrderBookLevel> asks = List.of(
                 new OrderBookLevel(abs(r.getSelFprBid()),      abs(r.getSelFprReq())),
                 new OrderBookLevel(abs(r.getSel2thPreBid()),   abs(r.getSel2thPreReq())),
@@ -47,6 +47,7 @@ public class StockQuoteService {
                 new OrderBookLevel(abs(r.getSel9thPreBid()),   abs(r.getSel9thPreReq())),
                 new OrderBookLevel(abs(r.getSel10thPreBid()),  abs(r.getSel10thPreReq()))
         );
+
         List<OrderBookLevel> bids = List.of(
                 new OrderBookLevel(abs(r.getBuyFprBid()),      abs(r.getBuyFprReq())),
                 new OrderBookLevel(abs(r.getBuy2thPreBid()),   abs(r.getBuy2thPreReq())),
@@ -59,10 +60,12 @@ public class StockQuoteService {
                 new OrderBookLevel(abs(r.getBuy9thPreBid()),   abs(r.getBuy9thPreReq())),
                 new OrderBookLevel(abs(r.getBuy10thPreBid()),  abs(r.getBuy10thPreReq()))
         );
+
         return new OrderBookResponse(code, asks, bids, abs(r.getTotSelReq()), abs(r.getTotBuyReq()));
     }
 
-    private KiwoomQuoteResponse callKa10004(String code) {
+    //주식호가요청
+    private KiwoomQuoteResponse callStockQuote(String code) {
         try {
             return webClientBuilder.build()
                     .post()
@@ -78,6 +81,10 @@ public class StockQuoteService {
             log.error("ka10004 호출 실패 [{}]: {}", code, e.getMessage());
             return null;
         }
+    }
+
+    private static long abs(String val) {
+        return Long.parseLong(StockFetchService.parseAbsPrice(val));
     }
 
 }
