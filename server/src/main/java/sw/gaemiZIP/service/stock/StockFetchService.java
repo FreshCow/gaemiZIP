@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import sw.gaemiZIP.service.kiwoom.KiwoomRateLimiter;
 import sw.gaemiZIP.service.kiwoom.KiwoomTokenService;
 import sw.gaemiZIP.service.kiwoom.KiwoomRealtimeService;
 import sw.gaemiZIP.dto.kiwoom.KiwoomRankingItem;
@@ -39,6 +40,7 @@ public class StockFetchService {
     private final WebClient.Builder webClientBuilder;
     private final KiwoomRealtimeService kiwoomRealtimeService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final KiwoomRateLimiter rateLimiter;
 
     private final StringRedisTemplate redisTemplate;
 
@@ -80,14 +82,13 @@ public class StockFetchService {
         }
     }
 
-
     @Scheduled(fixedDelay = 30_000, initialDelay = 30_000)
     @Transactional
     public void fetchTopStocks() {
         try {
             List<StockRankingResponse> rankings = fetchKiwoomRanking();
             if (rankings.isEmpty()) {
-                log.warn("ka00198 응답 결과 없음 — 이전 캐시 유지");
+                log.warn("랭킹순위 응답 결과 없음 — 이전 캐시 유지");
                 return;
             }
 
@@ -132,9 +133,12 @@ public class StockFetchService {
     }
 
     private List<StockRankingResponse> fetchKiwoomRankingWithRetry(boolean isRetry) {
+
+        if(!rateLimiter.acquire()) return null;
+
         String token = tokenService.getAccessToken();
-        log.debug("ka00198 요청 — 토큰 앞 20자: {}",
-                token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null");
+
+//       log.debug("실시간 종목 조회 요청 — 토큰 앞 20자: {}", token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null");
 
         KiwoomRankingResponse response = webClientBuilder.build()
                 .post()
@@ -149,7 +153,7 @@ public class StockFetchService {
 
         // 8005 인증 실패 → 토큰 강제 갱신 후 1회 재시도
         if (response != null && Integer.valueOf(3).equals(response.returnCode())) {
-            log.warn("ka00198 인증 실패(return_code=3): {}", response.returnMsg());
+            log.warn("실시간 종목 조회 인증 실패(return_code=3): {}", response.returnMsg());
             if (!isRetry) {
                 log.info("토큰 강제 갱신 후 재시도");
                 tokenService.forceRefresh();
@@ -160,7 +164,7 @@ public class StockFetchService {
         }
 
         if (response == null || response.itemInqRank() == null || response.itemInqRank().isEmpty()) {
-            log.warn("ka00198 빈 응답 (return_code={})", response != null ? response.returnCode() : "null");
+            log.warn("실시간 종목 조회 빈 응답 (return_code={})", response != null ? response.returnCode() : "null");
             return Collections.emptyList();
         }
 
@@ -179,7 +183,7 @@ public class StockFetchService {
         );
     }
 
-    // 키움 응답은 하락 시 음수 접두사("-78800")로 올 수 있음 → 절댓값
+    // 음수로 값이 올 수 있기 때문에ㅔ 절대값으로 변환
     public static String parseAbsPrice(String val) {
         if (val == null || val.isBlank()) return "0";
         try {
@@ -189,7 +193,7 @@ public class StockFetchService {
         }
     }
 
-    // base_comp_sign: "1"상한/"2"상승/"3"보합/"4"하한/"5"하락
+    //"1"상한/"2"상승/"3"보합/"4"하한/"5"하락
     private String buildRate(String sign, String chgr) {
         if (chgr == null || chgr.isBlank()) return "0";
         String raw = chgr.trim();
