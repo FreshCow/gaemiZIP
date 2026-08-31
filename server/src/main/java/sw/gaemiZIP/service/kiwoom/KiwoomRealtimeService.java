@@ -15,6 +15,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import sw.gaemiZIP.dto.stock.OrderBookLevel;
 import sw.gaemiZIP.dto.stock.OrderBookResponse;
+import sw.gaemiZIP.service.stock.IndexFetchService;
 import sw.gaemiZIP.service.stock.ReservationService;
 import sw.gaemiZIP.websocket.StockWebSocketHandler;
 
@@ -38,6 +39,10 @@ public class KiwoomRealtimeService {
     private WebSocketSession kiwoomSession;
     private static final long RECONNECT_DELAY_MS = 5_000; //연결 끊기면 5초 후 재시도
     private final ReservationService reservationService;
+    private final IndexFetchService indexFetchService;
+
+    //지수 정보
+    private static final Map<String, String> IndexList = Map.of("001", "코스피", "101", "코스닥", "201", "코스피200");
 
     // 구독 중인 종목 코드 (재연결 시 복구용) -> 마지막 접근 시각
     private final Map<String, Instant> lastAccessedAt = new ConcurrentHashMap<>();
@@ -111,7 +116,7 @@ public class KiwoomRealtimeService {
                         return;
                     }
 
-                    // 실시간 체결 데이터
+                    // 실시간 데이터
                     if (payload.contains("\"trnm\":\"REAL\"")) {
                         handleRealMessage(payload);
                     }
@@ -167,12 +172,28 @@ public class KiwoomRealtimeService {
                 } else if ("0D".equals(type)) {
                     processQuote(code, values);
                 } else if ("0J".equals(type)) {
-                    // TODO: 필드 ID 실측 확인 전 — 원본 payload로 값 구조 확인 후 processIndex 구현
-                    log.info("0J 원본 데이터 code={} values={}", code, values.toString());
+                    String rawPrice = values.path("10").asText("0"); // 현재가(지수)
+                    String rawRate  = values.path("12").asText("0"); // 등락율
+                    processIndex(code, rawPrice, rawRate);
                 }
             }
         } catch (Exception e) {
             log.warn("REAL 데이터 파싱 실패: {}", e.getMessage());
+        }
+    }
+
+    // 코스피/코스닥/코스피200 지수 처리 — FID 10(현재가)·12(등락율)만 사용
+    // 지수는 소수점이 있어(예: "1040.05") processTick의 Long 파싱 대신 Double 파싱 사용, 부호는 방향 표시라 Math.abs로 제거
+    private void processIndex(String code, String rawPrice, String rawRate) {
+        log.info("수정한 키움리얼타임서비스 0J 수신 code={}", code);
+
+        try {
+            String price = String.valueOf(Math.abs(Double.parseDouble(rawPrice.replace(",", "").trim())));
+            String rate = normalizeRate(rawRate);
+
+            indexFetchService.updateFromRealtime(code, IndexList.get(code), price, rate);
+        } catch (Exception e) {
+            log.warn("실시간 지수 처리 실패 ({}): {}", code, e.getMessage());
         }
     }
 
@@ -319,8 +340,7 @@ public class KiwoomRealtimeService {
         }
     }
 
-
-    // 종목코드 여러 개를 REG 요청 한 번에 담아서 전송 (개별 전송 시 키움 rate limit(TRNM=REG)에 걸림)
+    // 종목코드 여러 개를 한 번에 담아서 전송
     private void sendSubscribeMessage(List<String> codes) {
         if (codes.isEmpty()) return;
         if (kiwoomSession == null || !kiwoomSession.isOpen() || !loggedIn) {
