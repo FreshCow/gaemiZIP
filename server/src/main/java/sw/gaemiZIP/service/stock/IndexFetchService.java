@@ -3,131 +3,61 @@ package sw.gaemiZIP.service.stock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import sw.gaemiZIP.service.kiwoom.KiwoomRateLimiter;
-import sw.gaemiZIP.service.kiwoom.KiwoomTokenService;
-import sw.gaemiZIP.dto.kiwoom.KiwoomIndexResponse;
+
 import sw.gaemiZIP.dto.stock.IndexResponse;
 import sw.gaemiZIP.websocket.StockWebSocketHandler;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.annotation.PostConstruct;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class IndexFetchService {
     private final ObjectMapper objectMapper = new ObjectMapper();
-    @Value("${kiwoom.api.url}")
-    private String baseUrl;
 
     private final StringRedisTemplate redisTemplate;
     private static final String INDEX_CACHE_KEY = "stock:index:current";
 
-    private final KiwoomTokenService tokenService; //토큰
     private final StockWebSocketHandler  webSocketHandler; //브로드캐스트
-    private final WebClient.Builder webClientBuilder; //Rest 호출
-    private final KiwoomRateLimiter rateLimiter;
 
-    //volatile은 자바 코드의 변수를 메인 메모리에 저장 할 것을 명시하기 위해 쓰임
-    //메인 메모리로부터 읽히고, 쓰기 작업은 메인 메모리로 직접 이루어짐 / Cpu캐시 쓰이지 않는다.2
+    //volatile은 자바 코드의 변수를 메인 메모리에 저장 할 것을 명시하기 위해 쓰임 , 메인 메모리로부터 읽히고, 쓰기 작업은 메인 메모리로 직접 이루어짐
     private  volatile List<IndexResponse> currentIndices = Collections.emptyList();
 
     //컨트롤러 전달용
     public  List<IndexResponse> getCurrentIndices() { return currentIndices;}
 
-    //현재 코스피, 코스닥 지수 요청
-    private KiwoomIndexResponse callStockIndex(String mrkttp, String indscd) {
+    //코스피,코스닥,코스피200 분류
+    public synchronized void updateFromRealtime(String code, String index, String price, String rate){
+        IndexResponse updated = new IndexResponse(code, index, price, rate);
 
-        if (!rateLimiter.acquire()) return null;
+        List<IndexResponse> next = currentIndices.stream()
+                .map(i -> i.getCode().equals(code) ? updated : i)
+                .toList();
 
-        try {
-            return webClientBuilder.build()
-                    .post()
-                    .uri(baseUrl + "/api/dostk/sect")
-                    .header("authorization", "Bearer " + tokenService.getAccessToken())
-                    .header("api-id", "ka20001")
-                    .header("Content-Type", "application/json;charset=UTF-8")
-                    .bodyValue(Map.of("mrkt_tp", mrkttp, "inds_cd", indscd))
-                    .retrieve()
-                    .bodyToMono(KiwoomIndexResponse.class)
-                    .block();
-
-
-        } catch (Exception e) {
-            log.error("지수요청 mrkt_tp 호출 실패 [{}]: {}", mrkttp, e.getMessage());
-            log.error("지수요청 inds_cd 호출 실패 [{}]: {}", indscd, e.getMessage());
-
-            return null;
+        // 초기 REST 로드 전에 실시간이 먼저 들어올 수도 있으니 방어
+        if (next.stream().noneMatch(i -> i.getCode().equals(code))) {
+            next = new ArrayList<>(next);
+            next.add(updated);
         }
+        publish(next);
     }
 
-    //키움증권 dto를 필요한 dto로 변경
-    private IndexResponse toIndexResponse(KiwoomIndexResponse kr, String code, String name) {
-        String price = parseAbsPrice(kr.getCurPrc()); //주식 현재가
-        String rate = builderRate(kr.getPredPreSig(), kr.getFluRt()); // 등락율
-        return new IndexResponse(code, name, price, rate);
-    }
-
-    //등락율
-    private String builderRate(String sign, String rate) {
-        if(rate == null || rate.isBlank()) return "0";
-        String raw = rate.trim();
-        return switch (sign) {
-            case "1", "2" -> raw;
-            case "4", "5" -> raw;
-            default -> "0";
-        };
-    }
-
-    //절대값 가격 변환
-    private String parseAbsPrice(String val) {
-        if(val == null || val.isBlank()) return "0";
-
-        try{
-            return String.valueOf(Math.abs(Long.parseLong(val.trim())));
-        }catch (NumberFormatException e){
-            return val.trim().replaceFirst("^[+-]", "");
-        }
-    }
-
-    //20초 마다 지수 값 불러오기 / 다양한 유저가 접근 시 키움증권 rest api rate limit 발생 문제로 인해 기존 7초에서 20초로 수정
-    @Scheduled(fixedDelay = 20_000, initialDelay = 10_000)
-    public void fetchIndices() throws InterruptedException {
-        KiwoomIndexResponse kospi = callStockIndex("0","001"); //코스피
-        Thread.sleep(1000);
-        KiwoomIndexResponse kosdaq = callStockIndex("1","101"); //코스닥
-        Thread.sleep(1000);
-        KiwoomIndexResponse kospi200 =  callStockIndex("2","201"); //코스피 200
-
-        if(kospi == null || kosdaq == null || kospi200 == null) {
-            log.warn("지수 조회 실패 - 이전 캐시 유지");
-            return;
-        }
-
-        List<IndexResponse> indices = List.of(
-                toIndexResponse(kospi, "001", "코스피"),
-                toIndexResponse(kosdaq, "101", "코스닥" ),
-                toIndexResponse(kospi200, "201", "코스피200")
-        );
-
+    private synchronized void publish(List<IndexResponse> indices) {
         currentIndices = indices;
 
-        try{
-            String indiceload = objectMapper.writeValueAsString(indices);
-            redisTemplate.opsForValue().set(INDEX_CACHE_KEY, indiceload);
-            webSocketHandler.broadcast("INDEX_UPDATE:" + indiceload);
-            log.warn("코스피/코스닥/코스피200 요청결과 : "+indiceload);
-        }catch (Exception e){
+        try {
+
+            String payload = objectMapper.writeValueAsString(indices);
+            redisTemplate.opsForValue().set(INDEX_CACHE_KEY, payload);
+            webSocketHandler.broadcast("INDEX_UPDATE:" + payload);
+
+        } catch (Exception e) {
+
             log.error("지수 브로드캐스트 실패 : {}", e.getMessage());
         }
     }
