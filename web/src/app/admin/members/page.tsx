@@ -6,7 +6,7 @@ import type { MemberResponse } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatNumberInput, parseNumberInput } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
@@ -52,7 +52,7 @@ export default function AdminMembersPage() {
 
   const handleAdjustBalance = async () => {
     if (adjustingId === null) return;
-    const delta = Number(deltaInput);
+    const delta = parseNumberInput(deltaInput);
     if (!Number.isFinite(delta) || delta === 0) {
       setError("0이 아닌 숫자를 입력해주세요.");
       return;
@@ -154,7 +154,7 @@ export default function AdminMembersPage() {
             <div className="space-y-1">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">잔고 수동 조정</h2>
               <p className="text-sm text-gray-500 dark:text-neutral-400">
-                양수면 증액, 음수면 차감됩니다. (예: -10000)
+                양수면 증액, 음수면 차감됩니다. (예: -10,000)
               </p>
             </div>
 
@@ -165,11 +165,12 @@ export default function AdminMembersPage() {
             )}
 
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               className="w-full rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
               placeholder="증감액"
               value={deltaInput}
-              onChange={(e) => setDeltaInput(e.target.value)}
+              onChange={(e) => setDeltaInput(formatNumberInput(e.target.value))}
               onKeyDown={(e) => e.key === "Enter" && handleAdjustBalance()}
               autoFocus
             />

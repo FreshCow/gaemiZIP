@@ -14,3 +14,17 @@ export function formatDateTime(value: string | null | undefined): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+// 숫자 입력창에 타이핑하는 동안 천단위 콤마를 자동으로 붙여준다. 부호(-)와 숫자만 허용.
+export function formatNumberInput(value: string): string {
+  const isNegative = value.trim().startsWith("-");
+  const digits = value.replace(/[^0-9]/g, "");
+  if (!digits) return isNegative ? "-" : "";
+  const formatted = Number(digits).toLocaleString();
+  return isNegative ? `-${formatted}` : formatted;
+}
+
+// formatNumberInput으로 콤마가 붙은 문자열을 다시 숫자로 변환
+export function parseNumberInput(value: string): number {
+  return Number(value.replace(/,/g, ""));
+}
