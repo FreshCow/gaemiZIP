@@ -15,12 +15,14 @@ import sw.gaemiZIP.util.JwtUtil;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @RequiredArgsConstructor //final이 붙은 생성자에 자동 주입
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
+    private final long sessionLockTtl;
     private static final String LOGIN_CACHE_KEY = "auth:session:";
 
 
@@ -45,6 +47,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String activeToken = redisTemplate.opsForValue().get(LOGIN_CACHE_KEY + subject);
 
             if(token.equals(activeToken)){
+                // 요청마다 세션락 TTL을 슬라이딩 갱신 — 하트비트 타이머 생존 여부에 의존하지 않도록 함
+                redisTemplate.expire(LOGIN_CACHE_KEY + subject, sessionLockTtl, TimeUnit.MILLISECONDS);
+
                 String role = jwtUtil.getRoleFromToken(token);
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(subject, null, List.of(new SimpleGrantedAuthority(role)));

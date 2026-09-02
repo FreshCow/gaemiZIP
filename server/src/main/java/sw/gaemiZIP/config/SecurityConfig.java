@@ -28,10 +28,11 @@ public class SecurityConfig {
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
 
-    // FREE_DEPLOY_TEMP(단, 플랫폼 무관하게 유지 권장): 배포 환경에서는 CORS_ALLOWED_ORIGINS 환경변수로
-    // 프론트엔드 도메인(Vercel 등)을 콤마로 구분해 전달. 로컬 기본값은 그대로 localhost:3000
     @Value("${cors.allowed-origins:http://localhost:3000}")
     private String allowedOrigins;
+
+    @Value("${jwt.session-lock-ttl}")
+    private long sessionLockTtl;
 
     @Bean // 리턴되는 암호화 객체를 스프링 빈에 등록해서 AuthService에서 꺼내 쓸 수 있게 함
     public BCryptPasswordEncoder passwordEncoder() {
@@ -42,14 +43,15 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable) // - JWT를 사용하므로 CSRF 방어 비활성화
+                .csrf(AbstractHttpConfigurer::disable) //JWT를 사용하므로 CSRF 방어 비활성화
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // - 세션을 사용하지 않음 (무상태성 유지)
                 .authorizeHttpRequests(auth -> auth
-                        // 탈퇴·비밀번호 확인은 반드시 인증 필요 (permitAll인 /api/auth/** 보다 먼저 선언)
+                        //탈퇴, 비밀번호 확인은 반드시 인증 필요 (permitAll인 /api/auth/** 보다 먼저 선언)
                         .requestMatchers(HttpMethod.DELETE, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/auth/password").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/verify-password").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/heartbeat").authenticated()
                         .requestMatchers("/api/auth/**", "/ws/**", "/api/news/**", "/api/ai/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/boards/**", "/api/comments/**").permitAll()
                         .requestMatchers("/api/stocks/search",
@@ -59,10 +61,10 @@ public class SecurityConfig {
                                 "/api/stocks/*/news",
                                 "/api/stocks/*/subscribe").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-                        // 그 외의 모든 요청은 토큰이 있어야만(인증되어야만) 접근 가능
+                        // 그 외의 모든 요청은 토큰이 있어야 접근 가능
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, redisTemplate), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, redisTemplate, sessionLockTtl), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

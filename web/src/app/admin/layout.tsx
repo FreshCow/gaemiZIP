@@ -8,6 +8,7 @@ const ADMIN_NAV = [
   { href: "/admin/members", label: "회원 관리" },
   { href: "/admin/content", label: "콘텐츠 관리" },
   { href: "/admin/trades", label: "거래 관리" },
+  { href: "/admin/balance-charges", label: "충전 요청" },
   { href: "/admin/audit-logs", label: "감사 로그" },
   { href: "/admin/stats", label: "통계" },
 ];

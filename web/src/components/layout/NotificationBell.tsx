@@ -72,26 +72,44 @@ export function NotificationBell() {
             </p>
           ) : (
             <ul className="max-h-96 divide-y divide-gray-50 overflow-y-auto dark:divide-neutral-800">
-              {notifications.map((n) => (
-                <li key={n.id}>
-                  <Link
-                    href={`/stocks/${n.stockCode}`}
-                    onClick={() => {
-                      handleClickItem(n.id, n.read);
-                      setOpen(false);
-                    }}
-                    className={`flex items-start gap-2 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-800 ${
-                      !n.read ? "bg-emerald-50/50 dark:bg-emerald-900/10" : ""
-                    }`}
-                  >
+              {notifications.map((n) => {
+                const itemClassName = `flex items-start gap-2 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-neutral-800 ${
+                  !n.read ? "bg-emerald-50/50 dark:bg-emerald-900/10" : ""
+                }`;
+                const content = (
+                  <>
                     {!n.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />}
                     <div className={`min-w-0 flex-1 ${n.read ? "pl-3.5" : ""}`}>
                       <p className="text-xs text-gray-700 dark:text-neutral-300 line-clamp-2">{n.message}</p>
                       <p className="mt-0.5 text-[11px] text-gray-400 dark:text-neutral-600">{formatDateTime(n.createdAt)}</p>
                     </div>
-                  </Link>
-                </li>
-              ))}
+                  </>
+                );
+                return (
+                  <li key={n.id}>
+                    {n.stockCode ? (
+                      <Link
+                        href={`/stocks/${n.stockCode}`}
+                        onClick={() => {
+                          handleClickItem(n.id, n.read);
+                          setOpen(false);
+                        }}
+                        className={itemClassName}
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleClickItem(n.id, n.read)}
+                        className={`w-full ${itemClassName}`}
+                      >
+                        {content}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
 

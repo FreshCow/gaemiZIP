@@ -30,6 +30,16 @@ public class NotificationService {
                 .build());
     }
 
+    @Transactional
+    public void notify(MemberAnt member, String message) {
+        notificationRepository.save(Notification.builder()
+                .member(member)
+                .message(message)
+                .read(false)
+                .build());
+    }
+
+
     @Transactional(readOnly = true)
     public Page<NotificationResponse> getMyNotifications(String email, Pageable pageable) {
         Long memberId = findMemberId(email);
