@@ -27,7 +27,7 @@ public class Notification extends BaseTimeEntity {
     private MemberAnt member;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "stock_code", nullable = false)
+    @JoinColumn(name = "stock_code", nullable = true)
     @JsonIgnore
     private Stock stock;
 

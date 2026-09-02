@@ -56,12 +56,15 @@ public class AuthService {
     private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9]{4,20}$");
 
 
+    //24시간
     @Value("${jwt.expiration_time}")
     private long expirationTime;
 
+    //30일
     @Value("${jwt.remember-expiration-time}")
     private long rememberExpirationTime;
 
+    //10분
     @Value("${jwt.session-lock-ttl}")
     private long sessionLockTtl;
 
@@ -225,7 +228,7 @@ public class AuthService {
         String gaemiToken = jwtUtil.generateToken(member.getEmail(), member.getRole().getKey(), expirationTime);
         redisTemplate.opsForValue().set(sessionKey, gaemiToken, sessionLockTtl, TimeUnit.MILLISECONDS);
 
-        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey(), sessionLockTtl / 1000);
+        return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey(), expirationTime / 1000);
     }
 
     //로그아웃
