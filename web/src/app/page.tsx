@@ -6,9 +6,10 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { tradeApi } from "@/services/tradeApi";
 import { fetchStockPrice } from "@/services/stockApi";
 import { motion } from "framer-motion";
-import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText, RefreshCw, Clock } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText, RefreshCw, Clock, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
+import { ChargeRequestModal } from "@/components/auth/ChargeRequestModal";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/utils";
 import type { StockItem } from "@/types/stock";
@@ -27,6 +28,8 @@ export default function DashboardPage() {
   const [reservationsPage, setReservationsPage] = useState(0);
   const [holdingsPage, setHoldingsPage] = useState(0);
   const [postsPage, setPostsPage] = useState(0);
+
+  const [chargeModalOpen, setChargeModalOpen] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -275,9 +278,20 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Balance card (with bar chart) */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex items-center gap-2 mb-4">
-            <Wallet size={14} className="text-gray-400 dark:text-neutral-500" />
-            <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">예수금</p>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wallet size={14} className="text-gray-400 dark:text-neutral-500" />
+              <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">예수금</p>
+            </div>
+            {isLoggedIn && (
+              <button
+                onClick={() => setChargeModalOpen(true)}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+              >
+                <Plus size={13} />
+                충전 신청
+              </button>
+            )}
           </div>
           {isLoggedIn ? (
             <>
@@ -575,6 +589,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <ChargeRequestModal open={chargeModalOpen} onClose={() => setChargeModalOpen(false)} />
     </div>
   );
 }

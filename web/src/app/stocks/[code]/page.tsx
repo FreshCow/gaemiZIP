@@ -290,6 +290,8 @@ export default function StockDetailPage() {
 
   useEffect(() => {
     if (!code) return;
+    // 코드 변경/StrictMode 중복 마운트로 이전 요청이 늦게 도착해 최신 상태를 덮어쓰는 것 방지
+    let ignore = false;
     setLoading(true);
     setError(false);
     setQuoteSnapshot(null);
@@ -299,12 +301,17 @@ export default function StockDetailPage() {
       fetchStockQuote(code).catch(() => null),
     ])
       .then(([infoRes, priceRes, quoteRes]) => {
+        if (ignore) return;
         setInfo(infoRes);
         setPrice(priceRes);
         setQuoteSnapshot(quoteRes);
       })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!ignore) setError(true);
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
 
     // 실시간 시세를 받을 수 있도록 키움 구독에 편입 요청
     subscribeStock(code).catch(() => {});
@@ -313,7 +320,10 @@ export default function StockDetailPage() {
       subscribeStock(code).catch(() => {});
     }, 2 * 60 * 1000);
 
-    return () => clearInterval(heartbeat);
+    return () => {
+      ignore = true;
+      clearInterval(heartbeat);
+    };
   }, [code]);
 
   useEffect(() => {

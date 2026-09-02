@@ -73,23 +73,33 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-neutral-800">
-            {items.map((n) => (
-              <li key={n.id}>
-                <Link
-                  href={`/stocks/${n.stockCode}`}
-                  onClick={() => handleClick(n)}
-                  className={`flex items-start gap-3 px-5 py-4 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-800 ${
-                    !n.read ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""
-                  }`}
-                >
+            {items.map((n) => {
+              const itemClassName = `flex items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-gray-50 dark:hover:bg-neutral-800 ${
+                !n.read ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""
+              }`;
+              const content = (
+                <>
                   {!n.read && <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />}
                   <div className={`min-w-0 flex-1 ${n.read ? "pl-3.5" : ""}`}>
                     <p className="text-sm text-gray-800 dark:text-neutral-200">{n.message}</p>
                     <p className="mt-1 text-xs text-gray-400 dark:text-neutral-500">{formatDateTime(n.createdAt)}</p>
                   </div>
-                </Link>
-              </li>
-            ))}
+                </>
+              );
+              return (
+                <li key={n.id}>
+                  {n.stockCode ? (
+                    <Link href={`/stocks/${n.stockCode}`} onClick={() => handleClick(n)} className={itemClassName}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <button type="button" onClick={() => handleClick(n)} className={`w-full ${itemClassName}`}>
+                      {content}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

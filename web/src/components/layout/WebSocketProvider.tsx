@@ -95,13 +95,13 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
           {toasts.map((t) => (
             <Link
               key={t.id}
-              href={`/stocks/${t.stockCode}`}
+              href="/notifications"
               onClick={() => dismissToast(t)}
               className="flex w-80 items-start gap-2.5 rounded-xl border border-gray-200 bg-white p-4 shadow-lg transition-transform hover:-translate-y-0.5 dark:border-neutral-700 dark:bg-neutral-800"
             >
               <Bell size={16} className="mt-0.5 shrink-0 text-emerald-500" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">체결 알림</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">알림</p>
                 <p className="mt-0.5 text-xs text-gray-500 dark:text-neutral-400 line-clamp-2">{t.message}</p>
               </div>
             </Link>
