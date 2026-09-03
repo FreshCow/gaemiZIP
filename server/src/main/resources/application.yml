@@ -5,6 +5,7 @@ kiwoom:
 jwt:
   remember-expiration-time: 2592000000 #(로그인 계정 기억 기간 30일)
   expiration_time: 86400000 # 24시간 (밀리초 단위)
+  session-lock-ttl: 600000 # 10분 (밀리초 단위) — 세션 락 TTL
 
 logging:
   level:
