@@ -12,7 +12,7 @@ import sw.gaemiZIP.service.admin.AdminStatsService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/admin/stats")
+@RequestMapping("/api/admin/stats")
 @RequiredArgsConstructor
 public class AdminStatsController {
 

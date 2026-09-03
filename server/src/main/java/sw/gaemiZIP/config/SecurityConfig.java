@@ -60,7 +60,7 @@ public class SecurityConfig {
                                 "/api/stocks/*/chart",
                                 "/api/stocks/*/news",
                                 "/api/stocks/*/subscribe").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 그 외의 모든 요청은 토큰이 있어야 접근 가능
                         .anyRequest().authenticated()
                 )
