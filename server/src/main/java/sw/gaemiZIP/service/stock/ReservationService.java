@@ -1,6 +1,7 @@
 package sw.gaemiZIP.service.stock;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sw.gaemiZIP.dto.stock.ReservationListResponse;
@@ -14,12 +15,15 @@ import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
 import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.service.notification.NotificationService;
+import sw.gaemiZIP.util.MarketHoursUtil;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
+
+
     private final MemberAntRepository memberAntRepository;
     private final HoldingRepository holdingRepository;
     private final ReservedOrderRepository reservedOrderRepository;
@@ -103,8 +107,13 @@ public class ReservationService {
         tradeHistoryRepository.save(tradeHistory);
     }
 
+    //예약주문 체결
     @Transactional
     public ReservationResponse createReservation(String email, ReservationRequest request) {
+
+        //주문은 오전9시부터 오후3시30분까지만 가능
+        if (!MarketHoursUtil.isMarketHours()) {throw new IllegalStateException("주문은 오전 9시부터 오후 3시30분까지만 가능합니다.");}
+
         MemberAnt member = findMember(email);
 
         TradeType tradeType;
@@ -153,7 +162,7 @@ public class ReservationService {
         return ReservationResponse.from(reservedOrderRepository.save(order));
     }
 
-
+    //예약 주문 정보 가져오기
     @Transactional(readOnly = true)
     public ReservationListResponse getMyReservations(String email) {
         MemberAnt member = findMember(email);
@@ -165,6 +174,7 @@ public class ReservationService {
         return new ReservationListResponse(reservations, member.getBalance(), member.getLockedBalance());
     }
 
+    //예약 주문 취소
     @Transactional
     public void cancelReservation(String email, Long reservationId) {
         MemberAnt member = findMember(email);
@@ -178,18 +188,41 @@ public class ReservationService {
             throw new IllegalStateException("대기 중인 예약만 취소할 수 있습니다.");
         }
 
-        if(order.getTradeType() == TradeType.BUY) {
-            member.unlockBalance(order.getTargetPrice() * order.getQuantity());
-        }
-        else{
-            Holding holding = holdingRepository.findByMember_IdAndStock_Code(member.getId(), order.getStockCode()).orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
-            holding.unlock(order.getQuantity());
-        }
+        releaseLock(member, order);
 
         order.cancel();
     }
 
     private MemberAnt findMember(String loginId) {
         return memberAntRepository.findByUsernameOrEmail(loginId, loginId).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+    }
+
+    private void releaseLock(MemberAnt member, ReservedOrder order) {
+        if (order.getTradeType() == TradeType.BUY) {
+            member.unlockBalance(order.getTargetPrice() * order.getQuantity());
+        } else {
+            Holding holding = holdingRepository
+                    .findByMember_IdAndStock_Code(member.getId(), order.getStockCode())
+                    .orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
+
+            holding.unlock(order.getQuantity());
+        }
+    }
+
+    @Scheduled(cron = "0 30 15 * * MON-FRI", zone = "Asia/Seoul")
+    @Transactional
+    public void cancelAllPendingAtMarketClose() {
+        List<ReservedOrder> pending = reservedOrderRepository.findAllByStatus(TradeStatus.PENDING);
+
+        for (ReservedOrder order : pending) {
+            MemberAnt member = memberAntRepository.findById(order.getMemberId())
+                    .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+
+            releaseLock(member, order);
+            order.cancel();
+
+            notificationService.notify(member, order.getStock(),
+                    String.format("장 마감으로 %s 예약 주문이 취소되었습니다.", order.getStockName()));
+        }
     }
 }
