@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Bell } from "lucide-react";
 import { notificationApi } from "@/services/notificationApi";
 import { useAppStore } from "@/store/useAppStore";
@@ -88,15 +87,9 @@ export default function NotificationsPage() {
               );
               return (
                 <li key={n.id}>
-                  {n.stockCode ? (
-                    <Link href={`/stocks/${n.stockCode}`} onClick={() => handleClick(n)} className={itemClassName}>
-                      {content}
-                    </Link>
-                  ) : (
-                    <button type="button" onClick={() => handleClick(n)} className={`w-full ${itemClassName}`}>
-                      {content}
-                    </button>
-                  )}
+                  <button type="button" onClick={() => handleClick(n)} className={`w-full ${itemClassName}`}>
+                    {content}
+                  </button>
                 </li>
               );
             })}

@@ -1,5 +1,5 @@
 import api from "./api";
-import type { StockSearchResult, StockPriceItem, StockInfoData, OrderBookData } from "@/types/stock";
+import type { StockSearchResult, StockPriceItem, StockInfoData, OrderBookData, IndexItem } from "@/types/stock";
 import type { NewsItem } from "@/types/news";
 
 export async function searchStocks(keyword: string): Promise<StockSearchResult[]> {
@@ -32,5 +32,11 @@ export async function subscribeStock(code: string): Promise<void> {
 // 호가창 초기 스냅샷 (이후 갱신은 WS QUOTE_UPDATE로 수신)
 export async function fetchStockQuote(code: string): Promise<OrderBookData> {
   const { data } = await api.get<OrderBookData>(`/stocks/${code}/quote`);
+  return data;
+}
+
+// 국내 지수(코스피/코스닥/코스피200) 초기 스냅샷 (이후 갱신은 WS INDEX_UPDATE로 수신)
+export async function fetchIndices(): Promise<IndexItem[]> {
+  const { data } = await api.get<IndexItem[]>("/stocks/index");
   return data;
 }
