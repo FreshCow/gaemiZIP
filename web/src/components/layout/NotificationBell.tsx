@@ -87,26 +87,16 @@ export function NotificationBell() {
                 );
                 return (
                   <li key={n.id}>
-                    {n.stockCode ? (
-                      <Link
-                        href={`/stocks/${n.stockCode}`}
-                        onClick={() => {
-                          handleClickItem(n.id, n.read);
-                          setOpen(false);
-                        }}
-                        className={itemClassName}
-                      >
-                        {content}
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleClickItem(n.id, n.read)}
-                        className={`w-full ${itemClassName}`}
-                      >
-                        {content}
-                      </button>
-                    )}
+                    <Link
+                      href="/notifications"
+                      onClick={() => {
+                        handleClickItem(n.id, n.read);
+                        setOpen(false);
+                      }}
+                      className={itemClassName}
+                    >
+                      {content}
+                    </Link>
                   </li>
                 );
               })}

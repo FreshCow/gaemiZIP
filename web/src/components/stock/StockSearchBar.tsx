@@ -83,7 +83,7 @@ export function StockSearchBar({ large = false, onSelect }: StockSearchBarProps)
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          placeholder="종목명 또는 코드 검색"
+          placeholder="종목명 검색"
           className={cn(
             "w-full bg-transparent text-gray-900 placeholder-gray-400 outline-none dark:text-white dark:placeholder-neutral-500",
             large ? "text-base" : "text-sm",

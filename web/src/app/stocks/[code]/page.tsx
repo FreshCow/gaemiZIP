@@ -58,6 +58,23 @@ function fmt(val: string | undefined, suffix = ""): string {
   return n > 0 ? `${n.toLocaleString()}${suffix}` : "—";
 }
 
+// 정규장 09:00~15:30(KST) — 클라이언트 로컬 시간대와 무관하게 항상 서울 기준으로 판정
+const MARKET_OPEN_MINUTES = 9 * 60;
+const MARKET_CLOSE_MINUTES = 15 * 60 + 30;
+
+function isMarketOpenAt(date: Date): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  const minutesSinceMidnight = hour * 60 + minute;
+  return minutesSinceMidnight >= MARKET_OPEN_MINUTES && minutesSinceMidnight <= MARKET_CLOSE_MINUTES;
+}
+
 // 키움 API가 "YYYYMMDD" 형식으로 내려주는 날짜 필드(예: 250일 최고/최저가 발생일) 포맷팅
 function fmtDate(val: string | undefined): string {
   if (!val || val.length !== 8) return "—";
@@ -277,6 +294,14 @@ export default function StockDetailPage() {
   const [lockedBalance, setLockedBalance] = useState(0);
   const [isReserving, setIsReserving] = useState(false);
 
+  // 정규장 시간(09:00~15:30) 판정 — 1분마다 재검사해 장 마감 시점에 주문 카드가 자동 비활성화되도록 함
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const isMarketOpen = isMarketOpenAt(now);
+
   // 실시간 랭킹에서 현재가 fallback
   const rankStock = useAppStore((s) => s.stocks.find((s) => s.code === code));
   // 키움 실시간 구독으로 들어오는 최신 시세 (top10 랭킹 밖 종목도 포함)
@@ -484,6 +509,7 @@ export default function StockDetailPage() {
   const canSubmit =
     !isTrading &&
     !isReserving &&
+    isMarketOpen &&
     orderPriceNum > 0 &&
     qtyNum > 0 &&
     (tradeTab === "BUY" ? totalAmount <= availableBalance : qtyNum <= availableQty);
@@ -704,14 +730,20 @@ export default function StockDetailPage() {
 
             {/* 매수/매도 주문 (UI 우선 배치 — 실제 매매 API 연동은 다음 단계에서 진행) */}
             <div className="relative rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
-              {!isLoggedIn && (
+              {!isLoggedIn ? (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 dark:bg-neutral-900/70">
                   <p className="text-base font-medium text-gray-500 dark:text-neutral-400">
                     로그인 후 사용할 수 있습니다
                   </p>
                 </div>
-              )}
-              <div className={!isLoggedIn ? "pointer-events-none opacity-40" : ""}>
+              ) : !isMarketOpen ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 px-6 text-center dark:bg-neutral-900/70">
+                  <p className="text-base font-medium text-gray-500 dark:text-neutral-400">
+                    주문은 9시부터 3시30분까지만 가능합니다
+                  </p>
+                </div>
+              ) : null}
+              <div className={!isLoggedIn || !isMarketOpen ? "pointer-events-none opacity-40" : ""}>
               {/* 잔고 / 보유 정보 */}
               <div className="mb-4 text-sm text-gray-500 dark:text-neutral-500">
                 {tradeTab === "BUY" ? (
