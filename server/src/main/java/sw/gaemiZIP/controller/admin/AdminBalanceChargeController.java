@@ -15,7 +15,7 @@ import java.util.Map;
 
 
 @RestController
-@RequestMapping("/admin/balance-charges")
+@RequestMapping("/api/admin/balance-charges")
 @RequiredArgsConstructor
 public class AdminBalanceChargeController {
 

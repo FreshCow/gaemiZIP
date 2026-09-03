@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/admin/members")
+@RequestMapping("/api/admin/members")
 @RequiredArgsConstructor
 public class AdminMemberController {
     private final AdminMemberService adminMemberService;
