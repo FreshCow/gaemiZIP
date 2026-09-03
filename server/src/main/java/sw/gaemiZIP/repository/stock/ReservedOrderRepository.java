@@ -16,8 +16,9 @@ public interface ReservedOrderRepository extends JpaRepository<ReservedOrder, Lo
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from ReservedOrder o where o.stock.code = :stockCode and o.status = :status")
-    List<ReservedOrder> findByStockCodeAndStatusForUpdate(@Param("stockCode") String stockCode,
-                                                          @Param("status") TradeStatus status);
+    List<ReservedOrder> findByStockCodeAndStatusForUpdate(@Param("stockCode") String stockCode, @Param("status") TradeStatus status);
+
+    List<ReservedOrder> findAllByStatus(TradeStatus status);
 
     void deleteAllByMember_Id(Long memberId);
 }
