@@ -30,7 +30,7 @@ export default function LoginPage() {
       const response = await authApi.login({ username, password, rememberMe });
       setAuth(response, rememberMe);
       syncFavoritesFromServer().catch(() => {});
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (e: unknown) {
       const err = e as { response?: { data?: string } };
@@ -48,7 +48,7 @@ export default function LoginPage() {
       // 구글 로그인은 "로그인 상태 유지" 체크박스가 없어 항상 세션 유지(브라우저 종료 시 로그아웃)로 처리
       setAuth(response, false);
       syncFavoritesFromServer().catch(() => {});
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (e: unknown) {
       const err = e as { response?: { data?: string } };
