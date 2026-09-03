@@ -19,7 +19,7 @@ import { authApi } from "@/services/authApi";
 export const navItems = [
   { href: "/stocks",   icon: TrendingUp,     label: "증권"    },
   { href: "/board",    icon: MessageSquare,   label: "게시판"   },
-  { href: "/",         icon: LayoutDashboard, label: "대시보드" },
+  { href: "/dashboard", icon: LayoutDashboard, label: "대시보드" },
 ];
 
 export function Sidebar() {

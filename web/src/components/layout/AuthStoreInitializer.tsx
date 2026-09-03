@@ -37,8 +37,8 @@ export function AuthStoreInitializer() {
     if (!hydrated) return;
 
     if (isLoggedIn) {
-      if (isAuthOnlyPath(pathname)) router.replace("/");
-      if (isAdminPath(pathname) && !isAdmin) router.replace("/");
+      if (isAuthOnlyPath(pathname)) router.replace("/dashboard");
+      if (isAdminPath(pathname) && !isAdmin) router.replace("/dashboard");
       return;
     }
 

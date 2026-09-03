@@ -15,6 +15,7 @@ import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
+import sw.gaemiZIP.util.MarketHoursUtil;
 
 import java.util.List;
 
@@ -29,6 +30,9 @@ public class TradeService {
 
     @Transactional
     public TradeResponse executeBuy(String email, TradeRequest request) {
+        //매수/매도는 오전 9시부터 오후 3시30분까지만 가능
+        if(!MarketHoursUtil.isMarketHours()) {throw new IllegalStateException("주문은 오전 9시부터 오후 3시30분까지만 가능합니다.");}
+
         MemberAnt member = findMember(email);
 
         long totalCost = (long) request.getPrice() * request.getQuantity();
@@ -59,6 +63,10 @@ public class TradeService {
 
     @Transactional
     public TradeResponse executeSell(String email, TradeRequest request) {
+
+        //매수/매도는 오전 9시부터 오후 3시30분까지만 가능
+        if(!MarketHoursUtil.isMarketHours()) {throw new IllegalStateException("주문은 오전 9시부터 오후 3시30분까지만 가능합니다.");}
+
         MemberAnt member = findMember(email);
 
         Holding holding = holdingRepository
@@ -98,7 +106,6 @@ public class TradeService {
         MemberAnt member = findMember(email);
         return tradeHistoryRepository.findByMember_IdOrderByTradeTimeDesc(member.getId(), pageable).map(h -> TradeResponse.from(h, null));
     }
-
 
     @Transactional(readOnly = true)
     public List<HoldingResponse> getMyHoldings(String email) {

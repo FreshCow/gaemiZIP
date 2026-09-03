@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2, Sparkles, TrendingUp, BarChart3 } from "lucide-react";
 import { fetchAiTheme, fetchLatestNews } from "@/services/newsApi";
-import { fetchStockPrice } from "@/services/stockApi";
+import { fetchStockPrice, fetchIndices } from "@/services/stockApi";
 import { useAppStore } from "@/store/useAppStore";
 import { Pagination } from "@/components/ui/pagination";
 import type { StockPriceItem } from "@/types/stock";
@@ -40,6 +41,12 @@ export default function StocksPage() {
   const [newsPage, setNewsPage] = useState(0);
   const [newsTotalPages, setNewsTotalPages] = useState(0);
   const indices = useAppStore((s) => s.indices);
+  const setIndices = useAppStore((s) => s.setIndices);
+
+  // WS INDEX_UPDATE 재생에만 의존하면 접속 타이밍에 따라 초기값이 안 올 수 있어 REST로 직접 조회
+  useEffect(() => {
+    fetchIndices().then(setIndices).catch(() => {});
+  }, [setIndices]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,9 +161,10 @@ export default function StocksPage() {
                     {selectedGroup?.stocks.map((stock) => {
                       const isUp = !stock.rate.startsWith("-");
                       return (
-                        <div
+                        <Link
                           key={stock.code}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800 sm:block"
+                          href={`/stocks/${stock.code}`}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 transition-colors hover:border-gray-300 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-neutral-600 sm:block"
                         >
                           <div className="min-w-0">
                             <p className="text-[10px] text-gray-400 dark:text-neutral-500">{stock.code}</p>
@@ -183,7 +191,7 @@ export default function StocksPage() {
                               </span>
                             </div>
                           </div>
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>

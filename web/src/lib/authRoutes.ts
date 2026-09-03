@@ -20,6 +20,8 @@ export function isAdminPath(pathname: string): boolean {
 
 // 로그인이 필요한 경로인지 (게시글 작성은 목록/상세와 달리 로그인 필요)
 export function requiresAuth(pathname: string): boolean {
+  // "/"는 /stocks로 리다이렉트만 하는 진입점이라 그 자체는 인증 불필요
+  if (pathname === "/") return false;
   if (isAuthOnlyPath(pathname)) return false;
   if (isAdminPath(pathname)) return true;
   if (pathname.startsWith("/board/write")) return true;
