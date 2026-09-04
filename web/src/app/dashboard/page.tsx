@@ -10,6 +10,7 @@ import { Star, ChevronLeft, ChevronRight, Wallet, TrendingUp, History, FileText,
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { ChargeRequestModal } from "@/components/auth/ChargeRequestModal";
+import { StockLogo } from "@/components/stock/StockLogo";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/utils";
 import type { StockItem } from "@/types/stock";
@@ -242,14 +243,17 @@ export default function DashboardPage() {
                   <Link
                     key={stock.code}
                     href={`/stocks/${stock.code}`}
-                    className="flex-shrink-0 w-52 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-gray-300 dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-lg dark:hover:border-neutral-700"
+                    className="flex-shrink-0 w-60 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-gray-300 dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-lg dark:hover:border-neutral-700"
                   >
                     <div className="flex items-start justify-between">
-                      <div className="min-w-0">
-                        <p className="text-xs text-gray-500 dark:text-neutral-500">{stock.code}</p>
-                        <p className="mt-0.5 text-base font-semibold text-gray-900 dark:text-white truncate">
-                          {stock.name}
-                        </p>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <StockLogo code={stock.code} name={stock.name} className="h-9 w-9 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-500 dark:text-neutral-500">{stock.code}</p>
+                          <p className="mt-0.5 text-base font-semibold text-gray-900 dark:text-white truncate">
+                            {stock.name}
+                          </p>
+                        </div>
                       </div>
                       <Badge
                         variant="outline"

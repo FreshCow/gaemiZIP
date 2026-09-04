@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import ErrorToast from "@/components/ui/ErrorToast";
 import { formatDateTime } from "@/lib/utils";
 import { ArrowLeft, ThumbsUp, MessageCircle, CornerDownRight, Pencil, Trash2 } from "lucide-react";
+import { StockLogo } from "@/components/stock/StockLogo";
 import type { BoardPost, Comment } from "@/types/board";
 import { BOARD_TAG_BADGE_CLASSES, BOARD_TAG_LABELS } from "@/types/board";
 
@@ -151,19 +152,24 @@ export default function BoardDetailPage() {
                   key={s.stockCode}
                   className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-neutral-800 dark:bg-neutral-800/50"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800 dark:text-neutral-200">{s.stockName}</span>
-                    <span className={`text-sm font-medium ${isPos ? "text-emerald-500" : "text-rose-500"}`}>
-                      {isPos ? "+" : ""}
-                      {s.profitLossRate.toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-xs text-gray-400 dark:text-neutral-500">
-                    <span>{s.quantity}주 · 평단 {s.avgPrice.toLocaleString()}원</span>
-                    <span className={isPos ? "text-emerald-500" : "text-rose-500"}>
-                      {isPos ? "+" : ""}
-                      {s.profitLossAmount.toLocaleString()}원
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <StockLogo code={s.stockCode} name={s.stockName} className="h-10 w-10 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate text-sm font-semibold text-gray-800 dark:text-neutral-200">{s.stockName}</span>
+                        <span className={`shrink-0 text-sm font-medium ${isPos ? "text-emerald-500" : "text-rose-500"}`}>
+                          {isPos ? "+" : ""}
+                          {s.profitLossRate.toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-xs text-gray-400 dark:text-neutral-500">
+                        <span>{s.quantity}주 · 평단 {s.avgPrice.toLocaleString()}원</span>
+                        <span className={isPos ? "text-emerald-500" : "text-rose-500"}>
+                          {isPos ? "+" : ""}
+                          {s.profitLossAmount.toLocaleString()}원
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
