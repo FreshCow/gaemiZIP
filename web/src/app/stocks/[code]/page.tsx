@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { OrderBook } from "@/components/stock/OrderBook";
+import { StockLogo } from "@/components/stock/StockLogo";
 import { useFavorite } from "@/hooks/useFavorite";
 import { fetchStockInfo, fetchStockPrice, fetchStockNews, fetchStockQuote, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
@@ -663,14 +664,19 @@ export default function StockDetailPage() {
             {/* 종목 헤더 */}
             <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
               <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium bg-gray-100 text-gray-500 rounded px-2 py-0.5 dark:bg-neutral-800 dark:text-neutral-400">
-                      {info.market || "KOSPI"}
-                    </span>
-                    <span className="text-xs text-gray-400 dark:text-neutral-500">{code}</span>
+                <div className="grid grid-cols-[auto_1fr] items-stretch gap-3">
+                  <div className="aspect-square h-full shrink-0">
+                    <StockLogo code={code} name={info.name} className="h-full w-full" />
                   </div>
-                  <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{info.name}</h1>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium bg-gray-100 text-gray-500 rounded px-2 py-0.5 dark:bg-neutral-800 dark:text-neutral-400">
+                        {info.market || "KOSPI"}
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-neutral-500">{code}</span>
+                    </div>
+                    <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{info.name}</h1>
+                  </div>
                 </div>
 
                 <button
