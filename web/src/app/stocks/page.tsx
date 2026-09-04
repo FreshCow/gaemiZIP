@@ -7,6 +7,7 @@ import { fetchAiTheme, fetchLatestNews } from "@/services/newsApi";
 import { fetchStockPrice, fetchIndices } from "@/services/stockApi";
 import { useAppStore } from "@/store/useAppStore";
 import { Pagination } from "@/components/ui/pagination";
+import { StockLogo } from "@/components/stock/StockLogo";
 import type { StockPriceItem } from "@/types/stock";
 import type { NewsItem } from "@/types/news";
 
@@ -157,7 +158,7 @@ export default function StocksPage() {
                   </div>
 
                   {/* 관련 종목 카드 — 모바일은 가로로 긴 직사각형 카드를 세로로 쌓고, sm 이상은 기존 정사각 카드 그리드 */}
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {selectedGroup?.stocks.map((stock) => {
                       const isUp = !stock.rate.startsWith("-");
                       return (
@@ -166,11 +167,14 @@ export default function StocksPage() {
                           href={`/stocks/${stock.code}`}
                           className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 transition-colors hover:border-gray-300 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-neutral-600 sm:block"
                         >
-                          <div className="min-w-0">
-                            <p className="text-[10px] text-gray-400 dark:text-neutral-500">{stock.code}</p>
-                            <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-gray-900 dark:text-white">
-                              {stock.name}
-                            </p>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <StockLogo code={stock.code} name={stock.name} className="h-9 w-9 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-gray-400 dark:text-neutral-500">{stock.code}</p>
+                              <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-gray-900 dark:text-white">
+                                {stock.name}
+                              </p>
+                            </div>
                           </div>
                           <div className="shrink-0 text-right sm:mt-3 sm:text-left">
                             <p className="text-base font-bold text-gray-900 dark:text-white">

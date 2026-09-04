@@ -8,6 +8,7 @@ import { WebSocketProvider } from "@/components/layout/WebSocketProvider";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { AuthStoreInitializer } from "@/components/layout/AuthStoreInitializer";
 import { GoogleAuthProvider } from "@/components/layout/GoogleAuthProvider";
+import { LogoDevAttribution } from "@/components/layout/LogoDevAttribution";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </div>
                 </main>
                 <MobileBottomNav />
+                <LogoDevAttribution />
               </WebSocketProvider>
             </TooltipProvider>
           </GoogleAuthProvider>
