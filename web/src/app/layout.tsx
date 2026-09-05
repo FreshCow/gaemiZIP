@@ -44,9 +44,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <div className="min-w-0">{children}</div>
                     <aside className="hidden lg:block" />
                   </div>
+                  <LogoDevAttribution />
                 </main>
                 <MobileBottomNav />
-                <LogoDevAttribution />
               </WebSocketProvider>
             </TooltipProvider>
           </GoogleAuthProvider>
