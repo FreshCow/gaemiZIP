@@ -20,6 +20,22 @@ const HOLDINGS_PAGE_SIZE = 5;
 const POSTS_PAGE_SIZE = 5;
 const RESERVATIONS_PAGE_SIZE = 10;
 
+// 키움 API 레이트리밋(초당 3건)을 넘기지 않도록 관심종목 현재가 조회를 배치로 나눠 순차 처리
+const PRICE_FETCH_BATCH_SIZE = 3;
+const PRICE_FETCH_BATCH_DELAY_MS = 1200;
+
+async function fetchPricesInBatches(codes: string[]) {
+  const results: PromiseSettledResult<Awaited<ReturnType<typeof fetchStockPrice>>>[] = [];
+  for (let i = 0; i < codes.length; i += PRICE_FETCH_BATCH_SIZE) {
+    const batch = codes.slice(i, i + PRICE_FETCH_BATCH_SIZE);
+    results.push(...(await Promise.allSettled(batch.map((code) => fetchStockPrice(code)))));
+    if (i + PRICE_FETCH_BATCH_SIZE < codes.length) {
+      await new Promise((resolve) => setTimeout(resolve, PRICE_FETCH_BATCH_DELAY_MS));
+    }
+  }
+  return results;
+}
+
 export default function DashboardPage() {
   const { stocks, holdings, watchlist, isAutoTrading, toggleAutoTrading, boards } = useAppStore();
   const { nickname, balance, isLoggedIn, updateBalance } = useAuthStore();
@@ -115,14 +131,16 @@ export default function DashboardPage() {
     );
     if (missing.length === 0) return;
 
-    Promise.allSettled(missing.map((code) => fetchStockPrice(code))).then((results) => {
+    fetchPricesInBatches(missing).then((results) => {
       setExtraWatchedStocks((prev) => {
         const next = { ...prev };
         results.forEach((r, i) => {
-          if (r.status === "fulfilled") {
-            const p = r.value;
-            next[missing[i]] = { code: p.code, name: p.name, price: p.price, rate: p.rate, volume: 0 };
-          }
+          if (r.status !== "fulfilled") return;
+          const p = r.value;
+          // 레이트리밋 등으로 현재가를 못 받아온 경우("—", "0")는 저장하지 않고 다음 갱신 때 재조회
+          const priceNum = Number(p.price);
+          if (!Number.isFinite(priceNum) || priceNum <= 0) return;
+          next[missing[i]] = { code: p.code, name: p.name, price: p.price, rate: p.rate, volume: 0 };
         });
         return next;
       });
