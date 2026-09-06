@@ -138,8 +138,7 @@ public class StockFetchService {
 
         String token = tokenService.getAccessToken();
 
-//       log.debug("실시간 종목 조회 요청 — 토큰 앞 20자: {}", token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null");
-
+        //log.debug("실시간 종목 조회 요청 — 토큰 앞 20자: {}", token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null");
         KiwoomRankingResponse response = webClientBuilder.build()
                 .post()
                 .uri(baseUrl + "/api/dostk/stkinfo")
@@ -225,6 +224,4 @@ public class StockFetchService {
             log.error("Redis 폴백 처리 중 에러: {}", e.getMessage());
         }
     }
-
-
 }
