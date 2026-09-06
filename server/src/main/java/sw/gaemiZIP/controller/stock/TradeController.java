@@ -36,6 +36,7 @@ public class TradeController {
         }
     }
 
+    //예약주문 생성
     @PostMapping("/reserve")
     public ResponseEntity<?> createReservation(@RequestBody ReservationRequest request, Authentication auth) {
         try{
@@ -45,11 +46,13 @@ public class TradeController {
         }
     }
 
+    //예약주문내역 가져오기
     @GetMapping("/reserve")
     public ResponseEntity<ReservationListResponse> getMyReservation(Authentication auth) {
         return ResponseEntity.ok(reservationService.getMyReservations(auth.getName()));
     }
 
+    //예약주문 취소
     @DeleteMapping("/reserve/{id}")
     public ResponseEntity<?> cancelReservation(@PathVariable Long id, Authentication auth) {
         try {
