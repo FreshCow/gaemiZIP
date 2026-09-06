@@ -182,8 +182,7 @@ public class KiwoomRealtimeService {
         }
     }
 
-    // 코스피/코스닥/코스피200 지수 처리 — FID 10(현재가)·12(등락율)만 사용
-    // 지수는 소수점이 있어(예: "1040.05") processTick의 Long 파싱 대신 Double 파싱 사용, 부호는 방향 표시라 Math.abs로 제거
+    // 코스피/코스닥/코스피200 지수 처리
     private void processIndex(String code, String rawPrice, String rawRate) {
         log.info("수정한 키움리얼타임서비스 0J 수신 code={}", code);
 
@@ -197,6 +196,7 @@ public class KiwoomRealtimeService {
         }
     }
 
+    //호가량 처리
     private void processQuote(String code, JsonNode values) {
         try {
             List<OrderBookLevel> asks = new ArrayList<>();
@@ -292,12 +292,18 @@ public class KiwoomRealtimeService {
     private long parseSecondEpoch(String cntrTm) {
         if (cntrTm == null || cntrTm.length() < 6) return parseMinuteBoundary(cntrTm);
         try {
+
+            //시
             int hh = Integer.parseInt(cntrTm.substring(0, 2));
+            //분
             int mm = Integer.parseInt(cntrTm.substring(2, 4));
+            //초
             int ss = Integer.parseInt(cntrTm.substring(4, 6));
+
             LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
-            return LocalDateTime.of(today, LocalTime.of(hh, mm, ss))
-                    .toEpochSecond(ZoneOffset.UTC);
+
+            return LocalDateTime.of(today, LocalTime.of(hh, mm, ss)).toEpochSecond(ZoneOffset.UTC);
+
         } catch (Exception e) {
             return parseMinuteBoundary(cntrTm);
         }
@@ -313,16 +319,21 @@ public class KiwoomRealtimeService {
             }
             String loginJson = String.format("""
                 {"trnm":"LOGIN","token":"%s"}""", accessToken);
+
             kiwoomSession.sendMessage(new TextMessage(loginJson));
+
             log.info("키움 실시간 로그인 요청 전송");
         } catch (IOException e) {
             log.error("로그인 메시지 전송 실패: {}", e.getMessage());
         }
     }
 
+    //국내 지수
     private void sendIndexSubscribeMessage() {
         try {
             Map<String, Object> entry = new LinkedHashMap<>();
+
+            //001 : 코스피 - 101 : 코스닥 - 201 : 코스피200
             entry.put("item", List.of("001", "101", "201"));
             entry.put("type", List.of("0J"));
 
@@ -367,6 +378,7 @@ public class KiwoomRealtimeService {
         }
     }
 
+
     private void sendUnsubscribeMessage(List<String> codes) {
         if (codes.isEmpty()) return;
         if (kiwoomSession == null || !kiwoomSession.isOpen() || !loggedIn) {
@@ -396,6 +408,7 @@ public class KiwoomRealtimeService {
     @Scheduled(fixedRate = 60_000, initialDelay = 60_000)
     public void cleanupStaleSubscriptions() {
         Instant threshold = Instant.now().minus(SUBSCRIPTION_TTL);
+
         List<String> stale = lastAccessedAt.entrySet().stream()
                 .filter(e -> e.getValue().isBefore(threshold))
                 .map(Map.Entry::getKey)
