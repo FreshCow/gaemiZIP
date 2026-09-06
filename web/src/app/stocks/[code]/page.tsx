@@ -745,7 +745,7 @@ export default function StockDetailPage() {
               ) : !isMarketOpen ? (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 px-6 text-center dark:bg-neutral-900/70">
                   <p className="text-base font-medium text-gray-500 dark:text-neutral-400">
-                    주문은 9시부터 3시30분까지만 가능합니다
+                    주문은 월요일~금요일 9시부터 3시30분까지만 가능합니다
                   </p>
                 </div>
               ) : null}
