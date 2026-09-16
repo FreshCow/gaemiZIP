@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi } from "@/services/authApi";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -11,7 +10,6 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 
 export default function LoginPage() {
-  const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -30,8 +28,6 @@ export default function LoginPage() {
       const response = await authApi.login({ username, password, rememberMe });
       setAuth(response, rememberMe);
       syncFavoritesFromServer().catch(() => {});
-      router.push("/dashboard");
-      router.refresh();
     } catch (e: unknown) {
       const err = e as { response?: { data?: string } };
       setError(err.response?.data ?? "로그인에 실패했습니다.");
@@ -48,8 +44,6 @@ export default function LoginPage() {
       // 구글 로그인은 "로그인 상태 유지" 체크박스가 없어 항상 세션 유지(브라우저 종료 시 로그아웃)로 처리
       setAuth(response, false);
       syncFavoritesFromServer().catch(() => {});
-      router.push("/dashboard");
-      router.refresh();
     } catch (e: unknown) {
       const err = e as { response?: { data?: string } };
       setError(err.response?.data ?? "구글 로그인에 실패했습니다.");

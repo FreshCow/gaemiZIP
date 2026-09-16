@@ -16,7 +16,7 @@ export default function BoardDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = Number(params.id);
-  const nickname = useAuthStore((s) => s.nickname);
+  const { nickname, isLoggedIn } = useAuthStore();
 
   const [post, setPost] = useState<BoardPost | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -33,13 +33,14 @@ export default function BoardDetailPage() {
   }, [id]);
 
   const handleLikePost = async () => {
+    if (!isLoggedIn) return;
     // 서버가 raw Board 엔티티를 반환해 tag/sharedStocks가 안 담겨있음 — likeCount만 반영
     const updated = await boardApi.like(id);
     setPost((prev) => (prev ? { ...prev, likeCount: updated.likeCount } : prev));
   };
 
   const handleSubmitComment = async () => {
-    if (!commentText.trim() || submitting) return;
+    if (!isLoggedIn || !commentText.trim() || submitting) return;
     setSubmitting(true);
     setCommentError("");
     try {
@@ -61,7 +62,7 @@ export default function BoardDetailPage() {
   };
 
   const handleSubmitReply = async (parentCommentId: number) => {
-    if (!replyText.trim() || submitting) return;
+    if (!isLoggedIn || !replyText.trim() || submitting) return;
     setSubmitting(true);
     setCommentError("");
     try {
@@ -97,6 +98,7 @@ export default function BoardDetailPage() {
   };
 
   const handleLikeComment = async (commentId: number) => {
+    if (!isLoggedIn) return;
     const updated = await boardApi.likeComment(commentId);
     setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
   };
@@ -180,7 +182,13 @@ export default function BoardDetailPage() {
         <div className="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-neutral-800">
           <button
             onClick={handleLikePost}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium border border-emerald-400 text-emerald-500 dark:border-emerald-600 dark:text-emerald-400 transition-colors"
+            disabled={!isLoggedIn}
+            title={!isLoggedIn ? "로그인 후 사용할 수 있습니다." : undefined}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium border transition-colors ${
+              isLoggedIn
+                ? "border-emerald-400 text-emerald-500 dark:border-emerald-600 dark:text-emerald-400"
+                : "cursor-not-allowed border-gray-200 text-gray-300 dark:border-neutral-800 dark:text-neutral-700"
+            }`}
           >
             <ThumbsUp size={14} />
             추천 {post.likeCount}
@@ -243,21 +251,29 @@ export default function BoardDetailPage() {
                 <div className="flex items-center gap-4 mt-3">
                   <button
                     onClick={() => handleLikeComment(comment.id)}
-                    className="flex items-center gap-1 text-xs text-emerald-500 dark:text-emerald-400 transition-colors"
+                    disabled={!isLoggedIn}
+                    title={!isLoggedIn ? "로그인 후 사용할 수 있습니다." : undefined}
+                    className={`flex items-center gap-1 text-xs transition-colors ${
+                      isLoggedIn
+                        ? "text-emerald-500 dark:text-emerald-400"
+                        : "cursor-not-allowed text-gray-300 dark:text-neutral-700"
+                    }`}
                   >
                     <ThumbsUp size={12} />
                     <span>{comment.likeCount}</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      setReplyingTo(isReplying ? null : comment.id);
-                      setReplyText("");
-                    }}
-                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors dark:text-neutral-600 dark:hover:text-neutral-300"
-                  >
-                    <CornerDownRight size={12} />
-                    답글
-                  </button>
+                  {isLoggedIn && (
+                    <button
+                      onClick={() => {
+                        setReplyingTo(isReplying ? null : comment.id);
+                        setReplyText("");
+                      }}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors dark:text-neutral-600 dark:hover:text-neutral-300"
+                    >
+                      <CornerDownRight size={12} />
+                      답글
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -284,7 +300,13 @@ export default function BoardDetailPage() {
                       <div className="flex items-center gap-4 mt-3 pl-5">
                         <button
                           onClick={() => handleLikeComment(reply.id)}
-                          className="flex items-center gap-1 text-xs text-emerald-500 dark:text-emerald-400 transition-colors"
+                          disabled={!isLoggedIn}
+                          title={!isLoggedIn ? "로그인 후 사용할 수 있습니다." : undefined}
+                          className={`flex items-center gap-1 text-xs transition-colors ${
+                            isLoggedIn
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "cursor-not-allowed text-gray-300 dark:text-neutral-700"
+                          }`}
                         >
                           <ThumbsUp size={12} />
                           <span>{reply.likeCount}</span>
@@ -330,19 +352,31 @@ export default function BoardDetailPage() {
         {/* 댓글 입력창 */}
         <div className="relative flex gap-2 items-center pt-2">
           <ErrorToast message={commentError} onDismiss={() => setCommentError("")} />
-          <textarea
-            className="flex-1 h-9 rounded-lg bg-gray-100 px-4 py-2 text-base text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
-            placeholder="댓글을 입력하세요"
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-          />
-          <Button
-            size="lg"
-            onClick={handleSubmitComment}
-            disabled={!commentText.trim() || submitting}
-          >
-            등록
-          </Button>
+          {!isLoggedIn && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 dark:bg-neutral-900/70">
+              <button
+                onClick={() => router.push("/login")}
+                className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                로그인 후 사용할 수 있습니다
+              </button>
+            </div>
+          )}
+          <div className={`flex flex-1 items-center gap-2 ${!isLoggedIn ? "pointer-events-none opacity-40" : ""}`}>
+            <textarea
+              className="flex-1 h-9 rounded-lg bg-gray-100 px-4 py-2 text-base text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
+              placeholder="댓글을 입력하세요"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+            />
+            <Button
+              size="lg"
+              onClick={handleSubmitComment}
+              disabled={!commentText.trim() || submitting}
+            >
+              등록
+            </Button>
+          </div>
         </div>
       </div>
       )}
