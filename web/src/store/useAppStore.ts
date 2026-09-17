@@ -25,7 +25,7 @@ interface AppState {
   setHoldings: (holdings: HoldingItem[]) => void;
   updateHoldingPrice: (code: string, currentPrice: number) => void;
   setBoards: (boards: BoardListItem[]) => void;
-  toggleWatchlist: (code: string) => void;
+  setFavorite: (code: string, favorite: boolean) => void;
   setWatchlist: (codes: string[]) => void;
   toggleAutoTrading: () => void;
   setWsConnected: (connected: boolean) => void;
@@ -35,15 +35,6 @@ interface AppState {
   markNotificationRead: (id: number) => void;
   markAllNotificationsRead: () => void;
 }
-
-const loadWatchlist = (): string[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem("gaemi_watchlist") ?? "[]");
-  } catch {
-    return [];
-  }
-};
 
 // 장 마감 시간 등 서버 데이터가 없을 때 UI 확인용 목 데이터
 const MOCK_STOCKS: StockItem[] = [
@@ -63,7 +54,7 @@ export const useAppStore = create<AppState>((set) => ({
   stocks: MOCK_STOCKS,
   holdings: [],
   boards: [],
-  watchlist: loadWatchlist(),
+  watchlist: [],
   isAutoTrading: false,
   wsConnected: false,
   latestTick: null,
@@ -117,24 +108,14 @@ export const useAppStore = create<AppState>((set) => ({
       ),
     })),
   setBoards: (boards) => set({ boards }),
-  toggleWatchlist: (code) =>
+  setFavorite: (code, favorite) =>
     set((s) => {
-      const next = s.watchlist.includes(code)
-        ? s.watchlist.filter((c) => c !== code)
-        : [...s.watchlist, code];
-      if (typeof window !== "undefined") {
-        localStorage.setItem("gaemi_watchlist", JSON.stringify(next));
-      }
+      const next = favorite
+        ? [...new Set([...s.watchlist, code])]
+        : s.watchlist.filter((c) => c !== code);
       return { watchlist: next };
     }),
-  // 로그인 시 서버 즐겨찾기 목록으로 통째로 교체(로그아웃 시 초기화용으로도 사용)
-  setWatchlist: (codes) =>
-    set(() => {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("gaemi_watchlist", JSON.stringify(codes));
-      }
-      return { watchlist: codes };
-    }),
+  setWatchlist: (codes) => set({ watchlist: codes }),
   toggleAutoTrading: () =>
     set((s) => ({ isAutoTrading: !s.isAutoTrading })),
   setWsConnected: (wsConnected) => set({ wsConnected }),
