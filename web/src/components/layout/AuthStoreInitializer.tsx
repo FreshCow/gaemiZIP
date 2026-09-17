@@ -14,6 +14,7 @@ const HEARTBEAT_INTERVAL_MS = 4 * 60 * 1000;
 export function AuthStoreInitializer() {
   const init = useAuthStore((s) => s.init);
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const authGeneration = useAuthStore((s) => s.authGeneration);
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const pathname = usePathname();
@@ -22,11 +23,12 @@ export function AuthStoreInitializer() {
 
   useEffect(() => {
     init();
-    if (useAuthStore.getState().isLoggedIn) {
-      syncFavoritesFromServer().catch(() => {});
-    }
     setHydrated(true);
   }, [init]);
+
+  useEffect(() => {
+    if (hydrated && isLoggedIn) void syncFavoritesFromServer();
+  }, [hydrated, isLoggedIn, authGeneration]);
 
   // middleware.ts는 gaemi_token 쿠키 존재 여부만 보는데, 이 쿠키는 브라우저 프로세스 단위(모든 탭 공유)로
   // 살아있는 반면 실제 인증/권한 상태(로그인 유지 미체크 시 sessionStorage, role은 그 탭에서 로그인한 계정
@@ -52,7 +54,7 @@ export function AuthStoreInitializer() {
 
     const sendHeartbeat = () => {
       authApi.heartbeat().catch((err) => {
-        if (err?.response?.status === 401) {
+        if (err?.response?.status === 401 && useAuthStore.getState().authGeneration === authGeneration) {
           clearAuth();
         }
       });
@@ -60,7 +62,7 @@ export function AuthStoreInitializer() {
 
     const timer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [isLoggedIn, clearAuth]);
+  }, [isLoggedIn, clearAuth, authGeneration]);
 
   return null;
 }
