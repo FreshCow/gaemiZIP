@@ -6,6 +6,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import sw.gaemiZIP.dto.stock.FavoriteRequest;
 import sw.gaemiZIP.dto.stock.FavoriteResponse;
+import sw.gaemiZIP.dto.stock.FavoriteCountResponse;
 import sw.gaemiZIP.service.stock.FavoriteService;
 
 import java.util.List;
@@ -16,6 +17,11 @@ import java.util.List;
 public class FavoriteController {
 
     private final FavoriteService favoriteService;
+
+    @GetMapping("/{code}/count")
+    public ResponseEntity<FavoriteCountResponse> getCount(@PathVariable String code) {
+        return ResponseEntity.ok(new FavoriteCountResponse(favoriteService.getCount(code)));
+    }
 
     @GetMapping
     public ResponseEntity<List<FavoriteResponse>> getFavorites(Authentication auth) {

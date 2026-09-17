@@ -1,15 +1,17 @@
 package sw.gaemiZIP.service.stock;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import sw.gaemiZIP.dto.stock.FavoriteResponse;
 import sw.gaemiZIP.entity.member.MemberAnt;
-import sw.gaemiZIP.entity.stock.Favorite;
 import sw.gaemiZIP.repository.member.MemberAntRepository;
 import sw.gaemiZIP.repository.stock.FavoriteRepository;
 import sw.gaemiZIP.repository.stock.StockRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -20,6 +22,7 @@ public class FavoriteService {
     private final FavoriteRepository favoriteRepository;
     private final StockRepository stockRepository;
 
+    @Transactional(readOnly = true)
     public List<FavoriteResponse> getFavorites(String email) {
         MemberAnt member = findMember(email);
         return favoriteRepository.findAllByMember_IdOrderByCreatedDateDesc(member.getId())
@@ -28,16 +31,21 @@ public class FavoriteService {
                 .toList();
     }
 
-    // 이미 즐겨찾기된 종목이면 아무 것도 하지 않음 (버튼 연타·중복 요청에 안전)
+    @Transactional(readOnly = true)
+    public long getCount(String stockCode) {
+        return favoriteRepository.countByStock_Code(stockCode);
+    }
+
     @Transactional
     public void addFavorite(String email, String stockCode, String stockName) {
         MemberAnt member = findMember(email);
-        if (favoriteRepository.existsByMember_IdAndStock_Code(member.getId(), stockCode)) return;
-        favoriteRepository.save(Favorite.builder()
-                .member(member)
-                .stock(stockRepository.getReferenceById(stockCode))
-                .stockName(stockName)
-                .build());
+        if (stockName == null || stockName.isBlank() || stockName.length() > 255) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종목명이 올바르지 않습니다.");
+        }
+        if (!stockRepository.existsById(stockCode)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "종목을 찾을 수 없습니다.");
+        }
+        favoriteRepository.insertIfAbsent(member.getId(), stockCode, stockName.trim(), LocalDateTime.now());
     }
 
     @Transactional
@@ -48,6 +56,6 @@ public class FavoriteService {
 
     private MemberAnt findMember(String loginId) {
         return memberAntRepository.findByUsernameOrEmail(loginId, loginId)
-                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "회원을 찾을 수 없습니다."));
     }
 }

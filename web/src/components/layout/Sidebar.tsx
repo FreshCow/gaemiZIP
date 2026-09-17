@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import { LayoutDashboard, TrendingUp, MessageSquare, Sun, Moon, LogIn, ShieldCheck } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { StockSearchBar } from "@/components/stock/StockSearchBar";
 import { RankingTicker } from "@/components/stock/RankingTicker";
@@ -26,7 +25,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isLoggedIn, nickname, isAdmin, clearAuth } = useAuthStore();
-  const setWatchlist = useAppStore((s) => s.setWatchlist);
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -43,7 +41,6 @@ export function Sidebar() {
       // 서버 세션 정리 실패해도 클라이언트 로그아웃은 진행
     }
     clearAuth();
-    setWatchlist([]); // 계정 소유 즐겨찾기를 다음 게스트/다른 계정 세션에 남기지 않음
     router.push("/login");
   };
 

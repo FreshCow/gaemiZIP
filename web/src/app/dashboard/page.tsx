@@ -115,7 +115,7 @@ export default function DashboardPage() {
   const cashRatio = totalAssets > 0 ? (cashBalance / totalAssets) * 100 : 100;
   const stockRatio = 100 - cashRatio;
 
-  // localStorage를 읽는 watchlist는 클라이언트 마운트 후에만 참조
+  // 즐겨찾기 상태는 클라이언트 마운트 후에 참조
   // → 서버/클라이언트 초기 렌더 결과를 동일하게 유지해 hydration 오류 방지
   const watchedStocks = mounted
     ? watchlist
