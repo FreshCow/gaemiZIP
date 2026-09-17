@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Star,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -20,7 +19,7 @@ import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { OrderBook } from "@/components/stock/OrderBook";
 import { StockLogo } from "@/components/stock/StockLogo";
-import { useFavorite } from "@/hooks/useFavorite";
+import { FavoriteButton } from "@/components/stock/FavoriteButton";
 import { fetchStockInfo, fetchStockPrice, fetchStockNews, fetchStockQuote, subscribeStock } from "@/services/stockApi";
 import { fetchStockAiAnalysis } from "@/services/newsApi";
 import { tradeApi } from "@/services/tradeApi";
@@ -269,10 +268,6 @@ export default function StockDetailPage() {
   const [quoteSnapshot, setQuoteSnapshot] = useState<OrderBookData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const { isFavorite, toggleFavorite } = useFavorite();
-  // 서버와 클라이언트의 첫 렌더 트리를 일치시키기 위해 마운트 후에만 watchlist 상태를 반영
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
 
   // AI 종목 분석 / 관련 뉴스 — 지연이 있을 수 있어 본문 로딩과 분리
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -679,15 +674,7 @@ export default function StockDetailPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => toggleFavorite(code, info.name)}
-                  className="flex flex-col items-center gap-0.5 transition-transform active:scale-90"
-                >
-                  <Star
-                    size={26}
-                    className={mounted && isFavorite(code) ? "fill-yellow-400 text-yellow-400" : "text-gray-300 dark:text-neutral-600"}
-                  />
-                </button>
+                <FavoriteButton code={code} name={info.name} size={26} showCount />
               </div>
 
               {/* 현재가 */}
@@ -777,7 +764,7 @@ export default function StockDetailPage() {
                 <OrderBook data={orderBook} currentPrice={curPrice} onSelectPrice={handleSelectPrice} />
 
                 {/* 주문 폼 (세로 배치, 호가창과 높이를 맞춰 하단에 예상금액/버튼 고정) */}
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   {/* 매수/매도 탭 */}
                   <div className="flex overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700">
                     {(["BUY", "SELL"] as const).map((t) => (
@@ -869,7 +856,7 @@ export default function StockDetailPage() {
                   </div>
 
                   {/* 예상 금액 + 실행 버튼 — 호가창 하단과 높이 맞춤 */}
-                  <div className="mt-auto flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-3">
                     <div>
                       <p className="text-xs text-gray-500 dark:text-neutral-500">
                         예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
