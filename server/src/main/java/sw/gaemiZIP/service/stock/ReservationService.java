@@ -31,7 +31,6 @@ public class ReservationService {
     private final StockRepository stockRepository;
     private final NotificationService notificationService;
 
-
     @Transactional
     public void matchAndExecute(String stockCode, long currentPrice){
         List<ReservedOrder> matches = reservedOrderRepository
