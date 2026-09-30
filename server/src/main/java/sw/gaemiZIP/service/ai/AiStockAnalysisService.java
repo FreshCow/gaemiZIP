@@ -40,8 +40,10 @@ public class AiStockAnalysisService {
     private String geminiApiKey;
 
     public Optional<AiStockAnalysisResponse> analyzeStock(String code) {
+
         String cacheKey = CACHE_PREFIX + code;
         String cached = redisTemplate.opsForValue().get(cacheKey);
+
         if(cached != null) {
             try {
                 return Optional.of(objectMapper.readValue(cached, AiStockAnalysisResponse.class));

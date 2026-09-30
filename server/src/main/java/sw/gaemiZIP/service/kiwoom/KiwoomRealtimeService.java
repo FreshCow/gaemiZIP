@@ -73,7 +73,7 @@ public class KiwoomRealtimeService {
 
     public void connect() {
         StandardWebSocketClient client = new StandardWebSocketClient();
-        String url = "wss://mockapi.kiwoom.com:10000/api/dostk/websocket";
+        String url = "wss://api.kiwoom.com:10000/api/dostk/websocket";
         CountDownLatch closeLatch = new CountDownLatch(1);
 
         try {
