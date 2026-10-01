@@ -1,6 +1,6 @@
 kiwoom:
   api:
-    url: https://api.kiwoom.com # 모의투자
+    url: https://mockapi.kiwoom.com # 모의투자
 
 jwt:
   remember-expiration-time: 2592000000 #(로그인 계정 기억 기간 30일)
