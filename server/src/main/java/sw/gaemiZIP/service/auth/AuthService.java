@@ -30,6 +30,8 @@ import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.util.JwtUtil;
 import sw.gaemiZIP.util.NicknameGenerator;
 import sw.gaemiZIP.util.SecurityCodeGenerator;
+import sw.gaemiZIP.dto.auth.KakaoTokenResponse;
+import sw.gaemiZIP.dto.auth.KakaoUserResponse;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +56,10 @@ public class AuthService {
     private static final String LOGIN_CACHE_KEY = "auth:session:";
 
     private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9]{4,20}$");
+
+    private final KakaoOAuthClient kakaoOAuthClient;
+    private static final String KAKAO_PROVIDER = "KAKAO";
+    private static final String KAKAO_USERNAME_PREFIX = "KAKAO_";
 
 
     //24시간
@@ -231,6 +237,64 @@ public class AuthService {
         return new LoginResponseDto(gaemiToken, member.getNickname(), member.getBalance(), member.getProvider(), member.getRole().getKey(), expirationTime / 1000);
     }
 
+    //카카오 계정으로 로그인
+    public LoginResponseDto kakaoLogin(String code) {
+
+        //카카오 액세스 토큰으로 교환
+        KakaoTokenResponse tokenResponse = kakaoOAuthClient.exchangeToken(code);
+
+        //액세스토큰 사용해서 사용자 정보 조회하기
+        KakaoUserResponse kakaoUser = kakaoOAuthClient.getUserInfo(tokenResponse.accessToken());
+
+        String providerId = String.valueOf(kakaoUser.id());
+
+        MemberAnt member = memberAntRepository
+                .findByProviderAndProviderId(KAKAO_PROVIDER, providerId)
+                .orElseGet(() -> {
+
+                    String username =
+                            KAKAO_USERNAME_PREFIX + providerId;
+
+                    MemberAnt newMember = MemberAnt.builder()
+                            .username(username)
+                            .email(null)
+                            .password("")
+                            .nickname(generateUniqueNickname())
+                            .provider(KAKAO_PROVIDER)
+                            .providerId(providerId)
+                            .role(Role.USER)
+                            .balance(100_000_000L)
+                            .build();
+
+                    return memberAntRepository.save(newMember);
+                });
+
+        //정지회원검사
+        if (member.getStatus() == MemberStatus.SUSPENDED) {
+            throw new IllegalStateException("정지된 계정입니다");
+        }
+
+        String loginId = member.getUsername();
+        String sessionKey = LOGIN_CACHE_KEY + loginId;
+
+        // 중복 로그인 검사
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(sessionKey))) {
+            throw new IllegalStateException("이미 로그인 중인 계정입니다.");
+        }
+
+        //JWT 발급
+        String token = jwtUtil.generateToken(loginId, member.getRole().getKey(), expirationTime);
+
+        long expiresInSeconds = expirationTime / 1000;
+
+        // 레디스에 로그인 세션 추가
+        redisTemplate.opsForValue().set(sessionKey,token,sessionLockTtl,TimeUnit.MILLISECONDS);
+
+        // 로그인 결과 반환
+        return new LoginResponseDto(token,member.getNickname(),member.getBalance(),member.getProvider(),member.getRole().getKey(),expiresInSeconds);
+
+    }
+
     //로그아웃
     public void logout(String loginId) {
         redisTemplate.delete(LOGIN_CACHE_KEY + loginId);
@@ -242,8 +306,10 @@ public class AuthService {
         MemberAnt member = memberAntRepository.findByUsernameOrEmail(loginId, loginId)
                 .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
-        if(member.getProvider().equals("GOOGLE")){
-            throw new IllegalStateException("구글계정은 패스워드를 변경할 수 없습니다.");
+        if (!"LOCAL".equals(member.getProvider())) {
+            throw new IllegalStateException(
+                    "소셜 로그인 회원은 비밀번호를 변경할 수 없습니다."
+            );
         }
 
         if(passwordEncoder.matches(newPassword, member.getPassword())){

@@ -5,14 +5,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import sw.gaemiZIP.dto.auth.FindPasswordRequestDto;
-import sw.gaemiZIP.dto.auth.GoogleLoginRequest;
-import sw.gaemiZIP.dto.auth.LoginReqeustDto;
-import sw.gaemiZIP.dto.auth.LoginResponseDto;
-import sw.gaemiZIP.dto.auth.SignUpRequestDto;
-import sw.gaemiZIP.dto.auth.SignUpResponseDto;
-import sw.gaemiZIP.dto.auth.VerifySecurityCodeRequestDto;
+import sw.gaemiZIP.dto.auth.*;
 import sw.gaemiZIP.service.auth.AuthService;
+import sw.gaemiZIP.service.auth.KakaoOAuthException;
 
 import java.util.Map;
 
@@ -81,6 +76,25 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("구글 로그인 처리 중 오류가 발생했습니다.");
         }
     }
+
+    //카카오계정으로 로그인
+    @PostMapping("/kakao")
+    public ResponseEntity<?> kakaoLogin(@RequestBody KakaoLoginRequest request) {
+        try {
+            LoginResponseDto response = authService.kakaoLogin(request.getCode());
+            return ResponseEntity.ok(response);
+
+        } catch (KakaoOAuthException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 
     //패스워드 확인
     @PostMapping("/verify-password")
