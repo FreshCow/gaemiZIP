@@ -16,6 +16,9 @@ public interface MemberAntRepository extends JpaRepository<MemberAnt, Long> {
     // LOCAL(username) 또는 GOOGLE(email) 어느 쪽으로도 조회 가능
     Optional<MemberAnt> findByUsernameOrEmail(String username, String email);
 
+    //카카오 필수인 회원번호로 찾기
+    Optional<MemberAnt> findByProviderAndProviderId(String provider, String providerId);
+
     boolean existsByNickname(String nickname);
 
 }

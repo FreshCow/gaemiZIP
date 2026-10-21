@@ -31,9 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         // 인증이 필요 없는 공개 엔드포인트만 JWT 필터 스킵
         // verify-password, /me 등 인증 필요 엔드포인트는 필터를 통과해야 함
-        return path.equals("/api/auth/login")
-                || path.equals("/api/auth/signup")
-                || path.equals("/api/auth/google");
+        return path.equals("/api/auth/login")|| path.equals("/api/auth/signup")|| path.equals("/api/auth/google") || path.equals("/api/auth/kakao");
     }
 
     @Override
@@ -49,10 +47,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if(token.equals(activeToken)){
                 // 요청마다 세션락 TTL을 슬라이딩 갱신 — 하트비트 타이머 생존 여부에 의존하지 않도록 함
                 redisTemplate.expire(LOGIN_CACHE_KEY + subject, sessionLockTtl, TimeUnit.MILLISECONDS);
-
                 String role = jwtUtil.getRoleFromToken(token);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(subject, null, List.of(new SimpleGrantedAuthority(role)));
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(subject, null, List.of(new SimpleGrantedAuthority(role)));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }

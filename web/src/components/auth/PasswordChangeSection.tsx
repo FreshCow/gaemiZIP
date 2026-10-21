@@ -10,7 +10,7 @@ interface PasswordChangeSectionProps {
 }
 
 export function PasswordChangeSection({ provider }: PasswordChangeSectionProps) {
-  const isGoogle = provider === "GOOGLE";
+  const isSocialAccount = provider !== null && provider !== "LOCAL";
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
@@ -18,10 +18,10 @@ export function PasswordChangeSection({ provider }: PasswordChangeSectionProps) 
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (isGoogle) {
+  if (isSocialAccount) {
     return (
       <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-neutral-800 dark:text-neutral-400">
-        Google 계정으로 로그인 중이라 비밀번호를 변경할 수 없습니다.
+        소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.
       </p>
     );
   }
