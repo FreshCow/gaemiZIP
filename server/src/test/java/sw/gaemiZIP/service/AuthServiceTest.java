@@ -1,8 +1,10 @@
 package sw.gaemiZIP.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,13 +29,18 @@ import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
 import sw.gaemiZIP.service.auth.AuthService;
 import sw.gaemiZIP.util.JwtUtil;
+import sw.gaemiZIP.dto.auth.KakaoTokenResponse;
+import sw.gaemiZIP.dto.auth.KakaoUserResponse;
+import sw.gaemiZIP.service.auth.KakaoOAuthClient;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.never;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -76,8 +83,22 @@ class AuthServiceTest {
     @Mock
     private CommentLikeRepository commentLikeRepository;
 
+    @Mock
+    private KakaoOAuthClient kakaoOAuthClient;
+
     @InjectMocks // @Mock 가짜 객체들을 AuthService 객체 안에 자동 주입
     private AuthService authService;
+
+    private static final long JWT_EXPIRATION = 86_400_000L;
+    private static final long SESSION_LOCK_TTL = 600_000L;
+
+    @BeforeEach
+    void setUp() {
+
+        ReflectionTestUtils.setField(authService,"expirationTime",JWT_EXPIRATION);
+        ReflectionTestUtils.setField(authService,"sessionLockTtl",SESSION_LOCK_TTL);
+
+    }
 
     @Test
     @DisplayName("회원가입 성공 테스트")
@@ -422,4 +443,108 @@ class AuthServiceTest {
                 .hasMessage("회원을 찾을 수 없습니다.");
     }
 
+    @Test
+    @DisplayName("카카오 로그인 성공 - 기존 회원")
+    void kakaoLoginExistingMemberSuccessTest() {
+
+        String code = "authorization-code";
+        String accessToken = "kakao-access-token";
+        String providerId = "12345";
+        String username = "KAKAO_12345";
+
+        KakaoTokenResponse tokenResponse = new KakaoTokenResponse(accessToken);
+
+        KakaoUserResponse userResponse = new KakaoUserResponse(12345L);
+
+        MemberAnt member = MemberAnt.builder()
+                .username(username)
+                .password("")
+                .nickname("빠른개미")
+                .provider("KAKAO")
+                .providerId(providerId)
+                .role(Role.USER)
+                .balance(100_000_000L)
+                .build();
+
+        given(kakaoOAuthClient.exchangeToken(code)).willReturn(tokenResponse);
+
+        given(kakaoOAuthClient.getUserInfo(accessToken)).willReturn(userResponse);
+
+        given(memberAntRepository.findByProviderAndProviderId("KAKAO",providerId)).willReturn(Optional.of(member));
+
+        given(redisTemplate.hasKey("auth:session:" + username)).willReturn(false);
+
+        given(jwtUtil.generateToken(username,"ROLE_USER",JWT_EXPIRATION)).willReturn("gaemi-jwt-token");
+
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+
+        LoginResponseDto response = authService.kakaoLogin(code);
+
+        assertThat(response.getToken()).isEqualTo("gaemi-jwt-token");
+
+        assertThat(response.getProvider()).isEqualTo("KAKAO");
+
+        assertThat(response.getNickname()).isEqualTo("빠른개미");
+
+        assertThat(response.getExpiresIn()).isEqualTo(86_400L);
+
+        verify(memberAntRepository, never()).save(any(MemberAnt.class));
+
+        verify(valueOperations).set("auth:session:" + username,"gaemi-jwt-token",SESSION_LOCK_TTL,TimeUnit.MILLISECONDS);
+
+    }
+
+    @Test
+    @DisplayName("카카오 로그인 실패 - 정지 회원")
+    void kakaoLoginSuspendedMemberTest() {
+
+        MemberAnt suspendedMember = MemberAnt.builder()
+                .username("KAKAO_12345")
+                .password("")
+                .provider("KAKAO")
+                .providerId("12345")
+                .role(Role.USER)
+                .build();
+
+        suspendedMember.suspend();
+
+        given(kakaoOAuthClient.exchangeToken("authorization-code")).willReturn(new KakaoTokenResponse("access-token"));
+
+        given(kakaoOAuthClient.getUserInfo("access-token")).willReturn(new KakaoUserResponse(12345L));
+
+        given(memberAntRepository.findByProviderAndProviderId("KAKAO","12345")).willReturn(Optional.of(suspendedMember));
+
+        assertThatThrownBy(() ->authService.kakaoLogin("authorization-code")).isInstanceOf(IllegalStateException.class).hasMessage("정지된 계정입니다");
+
+        verify(redisTemplate, never()).hasKey(anyString());
+
+        verify(jwtUtil, never()).generateToken(anyString(),anyString(),anyLong());
+    }
+
+    @Test
+    @DisplayName("카카오 로그인 실패 - 이미 로그인 중")
+    void kakaoLoginDuplicateSessionTest() {
+
+        MemberAnt member = MemberAnt.builder()
+                .username("KAKAO_12345")
+                .password("")
+                .provider("KAKAO")
+                .providerId("12345")
+                .role(Role.USER)
+                .build();
+
+        given(kakaoOAuthClient.exchangeToken("authorization-code")).willReturn(new KakaoTokenResponse("access-token"));
+
+        given(kakaoOAuthClient.getUserInfo("access-token")).willReturn(new KakaoUserResponse(12345L));
+
+        given(memberAntRepository.findByProviderAndProviderId("KAKAO","12345")).willReturn(Optional.of(member));
+
+        given(redisTemplate.hasKey("auth:session:KAKAO_12345")).willReturn(true);
+
+        assertThatThrownBy(() -> authService.kakaoLogin("authorization-code")).isInstanceOf(IllegalStateException.class).hasMessage("이미 로그인 중인 계정입니다.");
+
+        verify(jwtUtil, never()).generateToken(anyString(),anyString(),anyLong());
+
+        verify(redisTemplate, never()).opsForValue();
+    }
 }

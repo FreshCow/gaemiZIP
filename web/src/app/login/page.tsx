@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
+import { KakaoLoginButton } from "@/components/auth/KakaoLoginButton";
 
 export default function LoginPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -115,6 +116,7 @@ export default function LoginPage() {
             onError={setError}
             disabled={loading}
           />
+          <KakaoLoginButton onError={setError} disabled={loading} />
         </div>
 
         <p className="text-center text-sm text-gray-500 dark:text-neutral-400">

@@ -15,12 +15,13 @@ interface WithdrawSectionProps {
 export function WithdrawSection({ provider }: WithdrawSectionProps) {
   const router = useRouter();
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const isGoogle = provider === "GOOGLE";
+  const isSocialAccount = provider !== null && provider !== "LOCAL";
 
-  const [step, setStep] = useState<"password" | "confirm">(isGoogle ? "confirm" : "password");
+  const [step, setStep] = useState<"password" | "confirm">("password");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const currentStep = isSocialAccount ? "confirm" : step;
 
   const handlePasswordNext = async () => {
     if (!password) {
@@ -55,7 +56,7 @@ export function WithdrawSection({ provider }: WithdrawSectionProps) {
 
   return (
     <div className="space-y-3">
-      {step === "password" ? (
+      {currentStep === "password" ? (
         <>
           <p className="text-sm text-gray-500 dark:text-neutral-400">탈퇴 전 본인 확인이 필요합니다.</p>
 
