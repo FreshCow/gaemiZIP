@@ -18,6 +18,8 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+
+    mockitoAgent
 }
 
 repositories {
@@ -49,6 +51,16 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+
+    mockitoAgent('org.mockito:mockito-core') {
+        transitive = false
+    }
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
 }
 
 tasks.named('bootRun') {
@@ -93,4 +105,8 @@ tasks.register('concurrencyTest', Test) {
         showStandardStreams = true
         events "passed", "failed"
     }
+}
+
+tasks.withType(Test).configureEach {
+    jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
 }

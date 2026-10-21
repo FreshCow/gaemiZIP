@@ -25,6 +25,10 @@ export interface VerifySecurityCodeRequest {
   securityCode: string;
 }
 
+export interface KakaoLoginRequest {
+  code: string;
+}
+
 export interface AuthResponse {
   token: string;
   nickname: string;

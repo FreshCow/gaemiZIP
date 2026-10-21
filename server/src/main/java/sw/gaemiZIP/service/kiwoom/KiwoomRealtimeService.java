@@ -48,7 +48,7 @@ public class KiwoomRealtimeService {
     private final Map<String, Instant> lastAccessedAt = new ConcurrentHashMap<>();
     private static final Duration SUBSCRIPTION_TTL = Duration.ofMinutes(5);
 
-    // LOGIN ack를 받기 전에는 REG(구독) 요청을 보낼 수 없음
+    // LOGIN ack를 받기 전에는 요청을 보낼 수 없음
     private volatile boolean loggedIn = false;
 
     @EventListener(ApplicationReadyEvent.class)

@@ -1,5 +1,13 @@
 import api from "./api";
-import type { LoginRequest, SignUpRequest, SignUpResponse, FindPasswordRequest, VerifySecurityCodeRequest, AuthResponse } from "@/types/auth";
+import type {
+  AuthResponse,
+  FindPasswordRequest,
+  KakaoLoginRequest,
+  LoginRequest,
+  SignUpRequest,
+  SignUpResponse,
+  VerifySecurityCodeRequest,
+} from "@/types/auth";
 
 export const authApi = {
   login: (dto: LoginRequest) =>
@@ -16,6 +24,9 @@ export const authApi = {
 
   googleLogin: (idToken: string) =>
     api.post<AuthResponse>("/auth/google", { idToken }).then((r) => r.data),
+
+  kakaoLogin: (dto: KakaoLoginRequest) =>
+    api.post<AuthResponse>("/auth/kakao", dto).then((r) => r.data),
 
   verifyPassword: (password: string) =>
     api.post<void>("/auth/verify-password", { password }),
