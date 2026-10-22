@@ -34,7 +34,7 @@ public class TradeService {
         //매수/매도는 오전 9시부터 오후 3시30분까지만 가능
         if(!MarketHoursUtil.isMarketHours()) {throw new IllegalStateException("주문은 월요일~금요일 오전 9시부터 오후 3시30분까지만 가능합니다.");}
 
-        MemberAnt member = findMember(email);
+        MemberAnt member = findMemberForUpdate(email);
 
         //가용 잔고로 계산
         long totalCost = (long) request.getPrice() * request.getQuantity();
@@ -64,13 +64,18 @@ public class TradeService {
         return TradeResponse.from(saved, member.getBalance());
     }
 
+    //주문 경로 전용 - 회원 행을 잠가 같은 계정의 동시 주문을 직렬화
+    private MemberAnt findMemberForUpdate(String loginId) {
+        return memberAntRepository.findByLoginIdForUpdate(loginId).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+    }
+
     @Transactional
     public TradeResponse executeSell(String email, TradeRequest request) {
 
         //매수/매도는 오전 9시부터 오후 3시30분까지만 가능
         if(!MarketHoursUtil.isMarketHours()) {throw new IllegalStateException("주문은 월요일~금요일 오전 9시부터 오후 3시30분까지만 가능합니다.");}
 
-        MemberAnt member = findMember(email);
+        MemberAnt member = findMemberForUpdate(email);
 
         Holding holding = holdingRepository
                 .findByMember_IdAndStock_Code(member.getId(), request.getStockCode())

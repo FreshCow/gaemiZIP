@@ -3,6 +3,10 @@ package sw.gaemiZIP.repository.member;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import sw.gaemiZIP.entity.member.MemberAnt;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -20,5 +24,10 @@ public interface MemberAntRepository extends JpaRepository<MemberAnt, Long> {
     Optional<MemberAnt> findByProviderAndProviderId(String provider, String providerId);
 
     boolean existsByNickname(String nickname);
+
+    // 주문 동시성 제어용 - 회원 행 비관적 락
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from MemberAnt m where m.username = :id or m.email = :id")
+    Optional<MemberAnt> findByLoginIdForUpdate(@Param("id") String id);
 
 }

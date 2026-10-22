@@ -49,7 +49,7 @@ class TradeServiceLockedQuantityTest {
         MemberAnt member = MemberAnt.builder().username("tester").balance(balance).build();
         ReflectionTestUtils.setField(member, "id", 1L);
         ReflectionTestUtils.setField(member, "lockedBalance", 0L); //null이므로 초기화
-        given(memberAntRepository.findByUsernameOrEmail("tester", "tester")).willReturn(Optional.of(member));
+        given(memberAntRepository.findByLoginIdForUpdate("tester")).willReturn(Optional.of(member));
         given(tradeHistoryRepository.save(any(TradeHistory.class))).willAnswer(i -> i.getArgument(0));
 
         return member;
