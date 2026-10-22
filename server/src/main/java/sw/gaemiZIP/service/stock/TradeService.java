@@ -30,14 +30,17 @@ public class TradeService {
 
     @Transactional
     public TradeResponse executeBuy(String email, TradeRequest request) {
+
         //매수/매도는 오전 9시부터 오후 3시30분까지만 가능
         if(!MarketHoursUtil.isMarketHours()) {throw new IllegalStateException("주문은 월요일~금요일 오전 9시부터 오후 3시30분까지만 가능합니다.");}
 
         MemberAnt member = findMember(email);
 
+        //가용 잔고로 계산
         long totalCost = (long) request.getPrice() * request.getQuantity();
-        if (member.getBalance() < totalCost) {
-            throw new IllegalStateException("잔고가 부족합니다. 필요: " + totalCost + "원, 보유: " + member.getBalance() + "원");
+        long available = member.getBalance() - member.getLockedBalance();
+        if (available < totalCost) {
+            throw new IllegalStateException("주문 가능 잔고가 부족합니다. 필요: " + totalCost + "원, 가능: " + available + "원");
         }
 
         // 잔고 차감 — @Transactional 범위 안이므로 dirty checking이 자동 반영
@@ -73,8 +76,10 @@ public class TradeService {
                 .findByMember_IdAndStock_Code(member.getId(), request.getStockCode())
                 .orElseThrow(() -> new IllegalStateException("보유하지 않은 종목입니다."));
 
-        if (holding.getQuantity() < request.getQuantity()) {
-            throw new IllegalStateException("보유 수량이 부족합니다. 보유: " + holding.getQuantity() + "주");
+        //가용 잔고로 계산
+        int available = holding.getQuantity() - holding.getLockedQuantity();
+        if (available < request.getQuantity()) {
+            throw new IllegalStateException("매도 가능 수량이 부족합니다. 가능: " + available + "주");
         }
 
         double profitRate = ((double) request.getPrice() - holding.getAvgPrice()) / holding.getAvgPrice() * 100.0;
