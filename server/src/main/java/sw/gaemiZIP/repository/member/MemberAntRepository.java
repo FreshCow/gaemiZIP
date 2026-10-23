@@ -17,7 +17,7 @@ public interface MemberAntRepository extends JpaRepository<MemberAnt, Long> {
 
     Optional<MemberAnt> findByUsername(String username);
 
-    // LOCAL(username) 또는 GOOGLE(email) 어느 쪽으로도 조회 가능
+    //LOCAL(username) 또는 GOOGLE 어느 쪽으로도 조회 가능
     Optional<MemberAnt> findByUsernameOrEmail(String username, String email);
 
     //카카오 필수인 회원번호로 찾기
@@ -25,9 +25,14 @@ public interface MemberAntRepository extends JpaRepository<MemberAnt, Long> {
 
     boolean existsByNickname(String nickname);
 
-    // 주문 동시성 제어용 - 회원 행 비관적 락
+    //주문 동시성 제어용 - 회원 행 비관적 락
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from MemberAnt m where m.username = :id or m.email = :id")
     Optional<MemberAnt> findByLoginIdForUpdate(@Param("id") String id);
+
+    //예약 체결 등 id로 회원 행을 잠글 때 사용 - 비관적 락
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from MemberAnt m where m.id = :id")
+    Optional<MemberAnt> findByIdForUpdate(@Param("id") Long id);
 
 }
