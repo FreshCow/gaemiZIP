@@ -1,6 +1,7 @@
 package sw.gaemiZIP.service.stock;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,12 +15,11 @@ import sw.gaemiZIP.repository.stock.HoldingRepository;
 import sw.gaemiZIP.repository.stock.ReservedOrderRepository;
 import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.repository.stock.TradeHistoryRepository;
-import sw.gaemiZIP.service.notification.NotificationService;
 import sw.gaemiZIP.util.MarketHoursUtil;
 
 import java.util.List;
-import java.util.Comparator;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
@@ -30,62 +30,22 @@ public class ReservationService {
     private final ReservedOrderRepository reservedOrderRepository;
     private final TradeHistoryRepository tradeHistoryRepository;
     private final StockRepository stockRepository;
-    private final NotificationService notificationService;
+    private final ReservationExecutor reservationExecutor;
 
-    @Transactional
+
     public void matchAndExecute(String stockCode, long currentPrice){
 
-        List<ReservedOrder> matches = reservedOrderRepository
-                .findByStockCodeAndStatusForUpdate(stockCode, TradeStatus.PENDING)
-                .stream()
-                .filter(o -> isPriceMatched(o, currentPrice))
-                .sorted(Comparator.comparing(ReservedOrder::getMemberId).thenComparing(ReservedOrder::getId)) //회원 ID순으로
-                .toList();
+        List<ReservedOrder> candidates = reservedOrderRepository.findPendingByStockCode(stockCode, TradeStatus.PENDING);
 
-        for(ReservedOrder order : matches){
-            MemberAnt member = memberAntRepository.findByIdForUpdate(order.getMemberId()).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+        for (ReservedOrder order : candidates) {
 
-            long amount = order.getTargetPrice() * order.getQuantity();
+            if (!reservationExecutor.isPriceMatched(order, currentPrice)) continue;
 
-            if(order.getTradeType() == TradeType.BUY){
-                member.updateBalance(-amount); //자산에서 체결금액 뺀걸로 업데이트
-                member.unlockBalance(amount); //체결금액 뺀 자산으로 lock 해제
-
-                Holding holding = holdingRepository
-                        .findByMember_IdAndStock_Code(member.getId(), order.getStockCode())
-                        .orElse(Holding.builder()
-                                .member(member)
-                                .stock(order.getStock())
-                                .stockName(order.getStockName())
-                                .quantity(0)
-                                .avgPrice(0L)
-                                .build());
-
-                holding.addPurchase(order.getQuantity(), order.getTargetPrice());
-                holdingRepository.save(holding);
-
-                saveHistory(member, order, "BUY", null);
-            }else{
-                Holding holding = holdingRepository
-                        .findByMember_IdAndStock_Code(member.getId(), order.getStockCode())
-                        .orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
-                double profitRate = ((double) order.getTargetPrice() - holding.getAvgPrice()) / holding.getAvgPrice() * 100.0;
-
-                member.updateBalance(amount);
-                holding.sell(order.getQuantity());
-                holding.unlock(order.getQuantity());
-                if(holding.getQuantity() == 0){
-                    holdingRepository.delete(holding);
-                }
-
-                saveHistory(member, order, "SELL", profitRate);
+            try {
+                reservationExecutor.executeOne(order.getId(), currentPrice);
+            } catch (Exception e) {
+                log.error("예약 주문 체결 실패 orderId={}, stock={}: {}", order.getId(), stockCode, e.getMessage());
             }
-
-            order.excute();
-
-            String tradeLabel = order.getTradeType() == TradeType.BUY ? "매수" : "매도";
-            notificationService.notify(member, order.getStock(),
-                    String.format("%s %s %d주가 %,d원에 체결되었습니다.", order.getStockName(), tradeLabel, order.getQuantity(), order.getTargetPrice()));
         }
     }
 
@@ -192,7 +152,7 @@ public class ReservationService {
             throw new IllegalStateException("대기 중인 예약만 취소할 수 있습니다.");
         }
 
-        releaseLock(member, order);
+        reservationExecutor.releaseLock(member, order);
 
         order.cancel();
     }
@@ -206,31 +166,16 @@ public class ReservationService {
         return memberAntRepository.findByUsernameOrEmail(loginId, loginId).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
     }
 
-    private void releaseLock(MemberAnt member, ReservedOrder order) {
-        if (order.getTradeType() == TradeType.BUY) {
-            member.unlockBalance(order.getTargetPrice() * order.getQuantity());
-        } else {
-            Holding holding = holdingRepository
-                    .findByMember_IdAndStock_Code(member.getId(), order.getStockCode())
-                    .orElseThrow(() -> new IllegalStateException("보유 종목 정보를 찾을 수 없습니다."));
-
-            holding.unlock(order.getQuantity());
-        }
-    }
-
     @Scheduled(cron = "0 30 15 * * MON-FRI", zone = "Asia/Seoul")
-    @Transactional
     public void cancelAllPendingAtMarketClose() {
-        List<ReservedOrder> pending = reservedOrderRepository.findAllByStatusForUpdate(TradeStatus.PENDING)
-                .stream().sorted(Comparator.comparing(ReservedOrder::getMemberId).thenComparing(ReservedOrder::getId)).toList();
 
-        for (ReservedOrder order : pending) {
-            MemberAnt member = memberAntRepository.findByIdForUpdate(order.getMemberId()).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
-
-            releaseLock(member, order);
-            order.cancel();
-
-            notificationService.notify(member, order.getStock(),String.format("장 마감으로 %s 예약 주문이 취소되었습니다.", order.getStockName()));
+        for (ReservedOrder order : reservedOrderRepository.findAllByStatus(TradeStatus.PENDING)) {
+            try {
+                reservationExecutor.cancelOne(order.getId());
+            } catch (Exception e) {
+                log.error("장 마감 예약 취소 실패 orderId={}: {}", order.getId(), e.getMessage());
+            }
         }
+
     }
 }

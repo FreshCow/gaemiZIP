@@ -1,7 +1,6 @@
 package sw.gaemiZIP.concurrency;
 
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -158,7 +157,6 @@ class ReservationEdgeCaseTest {
 
     // ---------- R: 한 주문 예외 시 같은 종목 롤백 ----------
 
-    @Disabled("미해결: 한 주문 예외 시 같은 종목 전체 롤백 — 주문 단위 트랜잭션 분리 브랜치에서 활성화")
     @Test
     @DisplayName("[R] 같은 종목의 한 주문이 예외를 던져도 다른 정상 주문은 체결되어야 한다")
     void oneFailingOrderRollsBackWholeStock() {

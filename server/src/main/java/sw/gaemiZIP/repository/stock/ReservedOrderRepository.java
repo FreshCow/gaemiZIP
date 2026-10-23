@@ -15,20 +15,14 @@ public interface ReservedOrderRepository extends JpaRepository<ReservedOrder, Lo
 
     List<ReservedOrder> findByMember_IdAndStatus(Long memberId, TradeStatus status);
 
-    //비관적 락
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select o from ReservedOrder o where o.stock.code = :stockCode and o.status = :status order by o.id")
-    List<ReservedOrder> findByStockCodeAndStatusForUpdate(@Param("stockCode") String stockCode, @Param("status") TradeStatus status);
-
     //예약 취소용 - 주문행 먼저 잠그고 상태 다시확인
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from ReservedOrder o where o.id = :id")
     Optional<ReservedOrder> findByIdForUpdate(@Param("id") Long id);
 
-    //장마감 일괄 취소용
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select o from ReservedOrder o where o.status = :status order by o.id")
-    List<ReservedOrder> findAllByStatusForUpdate(@Param("status") TradeStatus status);
+    // 체결 후보 조회 락 X — 실제 체결은 주문 단위로 락을 잡고 상태를 다시 확인
+    @Query("select o from ReservedOrder o where o.stock.code = :stockCode and o.status = :status order by o.id")
+    List<ReservedOrder> findPendingByStockCode(@Param("stockCode") String stockCode, @Param("status") TradeStatus status);
 
     List<ReservedOrder> findAllByStatus(TradeStatus status);
 
