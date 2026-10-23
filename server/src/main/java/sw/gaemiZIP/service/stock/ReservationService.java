@@ -18,6 +18,7 @@ import sw.gaemiZIP.service.notification.NotificationService;
 import sw.gaemiZIP.util.MarketHoursUtil;
 
 import java.util.List;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -33,15 +34,16 @@ public class ReservationService {
 
     @Transactional
     public void matchAndExecute(String stockCode, long currentPrice){
+
         List<ReservedOrder> matches = reservedOrderRepository
                 .findByStockCodeAndStatusForUpdate(stockCode, TradeStatus.PENDING)
                 .stream()
                 .filter(o -> isPriceMatched(o, currentPrice))
+                .sorted(Comparator.comparing(ReservedOrder::getMemberId).thenComparing(ReservedOrder::getId)) //회원 ID순으로
                 .toList();
 
         for(ReservedOrder order : matches){
-            MemberAnt member = memberAntRepository.findById(order.getMemberId())
-                    .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+            MemberAnt member = memberAntRepository.findByIdForUpdate(order.getMemberId()).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
             long amount = order.getTargetPrice() * order.getQuantity();
 
@@ -113,7 +115,7 @@ public class ReservationService {
         //주문은 오전9시부터 오후3시30분까지만 가능
         if (!MarketHoursUtil.isMarketHours()) {throw new IllegalStateException("주문은 오전 9시부터 오후 3시30분까지만 가능합니다.");}
 
-        MemberAnt member = findMember(email);
+        MemberAnt member = findMemberForUpdate(email);
 
         TradeType tradeType;
         try {
@@ -176,8 +178,11 @@ public class ReservationService {
     //예약 주문 취소
     @Transactional
     public void cancelReservation(String email, Long reservationId) {
-        MemberAnt member = findMember(email);
-        ReservedOrder order = reservedOrderRepository.findById(reservationId).orElseThrow(() -> new IllegalStateException("예약된 체결 내역을 찾을 수 없습니다."));
+
+        //락 순서 - 주문 -> 회원
+        ReservedOrder order = reservedOrderRepository.findByIdForUpdate(reservationId).orElseThrow(() -> new IllegalStateException("예약된 체결 내역을 찾을 수 없습니다."));
+
+        MemberAnt member = findMemberForUpdate(email);
 
         if(!order.getMemberId().equals(member.getId())) {
             throw new IllegalStateException("본인의 예약만 취소할 수 있습니다.");
@@ -190,6 +195,11 @@ public class ReservationService {
         releaseLock(member, order);
 
         order.cancel();
+    }
+
+    //예약주문 전용 - 회원 행을 잠가 같은 계정의 동시 주문을 직렬화
+    private MemberAnt findMemberForUpdate(String loginId) {
+        return memberAntRepository.findByLoginIdForUpdate(loginId).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
     }
 
     private MemberAnt findMember(String loginId) {
@@ -211,17 +221,16 @@ public class ReservationService {
     @Scheduled(cron = "0 30 15 * * MON-FRI", zone = "Asia/Seoul")
     @Transactional
     public void cancelAllPendingAtMarketClose() {
-        List<ReservedOrder> pending = reservedOrderRepository.findAllByStatus(TradeStatus.PENDING);
+        List<ReservedOrder> pending = reservedOrderRepository.findAllByStatusForUpdate(TradeStatus.PENDING)
+                .stream().sorted(Comparator.comparing(ReservedOrder::getMemberId).thenComparing(ReservedOrder::getId)).toList();
 
         for (ReservedOrder order : pending) {
-            MemberAnt member = memberAntRepository.findById(order.getMemberId())
-                    .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+            MemberAnt member = memberAntRepository.findByIdForUpdate(order.getMemberId()).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
 
             releaseLock(member, order);
             order.cancel();
 
-            notificationService.notify(member, order.getStock(),
-                    String.format("장 마감으로 %s 예약 주문이 취소되었습니다.", order.getStockName()));
+            notificationService.notify(member, order.getStock(),String.format("장 마감으로 %s 예약 주문이 취소되었습니다.", order.getStockName()));
         }
     }
 }
