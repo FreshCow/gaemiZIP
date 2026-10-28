@@ -11,6 +11,16 @@
 > 백엔드는 무료 티어라 15분 미접속 시 슬립 상태가 됩니다 — 첫 접속 시 콜드스타트로 30~60초 정도 걸릴 수 있습니다.
 
 ---
+##  핵심 기능
+
+- **실시간 시세/차트**: 키움 WebSocket 체결·호가 실시간 반영, 캔들 차트(1~60분·D·W), 코스피/코스닥/코스피200 지수
+- **모의 매매**: 즉시 체결 매수/매도, 지정가 예약 주문(현재가 도달 시 자동 체결) + 체결 알림
+- **인증**: JWT 기반 인증 + Google OAuth, 신규 가입 시 1억 원 초기 잔고와 랜덤 닉네임 자동 부여
+- **커뮤니티**: 게시판(태그·인기글·보유종목 공유) + 댓글/대댓글, 추천 1인 1회 제한
+- **AI 시장 분석**: 최신 뉴스 기반 Gemini 2.5 Flash 시장 테마·관련 종목 분석
+- **관리자 모드**: 회원 정지, 콘텐츠 블라인드, 잔고/거래 수동 보정 + 감사 로그, 통계 대시보드
+
+---
 ##  기술 스택
 
 | 구분 | 스택 |
@@ -25,49 +35,245 @@
 ---
 ##  트러블 슈팅
 
-###  1. 외부 API 연동 시 캐시 스탬피드 현상 및 429 에러 이슈
+### 1. 같은 데이터를 동시에 수정할 때 값이 유실되는 동시성 결함
 
-- **증상**: 종목 상세 페이지 진입 시 간헐적으로 데이터를 불러오지 못하고 에러가 발생하며 새로고침 시에만 정상 작동함
-<br><br/>
-- **원인**: 콜드 캐시 상태에서 다수의 API가 동시에 외부 API를 호출하여 중복 요청이 발생함, 이로 인해 외부 API 계정 전역의 호출 횟수 제한(429 Too Many Requests)에 걸려 조회가 실패함
-<br><br/>
-- **해결**: `ConcurrentHashMap`과 `CompletableFuture`를 활용하여 종목코드 단위로 진행 중인 요청을 병합(in-flight de-dup)하도록 로직을 개선함
-<br><br/>
-- **결과**: 최초 1회만 외부 API를 호출하고 나머지 요청은 진행 중인 결과를 공유하게 되어 429 에러를 방지하고 불필요한 네트워크 호출 부하를 최적화함
+> **요약**: 예약 체결·즉시 주문에서 같은 데이터를 동시에 수정할 때 값이 유실되던 결함을 비관적 락으로 해결 (재현율 20/20회 → 0회, 병렬 처리량 8.18배 유지)
 
+**증상**
+- 예약 체결을 종목코드 단위로 병렬화하자 가설(잔고 lost update)과 달리 결함 2건 발견
+  - 최초 매수: `Holding` 유니크 제약 부재로 동시 INSERT 예외 (20/20회)
+  - 기존 보유 매수: 거래이력·알림이 스레드 수(4배)만큼 중복 생성 (20/20회), 잔고는 우연히 같은 값이라 정상처럼 보임
+- 즉시 매수에서도 같은 유형 재현: 응답은 200인데 이력 11건 대비 보유 수량 일부만 반영(2~5), 잔고도 일부만 차감 (20/20회)
 
-### 2. 실시간 시세 WebSocket 동시 쓰기 충돌 및 스레드 블로킹 해결
+**원인**
+- 예약 체결(`matchAndExecute`): 같은 종목의 대기 주문을 락 없이 읽어, 동시 호출 시 각 스레드가 같은 주문 목록을 독립적으로 처리
+- `Holding`에 (회원, 종목) 유니크 제약이 없어 최초 매수 시 중복 INSERT 가능
+- 즉시 매수/매도(`TradeService`): 회원 행에 락이나 `@Version` 없이 "조회 → 잔고 차감 → 보유 갱신"을 수행해 같은 행을 서로 덮어씀
 
-- **증상**: 다종목 동시 구독 시 실시간 틱 데이터가 일부 유실되거나(`TEXT_PARTIAL_WRITING`), 응답 없는 세션 하나로 인해 다른 클라이언트들의 전송까지 타임아웃(`Write timeout`)되는 현상이 발생함[cite: 1].
-  <br><br/>
-- **원인**: 여러 I/O 스레드가 동기화 없이 같은 세션에 동시에 쓰기를 시도해 WebSocket API 예외가 발생함[cite: 1]. 또한, 순차적 블로킹 방식으로 브로드캐스트가 진행되어 특정 세션의 지연이 전체 서버 스레드를 막음[cite: 1].
-  <br><br/>
-- **해결**: `session.sendMessage()` 호출을 `synchronized(session)`으로 감싸 세션 단위 쓰기를 직렬화함[cite: 1]. 브로드캐스트 작업은 `Executors.newCachedThreadPool()`을 통해 비동기로 분리하고 예외 발생 시 좀비 세션을 즉시 제거하도록 처리함[cite: 1].
-  <br><br/>
-- **결과**: 세션 간 전송이 독립적으로 분리되어 하나의 지연이 시스템 전체에 영향을 주지 않게 되었으며, 고부하 환경에서도 실시간 데이터 스트리밍의 안정성 및 처리량이 대폭 향상됨[cite: 1].
+**해결**
+- 예약 체결: 종목코드 단위 비관적 락(`@Lock(PESSIMISTIC_WRITE)`) + `Holding` 유니크 제약
+- 즉시 매수/매도: 회원 행 조회에 `@Lock(PESSIMISTIC_WRITE)` 적용, 같은 계정의 동시 주문 직렬화
+- 이후 예약 체결·취소·생성에도 회원 행 락을 추가해 즉시 주문과 락 순서를 통일
 
+<details>
+<summary>코드: 예약 체결 (기존 → 수정)</summary>
 
+기존
+```java
+// ReservedOrderRepository
+List<ReservedOrder> findByStockCodeAndStatus(String stockCode, TradeStatus status);
+```
 
-### 3. Spring Data JPA 파생 쿼리 해석 오류 및 403 예외 은닉 해결
+수정
+```java
+// ReservedOrderRepository: 종목코드 단위로 대기 주문을 잠그고 조회
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("select o from ReservedOrder o where o.stock.code = :stockCode and o.status = :status")
+List<ReservedOrder> findByStockCodeAndStatusForUpdate(@Param("stockCode") String stockCode,
+                                                      @Param("status") TradeStatus status);
 
-- **증상**: 순수 스칼라 컬럼을 `@ManyToOne` 연관 관계로 리팩터링한 후, 인가 설정이 전체 허용(`permitAll`)된 엔드포인트임에도 호출 시 403 Forbidden 에러가 발생함[cite: 1].
-  <br><br/>
-- **원인**: 하위 호환을 위해 유지한 `getBoardId()` 편의 메서드를 Spring Data JPA가 실제 프로퍼티로 오인, 잘못된 JPQL을 생성하여 내부적으로 파싱 에러(500)가 발생함[cite: 1]. 이 예외가 Spring Security의 `ExceptionTranslationFilter`를 거치며 403 에러로 감춰짐[cite: 1].
-  <br><br/>
-- **해결**: 해당 컬럼을 참조하는 리포지토리 파생 쿼리 메서드명을 `findAllByBoard_Id`와 같이 언더스코어(`_`)를 명시해 중첩 경로임을 프레임워크에 정확히 전달하도록 수정함[cite: 1].
-  <br><br/>
-- **결과**: 런타임 시점의 쿼리 파싱 오류가 해결되어 정상 응답(200)을 반환하게 됨[cite: 1].
+// Holding: 같은 회원·종목의 중복 INSERT를 DB가 막도록 안전망 추가
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "stock_code"}))
+public class Holding { ... }
+```
+</details>
 
----
+<details>
+<summary>코드: 즉시 매수/매도 (기존 → 수정)</summary>
 
-##  핵심 기능
+기존
+```java
+// TradeService.executeBuy / executeSell
+MemberAnt member = findMember(email);   // 락 없이 조회 → 동시 요청이 같은 값을 읽음
+```
 
-- **실시간 시세/차트**: 키움 WebSocket 체결·호가 실시간 반영, 캔들 차트(1~60분·D·W), 코스피/코스닥/코스피200 지수
-- **모의 매매**: 즉시 체결 매수/매도, 지정가 예약 주문(현재가 도달 시 자동 체결) + 체결 알림
-- **인증**: JWT 기반 인증 + Google OAuth, 신규 가입 시 1억 원 초기 잔고와 랜덤 닉네임 자동 부여
-- **커뮤니티**: 게시판(태그·인기글·보유종목 공유) + 댓글/대댓글, 추천 1인 1회 제한
-- **AI 시장 분석**: 최신 뉴스 기반 Gemini 2.5 Flash 시장 테마·관련 종목 분석
-- **관리자 모드**: 회원 정지, 콘텐츠 블라인드, 잔고/거래 수동 보정 + 감사 로그, 통계 대시보드
+수정
+```java
+// TradeService.executeBuy / executeSell
+MemberAnt member = findMemberForUpdate(email);   // 회원 행을 잠그고 조회
+
+// MemberAntRepository
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("select m from MemberAnt m where m.username = :id or m.email = :id")
+Optional<MemberAnt> findByLoginIdForUpdate(@Param("id") String id);
+```
+</details>
+
+**검증**
+- 예약 체결: JUnit(`ReservationRaceConditionTest`), `CountDownLatch`로 N스레드 동시 호출, 20회 반복
+- 즉시 매수: k6(`k6/loadTest/test_buy.js`)로 같은 계정이 20 VU로 동시 매수, 락 없는 코드와 락 적용 코드를 같은 조건으로 실행하고 DB에서 이력·보유 수량·잔고를 직접 대조
+- 즉시 매도: 보유 21주에서 1주씩 매도 요청 30개를 병렬 전송, 20회 반복
+
+| 지표 | 수정 전 | 수정 후 |
+|---|---|---|
+| 예약 체결 결함 재현율 (2건) | 20/20회 (100%) | 0/20회 |
+| 병렬 처리량(순차 대비) | 8.29~8.79배 | 8.18배 유지 |
+| 즉시 매수 어긋난 회차 | 20/20회 | 0/25회 |
+| 즉시 매도 어긋난 회차 | 20/20회 | 0/20회 |
+
+즉시 매수 동시 주문 비교 (20 VU, 같은 계정, 장 시간 실측)
+
+| 지표 | 락 없음 | 락 적용 |
+|---|---|---|
+| 성공 / 서버 오류 | 11 / 9 | 20 / 0 |
+| 매수 이력 / 보유 수량 | 11 / 3 | 20 / 20 |
+| 최종 잔고 | 99,790,000 (기대 99,230,000) | 98,600,000 (기대값 일치) |
+
+**선택 이유와 비용**
+- 비관적 락 선택: 같은 계정 안의 충돌이 짧고 드물어 대기 비용이 작고, 낙관적 락은 충돌 시 재시도 코드가 필요. 예약 체결에서 이미 같은 방식 사용
+- 비용: 같은 계정의 동시 주문이 직렬화되어 응답 시간 증가 (p95 338ms → 466ms, 20 VU 동시 매수 1회 측정), 정합성을 우선해 수용
+- 한계: 로컬 환경·테스트 계정 기준, 같은 계정 안의 동시성만 측정 (다른 계정 간 영향은 미측정)
+
+### 2. 종목 상세 조회 실패 - 캐시 스탬피드로 인한 외부 API 오류
+
+> **요약**: 종목 상세·차트 조회의 간헐적 실패 원인이 토큰 레이스가 아니라 외부 API 429(캐시 스탬피드)임을 로그로 확인하고 요청 병합으로 해결. 차트 조회는 같은 부하에서 빈 응답 91.2% → 0%
+
+**증상**
+- 종목 상세 페이지 진입 시 간헐적으로 조회 실패, 새로고침하면 정상 동작
+
+**원인 추적**
+- 1차 가설: 키움 토큰 발급 레이스 → `synchronized` 추가로 수정했으나 동일한 증상
+- 별도 포트에 디버그 인스턴스를 띄워 서버 로그 확인 → `429 Too Many Requests`
+- 종목 상세의 4개 API(`/info`, `/price`, `/news`, `/ai/stock`)가 콜드 캐시에서 같은 종목을 각자 키움에 중복 조회
+- 키움 호출 제한이 URL이 아니라 계정 전역이라 다른 스케줄러(5초 주기 랭킹 갱신)도 한도를 소모
+- 예외를 `null`로 반환해 404로 표면화, 하나만 성공해도 캐시되어 새로고침 시 정상으로 보임
+
+**해결**
+- 종목코드 단위 요청 병합(in-flight de-dup): 진행 중인 요청의 결과를 공유
+- 랭킹 갱신 스케줄러 주기 5초 → 30초
+- 같은 화면의 차트 조회(`ChartService`)도 캐시·요청 병합이 없음을 코드 확인으로 발견, 같은 패턴 적용 (캐시 키에 interval 포함, 실패·빈 응답은 캐시하지 않음)
+
+<details>
+<summary>코드: 요청 병합 (기존 → 수정)</summary>
+
+기존 (요약)
+```java
+// StockInfoService.getStockInfo — 4개 API가 각자 호출
+// Redis 조회 → 없으면 곧바로 키움 REST(ka10001) 호출 후 Redis 저장
+// 콜드 캐시에서 동시 요청 N개 = 키움 호출 N번 → 429
+
+// StockFetchService
+@Scheduled(fixedDelay = 5_000)
+```
+
+수정
+```java
+// StockInfoService: 같은 종목코드의 진행 중 요청을 공유
+private final ConcurrentHashMap<String, CompletableFuture<Optional<StockInfoResponse>>> inFlight = new ConcurrentHashMap<>();
+
+public Optional<StockInfoResponse> getStockInfo(String code) {
+    Optional<StockInfoResponse> cached = readFromCache(code);
+    if (cached.isPresent()) return cached;
+
+    // 진행 중인 요청이 있으면 그 결과를 공유, 없으면 한 번만 키움 호출
+    CompletableFuture<Optional<StockInfoResponse>> future = inFlight.computeIfAbsent(
+            code, c -> CompletableFuture.supplyAsync(() -> fetchAndCache(c)));
+    try {
+        return future.join();
+    } finally {
+        inFlight.remove(code, future);
+    }
+}
+
+// StockFetchService
+@Scheduled(fixedDelay = 30_000)
+
+// ChartService: 같은 패턴을 차트 조회에도 적용
+return getCached(cacheKey, () -> fetchDailyChartFromApi(stockCode));
+```
+</details>
+
+**검증**
+- 차트 조회 수정 전/후를 같은 조건으로 k6 비교 (`k6/loadTest/test_chart.js`, 50 VU·10종목 랜덤·2분, 로컬)
+- 수정 전 `a9527f6`, 수정 후 `e631c51`(차트 수정만 다름)을 각각 체크아웃해 순차 실행, Redis 차트 캐시를 비운 상태에서 시작
+- 첫 측정에서 HTTP 실패율이 양쪽 모두 0%인데 수신량이 4배 차이 → "200이지만 빈 응답"을 의심해 응답 내용 검증(`데이터 있음`) 추가
+
+| 지표 | 수정 전 | 수정 후 |
+|---|---|---|
+| 총 요청 | 922건 | 1,586건 |
+| HTTP 실패율 | 0.00% | 0.00% |
+| **빈 응답(실질 실패)** | **91.2% (841/922)** | **0.00% (0/1,586)** |
+| 평균 응답시간 | 1.46s | 7.45ms |
+| p95 | 9.8s | 10.25ms |
+| 최대 | 11.14s | 806.81ms |
+
+- 수정 전: 키움 호출이 실패해도 예외를 삼켜 빈 결과를 200으로 반환 → 상태 코드로 감지 불가
+- 수정 전 응답시간은 측정마다 변동이 큼 (p95 2.11s ~ 9.8s), 수정 후는 약 10ms로 안정
+
+**한계**
+- 요청 병합은 같은 종목의 동시 요청만 합치므로, 서로 다른 종목이 동시에 몰리는 경우의 429는 해소되지 않음 → Bucket4j 토큰버킷을 추가 도입해 실패율 43.22% → 19.7%로 개선, 완전 해결은 아님 (처리 용량 자체의 구조적 한계)
+- 로컬 환경·키움 모의 서버 기준, 수정 전/후를 순차 측정해 시점 차이가 있음
+
+### 3. 실시간 시세 중계 WebSocket 동시 전송 결함
+
+> **요약**: 서버가 키움과 브라우저 사이의 중계 허브로 동작하며 생긴 동시 쓰기 충돌과 느린 세션의 전송 지연을 세션 단위 직렬화와 비동기 전송으로 해결 (정규장 실사용 검증에서 재발 0건)
+
+**배경**
+- 선행 단계: 다종목 체결이 몰리면 연결이 30~40초마다 끊김 → 기본 텍스트 메시지 버퍼(8KB) 초과(`CloseStatus 1009`)가 원인, 1MB로 확장
+- 연결이 오래 유지되자 아래 결함이 드러남
+
+**증상**
+1. 연결은 유지되는데 실시간 체결 틱 일부가 유실됨 (`TEXT_PARTIAL_WRITING` 경고)
+2. 정규장 실사용 검증 중 일부 세션에서 `Write timeout` 발생 (10분 사이 서로 다른 세션 2건)
+
+**원인**
+1. 키움 WebSocket 클라이언트의 I/O 스레드 2개가 같은 브라우저 세션에 동시 쓰기, 세션별 동기화 없이 `sendMessage()` 호출 (선행 단계의 잦은 재연결에 가려져 있던 기존 잠재 버그로 추정)
+2. 브로드캐스트가 세션을 순차 블로킹으로 전송, 느린 세션 하나가 뒤 세션과 키움 I/O 스레드를 지연
+   - 전송 실패 시 세션을 제거하지 않아 같은 좀비 세션이 반복해서 타임아웃 유발
+
+**해결**
+1. 세션 단위 `synchronized`로 쓰기 직렬화 (서로 다른 클라이언트 간 병렬 유지)
+2. 세션별 전송을 스레드 풀로 비동기 분리, 전송 실패 시 세션 제거와 종료
+
+<details>
+<summary>코드: 브로드캐스트 (기존 → 수정)</summary>
+
+기존 (요약)
+```java
+// StockWebSocketHandler.broadcast
+for (WebSocketSession session : sessions) {
+    session.sendMessage(new TextMessage(message));   // 세션별 동기화 없음, 호출 스레드에서 순차 블로킹
+}                                                    // 실패해도 세션을 목록에서 제거하지 않음
+```
+
+수정
+```java
+public void broadcast(String message) {
+    this.lastBroadcastMessage = message;
+    if (sessions.isEmpty()) return;
+
+    for (WebSocketSession session : sessions) {
+        if (!session.isOpen()) continue;
+        broadcastExecutor.submit(() -> sendToSession(session, message));   // 세션별 비동기 전송
+    }
+}
+
+private void sendToSession(WebSocketSession session, String message) {
+    synchronized (session) {                          // 같은 세션에 대한 쓰기를 직렬화
+        try {
+            if (!session.isOpen()) return;
+            session.sendMessage(new TextMessage(message));
+        } catch (IOException e) {
+            sessions.remove(session);                 // 응답 없는 세션은 즉시 제거
+            try { session.close(CloseStatus.SERVER_ERROR); } catch (IOException ignore) { }
+        }
+    }
+}
+```
+</details>
+
+**검증**
+- 정규장 실사용 중 로그로 확인 (2026-08-05 고부하, 2026-08-06 17분)
+
+| 지표 | 수정 전 | 수정 후 |
+|---|---|---|
+| 틱 유실 경고(`TEXT_PARTIAL_WRITING`) | 간헐적 발생 | 0건 (2026-08-05, 정규장 고부하) |
+| 전송 타임아웃(`Write timeout`) | 2건 / 10분 (0.2건/분) | 0건 / 17분 (2026-08-06) |
+| 좀비 세션 반복 타임아웃 | 제거되지 않아 매 브로드캐스트마다 재발 가능 | 전송 실패 즉시 세션 제거, 재발 0 |
+
+**한계**
+- 관찰 시간이 짧음 (정규장 17분, 고부하 1회), 재현 스크립트 없이 실사용 로그 기반
+- 전송 스레드 풀(`Executors.newCachedThreadPool()`)에 상한이 없어 세션 수가 매우 많아지는 경우는 검증하지 않음
 
 ---
 
@@ -90,30 +296,10 @@ StockWebSocketHandler   ── 클라이언트 연결 풀 관리, 신규 접속�
 Next.js 클라이언트       ── rAF 배치 렌더링으로 고빈도 틱 처리
 ```
 
-<img src="docs/diagram_r4.png" alt="종목상세 페이지 — 실시간 시세/호가/AI 종목 분석" width="600" />  
+<img src="docs/diagram_r4.png" alt="아키텍처 다이어그램 — 키움 WebSocket 중계 구조" width="600" />  
 
 ###  ERD
 
-<img src="docs/Database_ERD.png" alt="종목상세 페이지 — 실시간 시세/호가/AI 종목 분석" width="600" />
+<img src="docs/Database_ERD.png" alt="데이터베이스 ERD" width="600" />
 
 ---
-
-##  프로젝트 구조
-
-```
-server/src/main/java/sw/gaemiZIP/
-├── config/       # Security, JWT, WebClient, WebSocket 설정
-├── controller/   # REST API (admin/ai/auth/board/news/stock)
-├── service/      # 도메인 서비스 (kiwoom/ai/news/stock/admin/auth)
-├── entity/       # JPA 엔티티
-├── repository/   # 리포지토리 (일부 QueryDSL)
-├── dto/          # 요청/응답 DTO
-└── websocket/    # StockWebSocketHandler
-
-web/src/
-├── app/          # Next.js App Router 페이지
-├── components/   # UI/도메인 컴포넌트
-├── services/     # 도메인별 axios API 클라이언트
-├── store/        # Zustand 스토어
-└── hooks/        # useWebSocket 등
-```
