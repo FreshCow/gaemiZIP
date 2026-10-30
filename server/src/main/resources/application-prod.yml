@@ -1,7 +1,7 @@
 spring:
   datasource:
     # Neon 등 SSL 필수인 관리형 Postgres 대응 (AWS RDS도 sslmode=require 수용 가능)
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}?sslmode=require
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}?sslmode=${DB_SSLMODE:require}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver

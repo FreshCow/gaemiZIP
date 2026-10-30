@@ -1,0 +1,23 @@
+name: Pause server (EC2 stop)
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-southeast-2
+  INSTANCE_ID: i-04614c2e6142ebe00
+
+jobs:
+  pause:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Stop instance
+        run: |
+          aws ec2 stop-instances --instance-ids "$INSTANCE_ID"
+          aws ec2 wait instance-stopped --instance-ids "$INSTANCE_ID"

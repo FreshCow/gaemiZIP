@@ -1,4 +1,4 @@
-name: Deploy to EC2
+name: Build images (GHCR)
 
 on:
   push:
@@ -61,17 +61,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
-    needs: [build-server, build-web]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/gaemiZIP
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker image prune -f
+  # 배포 단계 없음 (pull 방식): EC2가 부팅 시 / `systemctl restart gaemizip` 시 :latest를 직접 pull
+  # SCP가 GitHub OIDC 공급자 생성을 막아 CI → AWS 자격 증명을 쓰지 않음
