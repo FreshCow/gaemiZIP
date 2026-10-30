@@ -127,8 +127,7 @@ public class TradeService {
     }
 
     private MemberAnt findMember(String loginId) {
-        return memberAntRepository.findByUsernameOrEmail(loginId, loginId)
-                .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
+        return memberAntRepository.findByUsernameOrEmail(loginId, loginId).orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다."));
     }
 
     private TradeHistory buildHistory(MemberAnt member, TradeRequest request, String type, Double profitRate) {
