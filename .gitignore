@@ -8,3 +8,4 @@ pdf/
 server/.mcp.json
 .env
 .env.prod
+docs/review/
