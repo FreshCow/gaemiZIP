@@ -1,0 +1,15 @@
+[Unit]
+Description=gaemiZIP stack (docker compose)
+After=docker.service duckdns-update.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/gaemizip/start.sh
+ExecStop=/usr/bin/docker compose -f /opt/gaemizip/docker-compose.prod.yml stop
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

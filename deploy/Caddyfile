@@ -1,0 +1,12 @@
+# 자동 HTTPS(Let's Encrypt) + 리버스 프록시. WebSocket은 별도 설정 없이 프록시됨
+gaemizip.duckdns.org {
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+	handle /ws* {
+		reverse_proxy backend:8080
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
