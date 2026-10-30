@@ -1,22 +1,80 @@
-# EC2 배포용. DB(NeonDB)/Redis(Upstash)는 외부 서비스 사용 — 여기서는 백엔드/프론트만 기동
-# moderation 서비스는 t3.micro 메모리 제약으로 배포 범위에서 제외 (PROGRESS.md TODO 참고)
+# EC2(t3.small, 2GB) 단일 서버 배포용 — Caddy + Next.js + Spring + Postgres + Redis 전부 한 대에서 기동
+# .env는 deploy/ec2/render-env.sh가 SSM Parameter Store(/gaemizip/prod/*)에서 생성 (git 미추적)
+# moderation 서비스는 메모리 제약으로 배포 범위에서 제외
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: gaemizip-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data   # 인증서 영속 (재기동 시 재발급 방지)
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    mem_limit: 64m
+
   backend:
     image: ghcr.io/freshcow/gaemizip-server:latest
     container_name: gaemizip-server
     restart: unless-stopped
-    ports:
-      - "8080:8080"
     env_file:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: gaemizip
+      DB_USERNAME: gaemizip
+      DB_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_SSL_ENABLED: "false"
+      CORS_ALLOWED_ORIGINS: https://gaemizip.duckdns.org
+      JAVA_OPTS: "-XX:MaxRAMPercentage=65.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    mem_limit: 800m
 
   frontend:
     image: ghcr.io/freshcow/gaemizip-web:latest
     container_name: gaemizip-web
     restart: unless-stopped
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
+    mem_limit: 256m
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: gaemizip-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gaemizip
+      POSTGRES_USER: gaemizip
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gaemizip -d gaemizip"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 300m
+
+  redis:
+    image: redis:7-alpine
+    container_name: gaemizip-redis
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    mem_limit: 96m
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
