@@ -281,7 +281,7 @@ private void sendToSession(WebSocketSession session, String message) {
 
 ##  아키텍처
 
-<img src="docs/diagram_r4.png" alt="아키텍처 다이어그램 — 키움 WebSocket 중계 구조" width="600" />  
+<img src="docs/아키텍처_AWS.png" alt="아키텍처 다이어그램 — 키움 WebSocket 중계 구조" width="600" />  
 
 ###  ERD
 
