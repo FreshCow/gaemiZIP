@@ -1,6 +1,6 @@
 # 개인 투자자를 위한 모의투자 플랫폼 - gaemiZIP
 
-> [gaemiZIP 보러가기](https://gaemi-zip.vercel.app)
+> [gaemiZIP 보러가기](https://gaemizip.duckdns.org/)
 
 개인 투자자("개미")를 위한 실시간 시세·모의 매매·커뮤니티·AI 시장 분석을 제공하는 1인 풀스택 프로젝트입니다.
 백엔드 설계·구현·인프라를 전담했고, 프론트엔드는 AI 도구로 구현 후 직접 검증·수정했습니다.
@@ -24,12 +24,12 @@
 
 | 구분 | 스택 |
 |---|---|
-| 백엔드 | Java 21, Spring Boot 4.0.2, Spring Security + JWT, Spring Data JPA + QueryDSL 5, Spring WebSocket, WebFlux(WebClient), Bucket4j |
-| 프론트엔드 | Next.js 16 (App Router) + React 19, TypeScript, Tailwind CSS 4, Zustand, TanStack React Query, lightweight-charts |
-| 데이터베이스 | PostgreSQL 18, Redis |
-| 인프라 | Docker Compose, GitHub Actions |
-| 테스트/부하검증 | JUnit 5, k6 |
-| 외부 연동 | 키움증권 Open API+(모의투자, WebSocket/REST), Google Gemini 2.5 Flash, 네이버 뉴스 검색 API, Google OAuth 2.0 |
+| 백엔드 | ![Java](https://img.shields.io/badge/Java_21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white) ![Spring Boot](https://img.shields.io/badge/Spring_Boot_4-6DB33F?style=for-the-badge&logo=springboot&logoColor=white) ![Spring Security](https://img.shields.io/badge/Spring_Security_(JWT)-6DB33F?style=for-the-badge&logo=springsecurity&logoColor=white) ![JPA](https://img.shields.io/badge/JPA_·_QueryDSL-59666C?style=for-the-badge&logo=hibernate&logoColor=white) ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=socketdotio&logoColor=white) ![Bucket4j](https://img.shields.io/badge/Bucket4j-4285F4?style=for-the-badge) |
+| 프론트엔드 | ![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white) ![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white) ![Zustand](https://img.shields.io/badge/Zustand-443E38?style=for-the-badge) ![React Query](https://img.shields.io/badge/React_Query-FF4154?style=for-the-badge&logo=reactquery&logoColor=white) |
+| 데이터베이스 | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![Redis](https://img.shields.io/badge/Redis_7-DD0031?style=for-the-badge&logo=redis&logoColor=white) |
+| 인프라 | ![AWS EC2](https://img.shields.io/badge/AWS_EC2-FF9900?style=for-the-badge&logo=amazonec2&logoColor=white) ![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![Caddy](https://img.shields.io/badge/Caddy-1F88C0?style=for-the-badge&logo=caddy&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions_(GHCR)-2088FF?style=for-the-badge&logo=githubactions&logoColor=white) |
+| 테스트/부하검증 | ![JUnit5](https://img.shields.io/badge/JUnit_5-25A162?style=for-the-badge&logo=junit5&logoColor=white) ![k6](https://img.shields.io/badge/k6-7D64FF?style=for-the-badge&logo=k6&logoColor=white) |
+| 외부 연동 | 키움증권 Open API, Google Gemini 2.5 Flash, 네이버 뉴스 검색 API, Google OAuth 2.0 |
 
 ---
 ##  트러블 슈팅
