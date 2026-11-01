@@ -2,6 +2,7 @@ package sw.gaemiZIP.service.kiwoom;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -25,13 +26,23 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class KiwoomRealtimeService {
+
+    private static final int WORKER_COUNT = 4;
+    private static final int QUEUE_CAPACITY = 1000; //대기 큐
+
+    private final ThreadPoolExecutor[] tickWorkers = IntStream.range(0, WORKER_COUNT).mapToObj( i -> new ThreadPoolExecutor(
+                    1, 1, 0L, TimeUnit.MILLISECONDS,
+                    new ArrayBlockingQueue<>(QUEUE_CAPACITY),
+                    r -> new Thread(r, "tick-worker-" + i),
+                    new ThreadPoolExecutor.DiscardOldestPolicy())) // 큐가 차면 가장 오래된 틱 버림
+            .toArray(ThreadPoolExecutor[]::new);
 
     private final KiwoomTokenService tokenService;
     private final StockWebSocketHandler frontEndHandler;
@@ -239,7 +250,7 @@ public class KiwoomRealtimeService {
             stockData.put("volume", volume);
             //log.info("실시간: code={} price={} rate={} volume={}", code, price, rate, volume);
             frontEndHandler.broadcast("REALTIME_UPDATE:" + objectMapper.writeValueAsString(stockData));
-            reservationService.matchAndExecute(code, Long.parseLong(price));
+            dispatchMatch(code, Long.parseLong(price));
 
             // TICK_UPDATE: 차트 실시간 캔들 업데이트용
             // time     = 분 경계 epoch (캔들 집계용)
@@ -378,7 +389,6 @@ public class KiwoomRealtimeService {
         }
     }
 
-
     private void sendUnsubscribeMessage(List<String> codes) {
         if (codes.isEmpty()) return;
         if (kiwoomSession == null || !kiwoomSession.isOpen() || !loggedIn) {
@@ -402,6 +412,23 @@ public class KiwoomRealtimeService {
         } catch (Exception e) {
             log.error("실시간 구독 해제 요청 중 오류: {}", e.getMessage());
         }
+    }
+
+    private void dispatchMatch(String code, long price) {
+        int idx = Math.floorMod(code.hashCode(), WORKER_COUNT); //Math.floorMod = 항상 0 이상인 나머지를 돌려줌
+        tickWorkers[idx].execute(() -> {
+            try {
+                reservationService.matchAndExecute(code, price);
+            } catch (Exception e) {
+                log.warn("예약 체결 처리 실패 ({}): {}", code, e.getMessage());
+            }
+        });
+    }
+
+    //종료시 새로운 작업은 거부하고 진행 중인 작업만 마무리
+    @PreDestroy
+    void shutdownWorkers() {
+        for (ExecutorService w : tickWorkers) w.shutdown();
     }
 
     //1분마다 5분 이상 미접근 종목 구독 해제
