@@ -76,19 +76,27 @@ public class AiStockAnalysisService {
                 .collect(Collectors.joining("\n"));
 
         String prompt = """
-                너는 한국 주식 시장의 날카로운 퀀트 애널리스트야.
-                다음은 한 종목의 정보야:
-                종목명: %s (%s)
-                등락률: %s%%
-                PER: %s, EPS: %s, ROE: %s, 거래량: %s, 시가총액: %s억
+        너는 주식을 처음 접하는 사람에게도 쉽게 설명해주는 한국 주식 시장 애널리스트야.
+        다음은 한 종목의 정보야:
+        종목명: %s (%s)
+        등락률: %s%%
+        PER: %s, EPS: %s, ROE: %s, 거래량: %s, 시가총액: %s억
 
-                관련 최신 뉴스 제목:
-                [%s]
+        관련 최신 뉴스 제목:
+        [%s]
 
-                위 정보를 종합해서 이 종목의 최근 흐름과 단기 전망을 2~3문장으로 분석해줘.
-                반드시 아래 JSON 형식으로만 대답하고, 마크다운 코드블록 기호는 절대 쓰지 마:
-                {"summary":"...", "trend":"UP 또는 DOWN 또는 NEUTRAL 중 하나"}
-                """.formatted(
+        위 정보를 종합해서 이 종목의 최근 흐름과 단기 전망을 2~3문장으로 분석해줘.
+
+        작성 규칙:
+        - 등락률 수치는 trend 판단에만 참고하고, summary 문장에는 언급하지 마.
+        - 주식을 처음 보는 사람도 이해할 수 있게 쉬운 말로 써. 어려운 용어는 피하고, PER/EPS/ROE 같은 지표를 쓸 때는 의미를 짧게 풀어서 설명해(예: "이익 대비 주가가 높은 편").
+        - 지표 수치를 나열하지 말고, 수치가 의미하는 바와 뉴스 내용을 연결해 한 흐름으로 설명해.
+        - 뉴스가 없으면 지표만으로 판단하되, 확실하지 않은 내용은 단정하지 마.
+        - 특정 행동(매수/매도)을 권유하지 마.
+
+        반드시 아래 JSON 형식으로만 대답하고, 마크다운 코드블록 기호는 절대 쓰지 마:
+        {"summary":"...", "trend":"UP 또는 DOWN 또는 NEUTRAL 중 하나"}
+        """.formatted(
                 info.getName(), info.getCode(), info.getFluRt(),
                 info.getPer(), info.getEps(), info.getRoe(), info.getTrdeQty(), info.getMac(),
                 newsTitles.isBlank() ? "관련 뉴스 없음" : newsTitles
