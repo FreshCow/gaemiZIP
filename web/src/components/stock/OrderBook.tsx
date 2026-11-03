@@ -43,12 +43,12 @@ export function OrderBook({ data, currentPrice, onSelectPrice }: OrderBookProps)
 
       {totalQty > 0 && (
         <div className="border-t border-gray-200 px-2 py-2 dark:border-neutral-800">
-          <div className="mb-1 flex items-center justify-between text-[10px] text-gray-400 dark:text-neutral-500">
-            <span>매도 {totalAskQty.toLocaleString()}</span>
-            <span>매수 {totalBidQty.toLocaleString()}</span>
+          <div className="mb-1 flex items-center justify-between text-[11px] tabular-nums">
+            <span className="font-medium text-blue-600 dark:text-blue-400">매도 {totalAskQty.toLocaleString()}</span>
+            <span className="font-medium text-rose-600 dark:text-rose-400">매수 {totalBidQty.toLocaleString()}</span>
           </div>
-          <div className="flex h-1.5 overflow-hidden rounded-full bg-rose-200 dark:bg-rose-900/40">
-            <div className="h-full bg-blue-400 dark:bg-blue-500" style={{ width: `${bidRatio}%` }} />
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-blue-400 dark:bg-blue-500">
+            <div className="ml-auto h-full bg-rose-500 dark:bg-rose-400" style={{ width: `${bidRatio}%` }} />
           </div>
         </div>
       )}
@@ -79,13 +79,13 @@ function OrderBookRow({
       className="relative flex w-full items-center justify-between px-2 py-1 text-xs transition-colors hover:bg-gray-50 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-neutral-800/60"
     >
       <div
-        className={`absolute inset-y-0 right-0 ${isAsk ? "bg-rose-50 dark:bg-rose-950/30" : "bg-blue-50 dark:bg-blue-950/30"}`}
+        className={`absolute inset-y-0 right-0 ${isAsk ? "bg-blue-100 dark:bg-blue-950/40" : "bg-rose-100 dark:bg-rose-950/40"}`}
         style={{ width: `${barWidth}%` }}
       />
-      <span className={`relative font-medium ${isAsk ? "text-rose-500" : "text-blue-500"}`}>
+      <span className={`relative font-medium tabular-nums ${isAsk ? "text-blue-600 dark:text-blue-400" : "text-rose-600 dark:text-rose-400"}`}>
         {hasPrice ? level.price.toLocaleString() : "—"}
       </span>
-      <span className="relative text-gray-500 dark:text-neutral-400">
+      <span className="relative tabular-nums text-gray-600 dark:text-neutral-400">
         {level.quantity > 0 ? level.quantity.toLocaleString() : ""}
       </span>
     </button>
