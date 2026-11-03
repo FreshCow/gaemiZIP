@@ -2,19 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Plus,
-  Newspaper,
-  Sparkles,
-  ChevronLeft,
-  Clock,
-  Loader2,
-  RefreshCw,
-  Info,
-} from "lucide-react";
+import { Minus, Plus, ChevronLeft, Clock, Loader2, RefreshCw, Info } from "lucide-react";
 import Link from "next/link";
 import { CandlestickChart } from "@/components/chart/CandlestickChart";
 import { OrderBook } from "@/components/stock/OrderBook";
@@ -39,6 +27,46 @@ const RATIOS = [
   { label: "50%", value: 0.5 },
   { label: "100%", value: 1 },
 ] as const;
+
+// 국내 증권앱 관례: 상승·매수 빨강, 하락·매도 파랑
+const UP_TEXT = "text-rose-600 dark:text-rose-400";
+const DOWN_TEXT = "text-blue-600 dark:text-blue-400";
+const SIDE = {
+  BUY: {
+    label: "매수",
+    text: UP_TEXT,
+    dot: "bg-rose-500",
+    top: "border-t-rose-500",
+    tab: "bg-rose-600 text-white dark:bg-rose-500",
+    solid: "bg-rose-600 hover:bg-rose-700 active:bg-rose-800 dark:bg-rose-500 dark:hover:bg-rose-600",
+    focus: "focus-within:border-rose-500 dark:focus-within:border-rose-400",
+    hover: "hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 dark:hover:border-rose-500 dark:hover:bg-rose-950/30 dark:hover:text-rose-300",
+    hoverText: "hover:text-rose-600 dark:hover:text-rose-400",
+  },
+  SELL: {
+    label: "매도",
+    text: DOWN_TEXT,
+    dot: "bg-blue-500",
+    top: "border-t-blue-500",
+    tab: "bg-blue-600 text-white dark:bg-blue-500",
+    solid: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-500 dark:hover:bg-blue-600",
+    focus: "focus-within:border-blue-500 dark:focus-within:border-blue-400",
+    hover: "hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 dark:hover:border-blue-500 dark:hover:bg-blue-950/30 dark:hover:text-blue-300",
+    hoverText: "hover:text-blue-600 dark:hover:text-blue-400",
+  },
+} as const;
+
+const CARD = "rounded-lg border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900";
+
+// 카드마다 색 점으로 구분 — 색은 제목 옆 작은 표식에만 사용
+function CardTitle({ dot, children, className = "mb-3" }: { dot: string; children: React.ReactNode; className?: string }) {
+  return (
+    <h2 className={`flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white ${className}`}>
+      <span className={`h-2 w-2 rounded-sm ${dot}`} />
+      {children}
+    </h2>
+  );
+}
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────────
 
@@ -171,12 +199,12 @@ const TONE_STYLES: Record<Tone, { text: string; badge: string }> = {
     badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   },
   neutral: {
-    text: "text-amber-500 dark:text-amber-400",
-    badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    text: "text-gray-500 dark:text-neutral-400",
+    badge: "bg-gray-500/10 text-gray-600 dark:text-neutral-300",
   },
   bad: {
-    text: "text-rose-500 dark:text-rose-400",
-    badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    text: "text-orange-600 dark:text-orange-400",
+    badge: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
   },
 };
 
@@ -211,17 +239,17 @@ function InfoRow({ label, value, colored }: { label: string; value: string; colo
   const band = getBand(label, value);
   return (
     <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-neutral-800 last:border-0">
-      <span className="text-xs text-gray-500 dark:text-neutral-500">
+      <span className="text-xs text-gray-600 dark:text-neutral-400">
         {label}
-        {info?.fullName && <span className="ml-1 text-gray-400 dark:text-neutral-600">({info.fullName})</span>}
+        {info?.fullName && <span className="ml-1 text-gray-500 dark:text-neutral-500">({info.fullName})</span>}
       </span>
       <span className="flex items-center gap-1.5">
         {band && (
-          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${TONE_STYLES[band.tone].badge}`}>
+          <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${TONE_STYLES[band.tone].badge}`}>
             {band.text}
           </span>
         )}
-        <span className={`text-xs font-medium ${colored ? (up ? "text-emerald-500" : "text-rose-500") : "text-gray-900 dark:text-white"}`}>
+        <span className={`text-xs font-medium tabular-nums ${colored ? (up ? UP_TEXT : DOWN_TEXT) : "text-gray-900 dark:text-white"}`}>
           {value || "—"}
         </span>
         {info && (
@@ -230,7 +258,7 @@ function InfoRow({ label, value, colored }: { label: string; value: string; colo
               className={`flex shrink-0 items-center justify-center transition-colors ${
                 band
                   ? `${TONE_STYLES[band.tone].text} hover:opacity-70`
-                  : "text-gray-300 hover:text-gray-500 dark:text-neutral-600 dark:hover:text-neutral-400"
+                  : "text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300"
               }`}
               aria-label={`${label} 설명 보기`}
             >
@@ -600,7 +628,7 @@ export default function StockDetailPage() {
       )}
 
       {!loading && error && (
-        <div className="flex items-center justify-center h-64 rounded-xl border border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30">
+        <div className="flex items-center justify-center h-64 rounded-lg border border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30">
           <p className="text-sm text-rose-500 dark:text-rose-400">종목 정보를 불러오지 못했습니다.</p>
         </div>
       )}
@@ -608,44 +636,35 @@ export default function StockDetailPage() {
       {!loading && info && (
         <>
           {/* AI 종목 분석 */}
-          <div className="rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 p-5 shadow-sm dark:border-violet-900/50 dark:from-violet-950/40 dark:to-purple-950/40">
+          <div className={`${CARD} p-5`}>
             <div className="mb-2 flex items-center gap-2">
-              <Sparkles size={16} className="text-violet-500" />
-              <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">AI 종목 분석</span>
+              <CardTitle dot="bg-teal-500" className="mb-0">AI 종목 분석</CardTitle>
               {aiAnalysis && (
                 <span
-                  className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium ${
+                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                     aiAnalysis.trend === "UP"
-                      ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
+                      ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
                       : aiAnalysis.trend === "DOWN"
-                      ? "bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400"
-                      : "bg-gray-100 text-gray-500 dark:bg-neutral-800 dark:text-neutral-400"
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-neutral-400"
                   }`}
                 >
-                  {aiAnalysis.trend === "UP" ? (
-                    <TrendingUp size={11} />
-                  ) : aiAnalysis.trend === "DOWN" ? (
-                    <TrendingDown size={11} />
-                  ) : (
-                    <Minus size={11} />
-                  )}
+                  {aiAnalysis.trend === "UP" ? "상승 전망" : aiAnalysis.trend === "DOWN" ? "하락 전망" : "중립"}
                 </span>
               )}
-              <span className="ml-auto rounded bg-violet-100 px-2 py-0.5 text-xs text-violet-500 dark:bg-violet-900/50 dark:text-violet-400">
-                Gemini 2.5 Flash
-              </span>
+              <span className="ml-auto text-xs text-gray-500 dark:text-neutral-500">Gemini 2.5 Flash</span>
             </div>
             {aiLoading ? (
-              <div className="flex items-center gap-2 py-2 text-sm text-gray-400 dark:text-neutral-500">
+              <div className="flex items-center gap-2 py-2 text-sm text-gray-600 dark:text-neutral-400">
                 <Loader2 size={14} className="animate-spin" />
                 분석 생성 중...
               </div>
             ) : aiAnalysis ? (
-              <p className="text-sm leading-relaxed text-gray-700 dark:text-neutral-300">
+              <p className="text-sm leading-relaxed text-gray-800 dark:text-neutral-300">
                 {aiAnalysis.summary}
               </p>
             ) : (
-              <p className="text-sm text-gray-400 dark:text-neutral-500">
+              <p className="text-sm text-gray-600 dark:text-neutral-400">
                 AI 분석을 준비하지 못했습니다. 잠시 후 다시 시도해주세요.
               </p>
             )}
@@ -657,7 +676,7 @@ export default function StockDetailPage() {
             <div className="flex flex-col gap-5">
 
             {/* 종목 헤더 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className={`${CARD} p-5 sm:p-6`}>
               <div className="flex items-start justify-between">
                 <div className="grid grid-cols-[auto_1fr] items-stretch gap-3">
                   <div className="aspect-square h-full shrink-0">
@@ -665,12 +684,12 @@ export default function StockDetailPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium bg-gray-100 text-gray-500 rounded px-2 py-0.5 dark:bg-neutral-800 dark:text-neutral-400">
+                      <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-neutral-800 dark:text-neutral-300">
                         {info.market || "KOSPI"}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-neutral-500">{code}</span>
+                      <span className="text-xs tabular-nums text-gray-600 dark:text-neutral-400">{code}</span>
                     </div>
-                    <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{info.name}</h1>
+                    <h1 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{info.name}</h1>
                   </div>
                 </div>
 
@@ -678,18 +697,17 @@ export default function StockDetailPage() {
               </div>
 
               {/* 현재가 */}
-              <div className="mt-4 flex items-end gap-3">
-                <span className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+              <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-1">
+                <span className={`text-4xl font-semibold tracking-tight tabular-nums ${curPrice > 0 && fluRt !== "0" ? (priceUp ? UP_TEXT : DOWN_TEXT) : "text-gray-900 dark:text-white"}`}>
                   {curPrice > 0 ? curPrice.toLocaleString() : "시세 없음"}
-                  <span className="ml-1 text-xl font-medium text-gray-400 dark:text-neutral-500">
+                  <span className="ml-1 text-xl font-normal text-gray-600 dark:text-neutral-400">
                     {curPrice > 0 ? "원" : ""}
                   </span>
                 </span>
                 {curPrice > 0 && fluRt !== "0" && (
-                  <div className={`flex items-center gap-1 pb-1 text-lg font-semibold ${priceUp ? "text-emerald-500" : "text-rose-500"}`}>
-                    {priceUp ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                  <div className={`pb-1 text-lg font-medium tabular-nums ${priceUp ? UP_TEXT : DOWN_TEXT}`}>
                     <span>
-                      {predPre > 0 ? `${priceUp ? "+" : "-"}${predPre.toLocaleString()}원 ` : ""}
+                      {priceUp ? "▲" : "▼"} {predPre > 0 ? `${predPre.toLocaleString()}원 ` : ""}
                       ({fluRt}%)
                     </span>
                   </div>
@@ -697,7 +715,7 @@ export default function StockDetailPage() {
               </div>
 
               {info.basePric && info.basePric !== "0" && (
-                <p className="mt-1 text-xs text-gray-400 dark:text-neutral-500">
+                <p className="mt-1 text-xs tabular-nums text-gray-600 dark:text-neutral-400">
                   기준가 {absNum(info.basePric).toLocaleString()}원
                 </p>
               )}
@@ -705,15 +723,15 @@ export default function StockDetailPage() {
               {/* 오늘 OHLC + 상하한가 */}
               <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {[
-                  { label: "시가",   val: info.openPric },
-                  { label: "고가",   val: info.highPric },
-                  { label: "저가",   val: info.lowPric  },
-                  { label: "상한가", val: info.uptPric  },
-                  { label: "하한가", val: info.lstPric  },
-                ].map(({ label, val }) => (
-                  <div key={label} className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-neutral-800">
-                    <p className="text-[10px] text-gray-400 dark:text-neutral-500">{label}</p>
-                    <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">
+                  { label: "시가",   val: info.openPric, cls: "text-gray-900 dark:text-white" },
+                  { label: "고가",   val: info.highPric, cls: UP_TEXT },
+                  { label: "저가",   val: info.lowPric,  cls: DOWN_TEXT },
+                  { label: "상한가", val: info.uptPric,  cls: UP_TEXT },
+                  { label: "하한가", val: info.lstPric,  cls: DOWN_TEXT },
+                ].map(({ label, val, cls }) => (
+                  <div key={label} className="rounded-md bg-gray-50 px-3 py-2 last:col-span-2 sm:last:col-span-1 dark:bg-neutral-800/60">
+                    <p className="text-xs text-gray-600 dark:text-neutral-400">{label}</p>
+                    <p className={`mt-0.5 text-sm font-semibold tabular-nums ${cls}`}>
                       {fmt(val)}
                     </p>
                   </div>
@@ -722,23 +740,24 @@ export default function StockDetailPage() {
             </div>
 
             {/* 매수/매도 주문 (UI 우선 배치 — 실제 매매 API 연동은 다음 단계에서 진행) */}
-            <div className="relative rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
+            <div className={`relative border-t-2 ${SIDE[tradeTab].top} ${CARD} p-3 sm:p-5`}>
               {!isLoggedIn ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 dark:bg-neutral-900/70">
-                  <p className="text-base font-medium text-gray-500 dark:text-neutral-400">
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 dark:bg-neutral-900/70">
+                  <p className="text-base font-medium text-gray-700 dark:text-neutral-300">
                     로그인 후 사용할 수 있습니다
                   </p>
                 </div>
               ) : !isMarketOpen ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 px-6 text-center dark:bg-neutral-900/70">
-                  <p className="text-base font-medium text-gray-500 dark:text-neutral-400">
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 px-6 text-center dark:bg-neutral-900/70">
+                  <p className="text-base font-medium text-gray-700 dark:text-neutral-300">
                     주문은 월요일~금요일 9시부터 3시30분까지만 가능합니다
                   </p>
                 </div>
               ) : null}
               <div className={!isLoggedIn || !isMarketOpen ? "pointer-events-none opacity-40" : ""}>
               {/* 잔고 / 보유 정보 */}
-              <div className="mb-4 text-sm text-gray-500 dark:text-neutral-500">
+              <div className="mb-4 flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400">
+                <span className={`h-2 w-2 shrink-0 rounded-sm ${SIDE[tradeTab].dot}`} />
                 {tradeTab === "BUY" ? (
                   <span>
                     주문 가능 잔고{" "}
@@ -766,20 +785,18 @@ export default function StockDetailPage() {
                 {/* 주문 폼 (세로 배치, 호가창과 높이를 맞춰 하단에 예상금액/버튼 고정) */}
                 <div className="flex flex-col gap-3">
                   {/* 매수/매도 탭 */}
-                  <div className="flex overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-700">
+                  <div className="flex overflow-hidden rounded-md border border-gray-200 dark:border-neutral-700">
                     {(["BUY", "SELL"] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => { setTradeTab(t); setQty(""); }}
-                        className={`flex-1 py-1.5 text-xs font-bold transition-colors ${
+                        className={`flex-1 py-2 text-sm font-semibold transition-colors ${
                           tradeTab === t
-                            ? t === "BUY"
-                              ? "bg-emerald-500 text-white"
-                              : "bg-rose-500 text-white"
-                            : "text-gray-500 hover:bg-gray-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                            ? SIDE[t].tab
+                            : "text-gray-600 hover:bg-gray-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
                         }`}
                       >
-                        {t === "BUY" ? "매수" : "매도"}
+                        {SIDE[t].label}
                       </button>
                     ))}
                   </div>
@@ -787,10 +804,10 @@ export default function StockDetailPage() {
                   {/* 주문 가격 */}
                   <div className="space-y-0.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-gray-700 dark:text-neutral-300">주문 가격</label>
+                      <label className="text-xs font-medium text-gray-800 dark:text-neutral-300">주문 가격</label>
                       <button
                         onClick={() => setOrderPrice(curPrice > 0 ? curPrice.toLocaleString() : "")}
-                        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-emerald-500 dark:text-neutral-500 dark:hover:text-emerald-400 transition-colors"
+                        className={`flex items-center gap-1 text-xs text-gray-600 transition-colors dark:text-neutral-400 ${SIDE[tradeTab].hoverText}`}
                       >
                         <RefreshCw size={10} />
                         현재가
@@ -800,24 +817,24 @@ export default function StockDetailPage() {
                       <button
                         type="button"
                         onClick={() => handlePriceStep(-1)}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400 sm:h-8 sm:w-8"
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors dark:border-neutral-700 dark:text-neutral-400 sm:h-8 sm:w-8 ${SIDE[tradeTab].hover}`}
                       >
                         <Minus size={14} />
                       </button>
-                      <div className="flex flex-1 items-center gap-1 rounded-lg border border-gray-200 px-1.5 py-2 dark:border-neutral-700 sm:gap-1.5 sm:px-2.5 sm:py-1.5">
+                      <div className="flex flex-1 items-center gap-1 rounded-md border border-gray-200 px-1.5 py-2 dark:border-neutral-700 sm:gap-1.5 sm:px-2.5 sm:py-1.5">
                         <input
                           type="text"
                           readOnly
                           value={orderPrice}
                           placeholder="0"
-                          className="w-full min-w-0 bg-transparent text-base font-bold text-gray-900 outline-none dark:text-white sm:text-sm sm:font-semibold"
+                          className="w-full min-w-0 bg-transparent text-base font-bold tabular-nums text-gray-900 outline-none dark:text-white sm:text-sm sm:font-semibold"
                         />
-                        <span className="shrink-0 text-xs text-gray-400 dark:text-neutral-500">원</span>
+                        <span className="shrink-0 text-xs text-gray-600 dark:text-neutral-400">원</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => handlePriceStep(1)}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:text-emerald-400 sm:h-8 sm:w-8"
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors dark:border-neutral-700 dark:text-neutral-400 sm:h-8 sm:w-8 ${SIDE[tradeTab].hover}`}
                       >
                         <Plus size={14} />
                       </button>
@@ -826,8 +843,8 @@ export default function StockDetailPage() {
 
                   {/* 수량 */}
                   <div className="space-y-0.5">
-                    <label className="text-xs font-medium text-gray-700 dark:text-neutral-300">수량</label>
-                    <div className="flex items-center gap-1 rounded-lg border border-gray-200 px-1.5 py-2 dark:border-neutral-700 focus-within:border-emerald-400 dark:focus-within:border-emerald-500 transition-colors sm:gap-1.5 sm:px-2.5 sm:py-1.5">
+                    <label className="text-xs font-medium text-gray-800 dark:text-neutral-300">수량</label>
+                    <div className={`flex items-center gap-1 rounded-md border border-gray-200 px-1.5 py-2 transition-colors dark:border-neutral-700 sm:gap-1.5 sm:px-2.5 sm:py-1.5 ${SIDE[tradeTab].focus}`}>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -835,9 +852,9 @@ export default function StockDetailPage() {
                         value={qty}
                         onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="0"
-                        className="w-full min-w-0 bg-transparent text-base font-bold text-gray-900 outline-none dark:text-white sm:text-sm sm:font-semibold"
+                        className="w-full min-w-0 bg-transparent text-base font-bold tabular-nums text-gray-900 outline-none dark:text-white sm:text-sm sm:font-semibold"
                       />
-                      <span className="shrink-0 text-xs text-gray-400 dark:text-neutral-500">주</span>
+                      <span className="shrink-0 text-xs text-gray-600 dark:text-neutral-400">주</span>
                     </div>
                   </div>
 
@@ -848,7 +865,7 @@ export default function StockDetailPage() {
                         key={label}
                         onClick={() => handleRatio(value)}
                         disabled={tradeTab === "BUY" && orderPriceNum <= 0}
-                        className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-emerald-500 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 transition-colors"
+                        className={`rounded-md border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 transition-colors disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 ${SIDE[tradeTab].hover}`}
                       >
                         {label}
                       </button>
@@ -858,10 +875,10 @@ export default function StockDetailPage() {
                   {/* 예상 금액 + 실행 버튼 — 호가창 하단과 높이 맞춤 */}
                   <div className="flex flex-col gap-3">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-neutral-500">
-                        예상 {tradeTab === "BUY" ? "매수" : "매도"}금액
+                      <p className="text-xs text-gray-600 dark:text-neutral-400">
+                        예상 {SIDE[tradeTab].label}금액
                       </p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white sm:text-base">
+                      <p className={`text-lg font-semibold tabular-nums sm:text-base ${totalAmount > 0 ? SIDE[tradeTab].text : "text-gray-900 dark:text-white"}`}>
                         {totalAmount > 0 ? `₩${totalAmount.toLocaleString()}` : "—"}
                       </p>
                     </div>
@@ -870,17 +887,11 @@ export default function StockDetailPage() {
                     <button
                       disabled={!isLoggedIn || !canSubmit}
                       onClick={handleSubmit}
-                      className={`w-full rounded-lg px-4 py-3 text-base font-bold text-white transition-colors disabled:opacity-40 sm:py-2 sm:text-sm ${
-                        tradeTab === "BUY"
-                          ? "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700"
-                          : "bg-rose-500 hover:bg-rose-600 active:bg-rose-700"
-                      }`}
+                      className={`w-full rounded-md px-4 py-3 text-base font-semibold text-white transition-colors disabled:opacity-40 sm:py-2.5 sm:text-sm ${SIDE[tradeTab].solid}`}
                     >
                       {isTrading || isReserving
                         ? "처리 중..."
-                        : tradeTab === "BUY"
-                        ? `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매수하기`
-                        : `${qtyNum > 0 ? `${qtyNum}주 ` : ""}매도하기`}
+                        : `${qtyNum > 0 ? `${qtyNum}주 ` : ""}${SIDE[tradeTab].label}하기`}
                     </button>
                   </div>
                 </div>
@@ -889,7 +900,7 @@ export default function StockDetailPage() {
               {tradeMsg && (
                 <p
                   className={`mt-3 text-right text-sm font-medium ${
-                    tradeMsg.type === "ok" ? "text-emerald-500" : "text-rose-500"
+                    tradeMsg.type === "ok" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
                   }`}
                 >
                   {tradeMsg.text}
@@ -898,23 +909,21 @@ export default function StockDetailPage() {
 
               {codeReservations.length > 0 && (
                 <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                  <p className="text-xs font-medium text-gray-500 dark:text-neutral-500">예약 중인 주문</p>
+                  <p className="text-xs font-medium text-gray-700 dark:text-neutral-300">예약 중인 주문</p>
                   {codeReservations.map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800"
+                      className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800/60"
                     >
-                      <span
-                        className={`font-semibold ${r.tradeType === "BUY" ? "text-emerald-500" : "text-rose-500"}`}
-                      >
-                        {r.tradeType === "BUY" ? "매수" : "매도"}
+                      <span className={`font-semibold ${SIDE[r.tradeType].text}`}>
+                        {SIDE[r.tradeType].label}
                       </span>
-                      <span className="text-gray-700 dark:text-neutral-300">
+                      <span className="tabular-nums text-gray-800 dark:text-neutral-300">
                         {r.targetPrice.toLocaleString()}원 · {r.quantity.toLocaleString()}주
                       </span>
                       <button
                         onClick={() => handleCancelReservation(r.id)}
-                        className="text-xs text-gray-400 hover:text-rose-500 dark:text-neutral-500 dark:hover:text-rose-400 transition-colors"
+                        className="text-xs text-gray-600 transition-colors hover:text-gray-900 dark:text-neutral-400 dark:hover:text-white"
                       >
                         취소
                       </button>
@@ -926,16 +935,16 @@ export default function StockDetailPage() {
             </div>
 
             {/* 차트 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-              <h2 className="mb-3 text-sm font-medium text-gray-700 dark:text-neutral-300">주가 차트</h2>
+            <div className={`${CARD} p-5`}>
+              <CardTitle dot="bg-amber-500">주가 차트</CardTitle>
               <div className="h-64 sm:h-72">
                 <CandlestickChart stockCode={code} />
               </div>
             </div>
 
             {/* 재무·시장 지표 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-              <h2 className="mb-3 text-sm font-medium text-gray-700 dark:text-neutral-300">재무 지표</h2>
+            <div className={`${CARD} p-5`}>
+              <CardTitle dot="bg-emerald-500">재무 지표</CardTitle>
               <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
                 <div>
                   <InfoRow label="PER"       value={info.per  || "—"} />
@@ -963,8 +972,8 @@ export default function StockDetailPage() {
             <div className="flex flex-col gap-5 lg:h-full">
 
             {/* 시장 정보 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-              <h2 className="mb-3 text-sm font-medium text-gray-700 dark:text-neutral-300">시장 정보</h2>
+            <div className={`${CARD} p-5`}>
+              <CardTitle dot="bg-sky-500">시장 정보</CardTitle>
               <InfoRow label="거래량"       value={fmt(info.trdeQty, "주")} />
               <InfoRow label="거래대금"     value={fmt(info.trdePre, "원")} />
               <InfoRow label="외인소진율"   value={info.forExhRt ? `${info.forExhRt}%` : "—"} />
@@ -978,18 +987,15 @@ export default function StockDetailPage() {
             </div>
 
             {/* 관련 뉴스 — flex-1로 남은 공간을 채워 좌측(재무 지표) 하단과 높이를 맞춤 */}
-            <div className="flex flex-1 min-h-0 flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-              <div className="mb-3 flex items-center gap-2">
-                <Newspaper size={16} className="text-gray-400 dark:text-neutral-500" />
-                <h2 className="text-sm font-medium text-gray-700 dark:text-neutral-300">관련 뉴스</h2>
-              </div>
+            <div className={`${CARD} flex min-h-0 flex-1 flex-col p-5`}>
+              <CardTitle dot="bg-orange-500">관련 뉴스</CardTitle>
               {newsLoading ? (
-                <div className="flex items-center gap-2 py-3 text-sm text-gray-400 dark:text-neutral-500">
+                <div className="flex items-center gap-2 py-3 text-sm text-gray-600 dark:text-neutral-400">
                   <Loader2 size={14} className="animate-spin" />
                   뉴스 불러오는 중...
                 </div>
               ) : news.length === 0 ? (
-                <p className="py-3 text-sm text-gray-400 dark:text-neutral-500">관련 뉴스가 없습니다.</p>
+                <p className="py-3 text-sm text-gray-600 dark:text-neutral-400">관련 뉴스가 없습니다.</p>
               ) : (
                 <>
                   <ul ref={newsListRef} className="flex-1 min-h-0 divide-y divide-gray-100 overflow-y-auto dark:divide-neutral-800">
@@ -1003,7 +1009,7 @@ export default function StockDetailPage() {
                         >
                           {item.title}
                         </a>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500">
+                        <div className="mt-1 flex items-center gap-2 text-xs text-gray-600 dark:text-neutral-400">
                           <span>{item.publisher}</span>
                           <span>·</span>
                           <Clock size={11} />
