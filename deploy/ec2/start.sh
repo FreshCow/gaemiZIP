@@ -30,6 +30,16 @@ if tok=$(aws ssm get-parameter --name /gaemizip/ghcr/TOKEN --with-decryption --q
   echo "$tok" | docker login ghcr.io -u freshcow --password-stdin
 fi
 
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d --remove-orphans
+# compose 크래시(concurrent map) 대비: 최대 3회 재시도
+retry() {
+  for i in 1 2 3; do
+    "$@" && return 0
+    echo "실패($i/3): $*" >&2
+    sleep 5
+  done
+  return 1
+}
+
+retry docker compose -f docker-compose.prod.yml pull
+retry docker compose -f docker-compose.prod.yml up -d --remove-orphans
 docker image prune -f
