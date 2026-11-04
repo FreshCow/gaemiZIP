@@ -12,7 +12,11 @@ import sw.gaemiZIP.entity.stock.Stock;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "board")
+@Table(name = "board", indexes = {
+        @Index(name = "idx_board_list", columnList = "is_blinded, created_at"),
+        @Index(name = "idx_board_tag_list", columnList = "tag, is_blinded, created_at"),
+        @Index(name = "idx_board_popular", columnList = "created_at, like_count")
+})
 @Getter
 @Setter
 public class Board {

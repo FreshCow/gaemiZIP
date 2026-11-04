@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@Table(name = "comment_like", uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "comment_id"}))
+@Table(name = "comment_like", uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "comment_id"}), indexes = @Index(name = "idx_comment_like_comment", columnList = "comment_id"))
 public class CommentLike {
 
     @Id

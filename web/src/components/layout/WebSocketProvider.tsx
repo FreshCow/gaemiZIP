@@ -37,7 +37,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
 
     boardApi.getList()
-      .then(setBoards)
+      .then((p) => setBoards(p.items))
       .catch(() => {});
   }, [isLoggedIn, setHoldings, setBoards]);
 

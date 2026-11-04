@@ -1,9 +1,9 @@
 import api from "./api";
-import type { BoardPost, BoardListItem, BoardCreateDto, BoardTag, Comment, CommentCreateDto } from "@/types/board";
+import type { BoardPost, BoardListItem, BoardListPage, BoardCreateDto, BoardTag, Comment, CommentCreateDto } from "@/types/board";
 
 export const boardApi = {
-  getList: (tag?: BoardTag) =>
-    api.get<BoardListItem[]>("/boards", { params: tag ? { tag } : undefined }).then((r) => r.data),
+  getList: (tag?: BoardTag, page = 0, size = 20) =>
+    api.get<BoardListPage>("/boards", { params: { ...(tag ? { tag } : {}), page, size } }).then((r) => r.data),
 
   getPopular: (days = 7, limit = 5) =>
     api.get<BoardListItem[]>("/boards/popular", { params: { days, limit } }).then((r) => r.data),

@@ -2,6 +2,7 @@ package sw.gaemiZIP.controller.board;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import sw.gaemiZIP.dto.board.BoardCreateRequest;
 import sw.gaemiZIP.dto.board.BoardDetailResponse;
+import sw.gaemiZIP.dto.board.BoardListPageResponse;
 import sw.gaemiZIP.dto.board.BoardListResponse;
 import sw.gaemiZIP.dto.board.BoardStockShareRequest;
 import sw.gaemiZIP.entity.board.Board;
@@ -24,6 +26,7 @@ import sw.gaemiZIP.repository.stock.StockRepository;
 import sw.gaemiZIP.service.moderation.ModerationService;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -34,6 +37,7 @@ import java.util.stream.Collectors;
 public class BoardController {
 
     private static final int MAX_SHARED_STOCKS = 5;
+    private static final int MAX_NOTICES = 5;
     private static final int POPULAR_MIN_LIKES = 15;
 
     private final BoardRepository boardRepository;
@@ -46,11 +50,24 @@ public class BoardController {
 
     // 게시글 전체 목록 조회 (최신순)
     @GetMapping
-    public ResponseEntity<List<BoardListResponse>> getAllBoards(@RequestParam(required = false) BoardTag tag) {
-        List<Board> boards = boardRepository.findAllForList(tag);
+    public ResponseEntity<BoardListPageResponse> getAllBoards(@RequestParam(required = false) BoardTag tag, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
 
-        Map<Long, Long> commentCounts = commentRepository.countByBoardIdGroup().stream()
-                .collect(Collectors.toMap(BoardIdCount::getBoardId, BoardIdCount::getCnt));
+        page = Math.max(page, 0);
+        size = Math.min(Math.max(size, 1), 100);
+
+        PageRequest pr = PageRequest.of(page, size);
+
+        List<Board> boards = new ArrayList<>();
+        Page<Board> result;
+        if (tag == null) {
+            if (page == 0) boards.addAll(boardRepository.findNotices(PageRequest.of(0, MAX_NOTICES)));
+            result = boardRepository.findPage(pr);
+        } else {
+            result = boardRepository.findPageByTag(tag, pr);
+        }
+        boards.addAll(result.getContent());
+
+        Map<Long, Long> commentCounts = commentCountsOf(boards);
 
         List<BoardListResponse> response = boards.stream()
                 .map(b -> new BoardListResponse(
@@ -67,7 +84,8 @@ public class BoardController {
                 ))
                 .toList();
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new BoardListPageResponse(
+                response, page, size, result.getTotalPages(), result.getTotalElements()));
     }
 
     // 게시글 단건 조회
@@ -87,8 +105,7 @@ public class BoardController {
         List<Board> boards = boardRepository.findPopular(
                 LocalDateTime.now().minusDays(days), POPULAR_MIN_LIKES, PageRequest.of(0, limit));
 
-        Map<Long, Long> commentCounts = commentRepository.countByBoardIdGroup().stream()
-                .collect(Collectors.toMap(BoardIdCount::getBoardId, BoardIdCount::getCnt));
+        Map<Long, Long> commentCounts = commentCountsOf(boards);
 
         List<BoardListResponse> response = boards.stream()
                 .map(b -> new BoardListResponse(
@@ -259,5 +276,13 @@ public class BoardController {
         }
 
         return ResponseEntity.ok(BoardDetailResponse.from(saved, savedShares));
+    }
+
+
+    private Map<Long, Long> commentCountsOf(List<Board> boards) {
+        if (boards.isEmpty()) return Map.of();
+        List<Long> ids = boards.stream().map(Board::getId).toList();
+        return commentRepository.countByBoardIdIn(ids).stream()
+                .collect(Collectors.toMap(BoardIdCount::getBoardId, BoardIdCount::getCnt));
     }
 }

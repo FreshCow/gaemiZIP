@@ -231,123 +231,115 @@ export default function BoardDetailPage() {
           <p className="text-center py-6 text-sm text-gray-400 dark:text-neutral-600">첫 댓글을 작성해보세요.</p>
         )}
 
-        {topLevelComments.map((comment) => {
-          const replies = comments.filter((c) => c.parentCommentId === comment.id);
-          const isReplying = replyingTo === comment.id;
+        <div className="divide-y divide-gray-200 border-y border-gray-200 dark:divide-neutral-800 dark:border-neutral-800">
+          {topLevelComments.map((comment) => {
+            const replies = comments.filter((c) => c.parentCommentId === comment.id);
+            const isReplying = replyingTo === comment.id;
 
-          return (
-            <div key={comment.id} className="space-y-2">
-              {/* 댓글 */}
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-800 dark:text-neutral-200">
+            return (
+              <div key={comment.id}>
+                {/* 댓글 행 */}
+                <div className="flex flex-col gap-1 px-2 py-3 sm:flex-row sm:items-start sm:gap-4">
+                  <span className="shrink-0 truncate text-sm text-gray-500 sm:w-36 dark:text-neutral-400">
                     {comment.author}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-neutral-600">{formatDateTime(comment.createdAt)}</span>
-                </div>
-                <p className="text-sm text-gray-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed">
-                  {comment.content}
-                </p>
-                <div className="flex items-center gap-4 mt-3">
-                  <button
-                    onClick={() => handleLikeComment(comment.id)}
-                    disabled={!isLoggedIn}
-                    title={!isLoggedIn ? "로그인 후 사용할 수 있습니다." : undefined}
-                    className={`flex items-center gap-1 text-xs transition-colors ${
-                      isLoggedIn
-                        ? "text-emerald-500 dark:text-emerald-400"
-                        : "cursor-not-allowed text-gray-300 dark:text-neutral-700"
-                    }`}
-                  >
-                    <ThumbsUp size={12} />
-                    <span>{comment.likeCount}</span>
-                  </button>
-                  {isLoggedIn && (
+                  <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-800 dark:text-neutral-200">
+                    {comment.content}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-3 text-xs text-gray-400 dark:text-neutral-600">
                     <button
-                      onClick={() => {
-                        setReplyingTo(isReplying ? null : comment.id);
-                        setReplyText("");
-                      }}
-                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors dark:text-neutral-600 dark:hover:text-neutral-300"
+                      onClick={() => handleLikeComment(comment.id)}
+                      disabled={!isLoggedIn}
+                      title={!isLoggedIn ? "로그인 후 사용할 수 있습니다." : undefined}
+                      className={`flex items-center gap-1 transition-colors ${
+                        isLoggedIn
+                          ? "text-emerald-500 dark:text-emerald-400"
+                          : "cursor-not-allowed text-gray-300 dark:text-neutral-700"
+                      }`}
                     >
-                      <CornerDownRight size={12} />
-                      답글
+                      <ThumbsUp size={12} />
+                      <span>{comment.likeCount}</span>
                     </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 대댓글 목록 */}
-              {replies.length > 0 && (
-                <div className="ml-6 space-y-2">
-                  {replies.map((reply) => (
-                    <div
-                      key={reply.id}
-                      className="rounded-xl border border-gray-100 bg-white p-4 dark:border-neutral-800/60 dark:bg-neutral-800/50"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <CornerDownRight size={11} className="text-gray-300 dark:text-neutral-600" />
-                          <span className="text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                            {reply.author}
-                          </span>
-                        </div>
-                        <span className="text-xs text-gray-400 dark:text-neutral-600">{formatDateTime(reply.createdAt)}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed pl-5">
-                        {reply.content}
-                      </p>
-                      <div className="flex items-center gap-4 mt-3 pl-5">
-                        <button
-                          onClick={() => handleLikeComment(reply.id)}
-                          disabled={!isLoggedIn}
-                          title={!isLoggedIn ? "로그인 후 사용할 수 있습니다." : undefined}
-                          className={`flex items-center gap-1 text-xs transition-colors ${
-                            isLoggedIn
-                              ? "text-emerald-500 dark:text-emerald-400"
-                              : "cursor-not-allowed text-gray-300 dark:text-neutral-700"
-                          }`}
-                        >
-                          <ThumbsUp size={12} />
-                          <span>{reply.likeCount}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 대댓글 입력창 */}
-              {isReplying && (
-                <div className="ml-6 flex gap-2 items-start">
-                  <CornerDownRight size={13} className="mt-3 shrink-0 text-gray-300 dark:text-neutral-600" />
-                  <textarea
-                    className="flex-1 rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 min-h-16 resize-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
-                    placeholder="답글을 입력하세요"
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                  />
-                  <div className="flex flex-col gap-1.5 shrink-0">
-                    <Button
-                      size="sm"
-                      onClick={() => handleSubmitReply(comment.id)}
-                      disabled={!replyText.trim() || submitting}
-                    >
-                      등록
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setReplyingTo(null)}
-                    >
-                      취소
-                    </Button>
+                    {isLoggedIn && (
+                      <button
+                        onClick={() => {
+                          setReplyingTo(isReplying ? null : comment.id);
+                          setReplyText("");
+                        }}
+                        className="flex items-center gap-1 transition-colors hover:text-gray-700 dark:hover:text-neutral-300"
+                      >
+                        <CornerDownRight size={12} />
+                        답글
+                      </button>
+                    )}
+                    <span className="tabular-nums">{formatDateTime(comment.createdAt)}</span>
                   </div>
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                {/* 대댓글 박스 */}
+                {(replies.length > 0 || isReplying) && (
+                  <div className="mx-2 mb-3 divide-y divide-gray-200 border border-gray-200 bg-gray-50 dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900/60 sm:ml-6">
+                    {replies.map((reply) => (
+                      <div
+                        key={reply.id}
+                        className="flex flex-col gap-1 px-3 py-2.5 sm:flex-row sm:items-start sm:gap-4"
+                      >
+                        <div className="flex shrink-0 items-center gap-1.5 sm:w-36">
+                          <CornerDownRight size={12} className="shrink-0 text-blue-700 dark:text-blue-400" />
+                          <span className="truncate text-sm text-gray-500 dark:text-neutral-400">{reply.author}</span>
+                        </div>
+                        <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-800 dark:text-neutral-200">
+                          {reply.content}
+                        </p>
+                        <div className="flex shrink-0 items-center gap-3 text-xs text-gray-400 dark:text-neutral-600">
+                          <button
+                            onClick={() => handleLikeComment(reply.id)}
+                            disabled={!isLoggedIn}
+                            title={!isLoggedIn ? "로그인 후 사용할 수 있습니다." : undefined}
+                            className={`flex items-center gap-1 transition-colors ${
+                              isLoggedIn
+                                ? "text-emerald-500 dark:text-emerald-400"
+                                : "cursor-not-allowed text-gray-300 dark:text-neutral-700"
+                            }`}
+                          >
+                            <ThumbsUp size={12} />
+                            <span>{reply.likeCount}</span>
+                          </button>
+                          <span className="tabular-nums">{formatDateTime(reply.createdAt)}</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* 대댓글 입력창 */}
+                    {isReplying && (
+                      <div className="flex items-start gap-2 px-3 py-2.5">
+                        <CornerDownRight size={13} className="mt-3 shrink-0 text-blue-700 dark:text-blue-400" />
+                        <textarea
+                          className="min-h-16 flex-1 resize-none rounded-lg bg-white px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-1 focus:ring-gray-300 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-600 dark:focus:ring-neutral-600"
+                          placeholder="답글을 입력하세요"
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                        />
+                        <div className="flex shrink-0 flex-col gap-1.5">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSubmitReply(comment.id)}
+                            disabled={!replyText.trim() || submitting}
+                          >
+                            등록
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setReplyingTo(null)}>
+                            취소
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         {/* 댓글 입력창 */}
         <div className="relative flex gap-2 items-center pt-2">
