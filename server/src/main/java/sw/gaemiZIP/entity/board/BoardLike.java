@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@Table(name = "board_like", uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "board_id"}))
+@Table(name = "board_like", uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "board_id"}),  indexes = @Index(name = "idx_board_like_board", columnList = "board_id"))
 public class BoardLike {
 
     @Id

@@ -8,6 +8,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import sw.gaemiZIP.entity.stock.Stock;
 
+@Table(name = "board_stock_share", indexes = @Index(name = "idx_bss_board", columnList = "board_id"))
 @Entity
 @Getter
 @Setter

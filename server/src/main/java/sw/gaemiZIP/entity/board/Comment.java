@@ -10,7 +10,10 @@ import org.hibernate.annotations.OnDeleteAction;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "comment")
+@Table(name = "comment", indexes = {
+        @Index(name = "idx_comment_board", columnList = "board_id, created_at"),
+        @Index(name = "idx_comment_parent", columnList = "parent_comment_id")
+})
 @Getter
 @Setter
 public class Comment {
