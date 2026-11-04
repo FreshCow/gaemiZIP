@@ -7,6 +7,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { boardApi } from "@/services/boardApi";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime } from "@/lib/utils";
 import { Plus, ThumbsUp, MessageCircle, Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -19,12 +20,16 @@ import {
   type BoardTag,
 } from "@/types/board";
 
+const PAGE_SIZE = 20;
+
 export default function BoardPage() {
   const router = useRouter();
   const { boards, setBoards } = useAppStore();
   const { isLoggedIn } = useAuthStore();
   const [activeTag, setActiveTag] = useState<BoardTag | null>(null);
   const [popularBoards, setPopularBoards] = useState<BoardListItem[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -34,9 +39,18 @@ export default function BoardPage() {
     boardApi.getPopular().then(setPopularBoards).catch(() => {});
   }, []);
 
+  // 현재 페이지 목록은 store에 보관(글쓰기 직후 반영용)
   useEffect(() => {
-    boardApi.getList(activeTag ?? undefined).then(setBoards);
-  }, [activeTag, setBoards]);
+    boardApi.getList(activeTag ?? undefined, page, PAGE_SIZE).then((res) => {
+      setBoards(res.items);
+      setTotalPages(res.totalPages);
+    });
+  }, [activeTag, page, setBoards]);
+
+  const selectTag = (tag: BoardTag | null) => {
+    setPage(0);
+    setActiveTag(tag);
+  };
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -154,7 +168,7 @@ export default function BoardPage() {
       {/* 태그 필터 */}
       <div className="flex items-center gap-1.5 text-sm">
         <button
-          onClick={() => setActiveTag(null)}
+          onClick={() => selectTag(null)}
           className={`rounded-full px-3 py-1 transition-colors ${
             activeTag === null
               ? "bg-gray-900 text-white dark:bg-white dark:text-black"
@@ -166,7 +180,7 @@ export default function BoardPage() {
         {FILTERABLE_TAGS.map((tag) => (
           <button
             key={tag}
-            onClick={() => setActiveTag(tag)}
+            onClick={() => selectTag(tag)}
             className={`rounded-full px-3 py-1 transition-colors ${
               activeTag === tag ? BOARD_TAG_ACTIVE_CLASSES[tag] : BOARD_TAG_BADGE_CLASSES[tag]
             }`}
@@ -214,6 +228,9 @@ export default function BoardPage() {
           <p className="text-center py-12 text-sm text-gray-400 dark:text-neutral-600">게시글이 없습니다.</p>
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+
     </div>
   );
 }

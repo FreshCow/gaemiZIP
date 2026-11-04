@@ -78,6 +78,14 @@ export interface BoardListItem {
   tag: BoardTag;
 }
 
+export interface BoardListPage {
+  items: BoardListItem[];
+  page: number; // 0-based
+  size: number;
+  totalPages: number;
+  totalElements: number;
+}
+
 export interface BoardCreateDto {
   title: string;
   content: string;
